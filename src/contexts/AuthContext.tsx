@@ -17,6 +17,7 @@ interface AuthContextType {
   loading: boolean
   signIn: () => Promise<void>
   signOutUser: () => Promise<void>
+  refreshUserData: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -55,6 +56,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("사용자 정보 저장 에러:", error)
       throw error
+    }
+  }
+
+  // 사용자 데이터 새로고침
+  const refreshUserData = async () => {
+    if (firebaseUser) {
+      try {
+        const userRef = doc(db, "users", firebaseUser.uid)
+        const userDoc = await getDoc(userRef)
+        if (userDoc.exists()) {
+          setUser(userDoc.data() as User)
+        }
+      } catch (error) {
+        console.error("사용자 데이터 새로고침 에러:", error)
+      }
     }
   }
 
@@ -122,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn,
     signOutUser,
+    refreshUserData,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

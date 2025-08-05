@@ -39,8 +39,11 @@ export const generateStrokeOrder = async (
     const strokeOrder: string[] = []
 
     // Hanzi Writer의 내부 stroke 데이터에 접근
-    if (writer && (writer as any).characterData) {
-      const characterData = (writer as any).characterData
+    const writerWithData = writer as {
+      characterData?: { strokes?: unknown[] }
+    } | null
+    if (writerWithData?.characterData) {
+      const characterData = writerWithData.characterData
       if (characterData.strokes) {
         for (let i = 0; i < characterData.strokes.length; i++) {
           strokeOrder.push((i + 1).toString())

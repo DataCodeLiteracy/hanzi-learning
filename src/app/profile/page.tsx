@@ -13,15 +13,74 @@ import {
   Crown,
   LogOut,
   Trash2,
+  Brain,
+  BookOpen,
+  PenTool,
+  Puzzle,
 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import {
+  calculateLevel,
+  calculateLevelProgress,
+  calculateExperienceToNextLevel,
+} from "@/lib/experienceSystem"
+import { ApiClient } from "@/lib/apiClient"
+
+interface GameStatistics {
+  totalPlayed: number
+  correctAnswers: number
+  wrongAnswers: number
+  completedSessions: number
+  totalSessions: number
+  accuracy: number
+}
 
 export default function ProfilePage() {
   const { user, loading: authLoading, signOutUser } = useAuth()
-  const { userStatistics, learningSessions, isLoading: dataLoading } = useData()
+  const { userStatistics, learningSessions } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [gameStats, setGameStats] = useState<{
+    quiz?: GameStatistics
+    writing?: GameStatistics
+    partial?: GameStatistics
+    memory?: GameStatistics
+  }>({})
+
+  // 데이터베이스의 level과 experience 사용
+  const currentLevel = user?.level || 1
+  const currentExperience = user?.experience || 0
+  const levelProgress = calculateLevelProgress(currentExperience)
+  const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
+
+  // 게임별 통계 로드
+  useEffect(() => {
+    if (user) {
+      const loadGameStats = async () => {
+        try {
+          const [quizStats, writingStats, partialStats, memoryStats] =
+            await Promise.all([
+              ApiClient.getGameStatistics(user.id, "quiz"),
+              ApiClient.getGameStatistics(user.id, "writing"),
+              ApiClient.getGameStatistics(user.id, "partial"),
+              ApiClient.getGameStatistics(user.id, "memory"),
+            ])
+
+          setGameStats({
+            quiz: quizStats || undefined,
+            writing: writingStats || undefined,
+            partial: partialStats || undefined,
+            memory: memoryStats || undefined,
+          })
+        } catch (error) {
+          console.error("게임 통계 로드 실패:", error)
+        }
+      }
+
+      loadGameStats()
+    }
+  }, [user])
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading) {
@@ -48,24 +107,11 @@ export default function ProfilePage() {
     )
   }
 
-  // 레벨 계산 (경험치 기반)
-  const calculateLevel = (experience: number) => {
-    return Math.floor(experience / 100) + 1
-  }
-
-  const currentLevel = calculateLevel(user.experience)
-  const nextLevelExp = currentLevel * 100
-  const progressToNextLevel = ((user.experience % 100) / 100) * 100
-
-  // 게임별 통계 계산
-  const gameStats = {
-    memory: learningSessions.filter((s) => s.gameType === "memory").length,
-    quiz: learningSessions.filter((s) => s.gameType === "quiz").length,
-    writing: learningSessions.filter((s) => s.gameType === "writing").length,
-    partial: learningSessions.filter((s) => s.gameType === "partial").length,
-  }
-
-  const totalGames = Object.values(gameStats).reduce((a, b) => a + b, 0)
+  const totalGames =
+    (gameStats.quiz?.totalPlayed || 0) +
+    (gameStats.writing?.totalPlayed || 0) +
+    (gameStats.partial?.totalPlayed || 0) +
+    (gameStats.memory?.totalPlayed || 0)
 
   const handleLogout = async () => {
     try {
@@ -141,14 +187,18 @@ export default function ProfilePage() {
                   레벨 {currentLevel}
                 </h3>
                 <span className='text-sm text-gray-600'>
-                  {user.experience} / {nextLevelExp} EXP
+                  다음 레벨까지 {expToNextLevel} EXP 필요
                 </span>
               </div>
-              <div className='w-full bg-gray-200 rounded-full h-2'>
+              <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
                 <div
                   className='bg-blue-600 h-2 rounded-full transition-all duration-300'
-                  style={{ width: `${progressToNextLevel}%` }}
+                  style={{ width: `${levelProgress * 100}%` }}
                 ></div>
+              </div>
+              <div className='flex justify-between text-xs text-gray-500'>
+                <span>총 경험치: {currentExperience} EXP</span>
+                <span>진행률: {Math.round(levelProgress * 100)}%</span>
               </div>
             </div>
 
@@ -223,33 +273,201 @@ export default function ProfilePage() {
             <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
               <div className='text-center p-4 bg-blue-50 rounded-lg'>
                 <div className='text-2xl font-bold text-blue-600'>
-                  {gameStats.memory}
+                  {gameStats.memory?.totalPlayed || 0}
                 </div>
-                <div className='text-sm text-gray-600'>카드 뒤집기</div>
+                <div className='text-sm text-gray-700 font-medium'>
+                  카드 뒤집기
+                </div>
               </div>
               <div className='text-center p-4 bg-green-50 rounded-lg'>
                 <div className='text-2xl font-bold text-green-600'>
-                  {gameStats.quiz}
+                  {gameStats.quiz?.totalPlayed || 0}
                 </div>
-                <div className='text-sm text-gray-600'>퀴즈</div>
+                <div className='text-sm text-gray-700 font-medium'>퀴즈</div>
               </div>
               <div className='text-center p-4 bg-purple-50 rounded-lg'>
                 <div className='text-2xl font-bold text-purple-600'>
-                  {gameStats.writing}
+                  {gameStats.writing?.totalPlayed || 0}
                 </div>
-                <div className='text-sm text-gray-600'>쓰기 연습</div>
+                <div className='text-sm text-gray-700 font-medium'>
+                  쓰기 연습
+                </div>
               </div>
               <div className='text-center p-4 bg-orange-50 rounded-lg'>
                 <div className='text-2xl font-bold text-orange-600'>
-                  {gameStats.partial}
+                  {gameStats.partial?.totalPlayed || 0}
                 </div>
-                <div className='text-sm text-gray-600'>부분 맞추기</div>
+                <div className='text-sm text-gray-700 font-medium'>
+                  부분 맞추기
+                </div>
               </div>
             </div>
             <div className='mt-4 text-center'>
               <p className='text-sm text-gray-600'>
                 총 {totalGames}번의 게임을 플레이했습니다
               </p>
+            </div>
+          </div>
+
+          {/* 게임별 상세 통계 */}
+          <div className='bg-white rounded-lg shadow-lg p-6'>
+            <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
+              <BarChart3 className='h-5 w-5' />
+              <span>상세 통계</span>
+            </h3>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+              {/* 퀴즈 통계 */}
+              {gameStats.quiz && (
+                <div className='p-4 bg-green-50 rounded-lg'>
+                  <div className='flex items-center space-x-2 mb-3'>
+                    <BookOpen className='h-5 w-5 text-green-600' />
+                    <h4 className='font-semibold text-green-800'>퀴즈</h4>
+                  </div>
+                  <div className='space-y-2 text-sm'>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>총 플레이:</span>
+                      <span className='font-semibold text-gray-900'>
+                        {gameStats.quiz.totalPlayed}회
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>정답:</span>
+                      <span className='font-semibold text-green-600'>
+                        {gameStats.quiz.correctAnswers}개
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>오답:</span>
+                      <span className='font-semibold text-red-600'>
+                        {gameStats.quiz.wrongAnswers}개
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>정답률:</span>
+                      <span className='font-semibold text-blue-600'>
+                        {gameStats.quiz.accuracy}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 부분 맞추기 통계 */}
+              {gameStats.partial && (
+                <div className='p-4 bg-orange-50 rounded-lg'>
+                  <div className='flex items-center space-x-2 mb-3'>
+                    <Puzzle className='h-5 w-5 text-orange-600' />
+                    <h4 className='font-semibold text-orange-800'>
+                      부분 맞추기
+                    </h4>
+                  </div>
+                  <div className='space-y-2 text-sm'>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>총 플레이:</span>
+                      <span className='font-semibold text-gray-900'>
+                        {gameStats.partial.totalPlayed}회
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>정답:</span>
+                      <span className='font-semibold text-green-600'>
+                        {gameStats.partial.correctAnswers}개
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>오답:</span>
+                      <span className='font-semibold text-red-600'>
+                        {gameStats.partial.wrongAnswers}개
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>정답률:</span>
+                      <span className='font-semibold text-blue-600'>
+                        {gameStats.partial.accuracy}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 쓰기 연습 통계 */}
+              {gameStats.writing && (
+                <div className='p-4 bg-purple-50 rounded-lg'>
+                  <div className='flex items-center space-x-2 mb-3'>
+                    <PenTool className='h-5 w-5 text-purple-600' />
+                    <h4 className='font-semibold text-purple-800'>쓰기 연습</h4>
+                  </div>
+                  <div className='space-y-2 text-sm'>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>총 플레이:</span>
+                      <span className='font-semibold text-gray-900'>
+                        {gameStats.writing.totalPlayed}회
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>완료 세션:</span>
+                      <span className='font-semibold text-green-600'>
+                        {gameStats.writing.completedSessions}개
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>총 세션:</span>
+                      <span className='font-semibold text-gray-900'>
+                        {gameStats.writing.totalSessions}개
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>완료율:</span>
+                      <span className='font-semibold text-blue-600'>
+                        {gameStats.writing.totalSessions > 0
+                          ? Math.round(
+                              (gameStats.writing.completedSessions /
+                                gameStats.writing.totalSessions) *
+                                100
+                            )
+                          : 0}
+                        %
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 카드 뒤집기 통계 */}
+              {gameStats.memory && (
+                <div className='p-4 bg-blue-50 rounded-lg'>
+                  <div className='flex items-center space-x-2 mb-3'>
+                    <Brain className='h-5 w-5 text-blue-600' />
+                    <h4 className='font-semibold text-blue-800'>카드 뒤집기</h4>
+                  </div>
+                  <div className='space-y-2 text-sm'>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>총 플레이:</span>
+                      <span className='font-semibold text-gray-900'>
+                        {gameStats.memory.totalPlayed}회
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>매칭 성공:</span>
+                      <span className='font-semibold text-green-600'>
+                        {gameStats.memory.correctAnswers}쌍
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-700'>평균 매칭:</span>
+                      <span className='font-semibold text-blue-600'>
+                        {gameStats.memory.totalPlayed > 0
+                          ? Math.round(
+                              gameStats.memory.correctAnswers /
+                                gameStats.memory.totalPlayed
+                            )
+                          : 0}
+                        쌍/게임
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

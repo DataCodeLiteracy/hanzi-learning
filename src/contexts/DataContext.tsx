@@ -1,6 +1,12 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from "react"
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi, UserStatistics, LearningSession } from "@/types"
 import { useAuth } from "./AuthContext"
@@ -43,8 +49,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   )
   const [isLoading, setIsLoading] = useState(false)
 
-  // 한자 데이터 로드
-  const refreshHanziData = async () => {
+  const refreshHanziData = useCallback(async () => {
     if (!selectedGrade) return
 
     setIsLoading(true)
@@ -56,10 +61,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [selectedGrade])
 
-  // 사용자 통계 로드
-  const refreshUserStatistics = async () => {
+  const refreshUserStatistics = useCallback(async () => {
     if (!user) return
 
     setIsLoading(true)
@@ -71,10 +75,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user])
 
-  // 학습 세션 로드
-  const refreshLearningSessions = async () => {
+  const refreshLearningSessions = useCallback(async () => {
     if (!user) return
 
     setIsLoading(true)
@@ -89,57 +92,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user])
 
-  // 사용자 통계 업데이트
-  const updateUserStatistics = async (session: LearningSession) => {
-    if (!user) return
+  const updateUserStatistics = useCallback(
+    async (session: LearningSession) => {
+      if (!user) return
 
-    try {
-      const currentStats = userStatistics || {
-        userId: user.id,
-        totalExperience: 0,
-        totalSessions: 0,
-        averageScore: 0,
-        favoriteGame: "quiz" as const,
-        weakCharacters: [],
-        strongCharacters: [],
-        lastPlayedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      try {
+        // 학습 세션 저장
+        await ApiClient.createDocument("learningSessions", {
+          userId: user.id,
+          gameType: session.gameType,
+          score: session.score,
+          experience: session.experience,
+          duration: session.duration,
+          completedAt: new Date().toISOString(),
+        })
+
+        // 사용자 경험치 업데이트
+        await ApiClient.addUserExperience(user.id, session.experience)
+
+        // 데이터 새로고침
+        refreshUserStatistics()
+        refreshLearningSessions()
+      } catch (error) {
+        console.error("사용자 통계 업데이트 에러:", error)
       }
-
-      const updatedStats: UserStatistics = {
-        ...currentStats,
-        totalExperience: currentStats.totalExperience + session.experience,
-        totalSessions: currentStats.totalSessions + 1,
-        averageScore:
-          (currentStats.averageScore * currentStats.totalSessions +
-            session.score) /
-          (currentStats.totalSessions + 1),
-        lastPlayedAt: session.createdAt,
-        updatedAt: new Date().toISOString(),
-      }
-
-      if (userStatistics?.id) {
-        await ApiClient.updateDocument(
-          "userStatistics",
-          userStatistics.id,
-          updatedStats
-        )
-      } else {
-        await ApiClient.createDocument("userStatistics", updatedStats)
-      }
-
-      setUserStatistics(updatedStats)
-    } catch (error) {
-      console.error("사용자 통계 업데이트 에러:", error)
-    }
-  }
+    },
+    [user, refreshUserStatistics, refreshLearningSessions]
+  )
 
   // 등급 변경 시 한자 데이터 새로고침
   useEffect(() => {
     refreshHanziData()
-  }, [selectedGrade])
+  }, [refreshHanziData])
 
   // 사용자 로그인 시 데이터 로드
   useEffect(() => {
@@ -147,7 +133,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       refreshUserStatistics()
       refreshLearningSessions()
     }
-  }, [user])
+  }, [user, refreshUserStatistics, refreshLearningSessions])
 
   // 한자 데이터가 없을 때 기본 데이터 제공
   useEffect(() => {

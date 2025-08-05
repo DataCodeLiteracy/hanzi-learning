@@ -5,8 +5,9 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { RotateCcw, Timer, ArrowLeft } from "lucide-react"
+import { Timer, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { calculateGameExperience } from "@/lib/experienceSystem"
 
 interface Card {
   id: string
@@ -19,11 +20,10 @@ interface Card {
 
 export default function MemoryGame() {
   const { hanziList, selectedGrade, isLoading: dataLoading } = useData()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, refreshUserData } = useAuth()
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
   const [matchedPairs, setMatchedPairs] = useState<number>(0)
-  const [score, setScore] = useState<number>(0)
   const [gameStarted, setGameStarted] = useState<boolean>(false)
   const [gameEnded, setGameEnded] = useState<boolean>(false)
   const [showPreview, setShowPreview] = useState<boolean>(true)
@@ -38,7 +38,6 @@ export default function MemoryGame() {
   const [isGeneratingCards, setIsGeneratingCards] = useState<boolean>(false) // 카드 생성 중
   const [gradeError, setGradeError] = useState<string>("") // 급수 오류 메시지
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false) // 오류 모달 표시
-  const [experience, setExperience] = useState<number>(0) // 경험치 추가
   const [isProcessing, setIsProcessing] = useState<boolean>(false) // 카드 처리 중 상태 추가
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">(
     "easy"
@@ -157,6 +156,16 @@ export default function MemoryGame() {
       )
       setIsGeneratingCards(false)
       setShowErrorModal(true)
+      // 오류 발생 시 게임 상태 초기화
+      setCards([])
+      setFlippedCards([])
+      setMatchedPairs(0)
+      setGameStarted(false)
+      setGameEnded(false)
+      setShowPreview(false)
+      setTimeLeft(0)
+      setTotalTime(0)
+      setIsProcessing(false)
       return
     }
 
@@ -169,6 +178,16 @@ export default function MemoryGame() {
       )
       setIsGeneratingCards(false)
       setShowErrorModal(true)
+      // 오류 발생 시 게임 상태 초기화
+      setCards([])
+      setFlippedCards([])
+      setMatchedPairs(0)
+      setGameStarted(false)
+      setGameEnded(false)
+      setShowPreview(false)
+      setTimeLeft(0)
+      setTotalTime(0)
+      setIsProcessing(false)
       return
     }
 
@@ -204,8 +223,6 @@ export default function MemoryGame() {
       setCards(shuffledCards)
       setFlippedCards([])
       setMatchedPairs(0)
-      setScore(0)
-      setExperience(0)
       setGameStarted(false)
       setGameEnded(false)
       setShowPreview(true)
@@ -352,25 +369,38 @@ export default function MemoryGame() {
     if (matchedPairs === (gridSize.cols * gridSize.rows) / 2 && !gameEnded) {
       setGameEnded(true)
 
-      // 최종 점수 계산
-      const finalScore = score + Math.max(0, Math.floor((600 - totalTime) / 6)) // 시간 보너스
-      const finalExperience =
-        experience + Math.max(0, Math.floor((600 - totalTime) / 60))
+      // 간단한 경험치 계산: 게임 완료 시 고정 경험치
+      const experience = calculateGameExperience("memory")
 
       // 사용자 경험치 업데이트
       if (user) {
-        ApiClient.addUserExperience(user.id, finalExperience)
-          .then(() => {
+        const updateStats = async () => {
+          try {
+            // 경험치 추가
+            await ApiClient.addUserExperience(user.id, experience)
             console.log(
-              `게임 완료! 점수: ${finalScore}, 경험치: ${finalExperience}`
+              `게임 완료! 매칭: ${matchedPairs}, 경험치: ${experience}`
             )
-          })
-          .catch((error) => {
+
+            // 게임 통계 업데이트
+            await ApiClient.updateGameStatistics(user.id, "memory", {
+              totalPlayed: 1,
+              correctAnswers: matchedPairs, // 매칭된 쌍의 수
+              wrongAnswers: 0, // 카드 뒤집기는 오답 개념이 없음
+            })
+            console.log("게임 통계가 업데이트되었습니다.")
+
+            // 사용자 데이터 새로고침
+            refreshUserData()
+          } catch (error) {
             console.error("경험치 저장 실패:", error)
-          })
+          }
+        }
+
+        updateStats()
       }
     }
-  }, [matchedPairs, gameEnded, score, experience, totalTime, gridSize, user])
+  }, [matchedPairs, gameEnded, gridSize, user, refreshUserData])
 
   // 게임 시작 처리
   const handleStartGame = () => {
@@ -383,7 +413,6 @@ export default function MemoryGame() {
     setCards([])
     setFlippedCards([])
     setMatchedPairs(0)
-    setScore(0)
     setGameStarted(false)
     setGameEnded(false)
     setShowPreview(true)
@@ -492,16 +521,6 @@ export default function MemoryGame() {
         setCards(newCards)
         setMatchedPairs((prev) => prev + 1)
 
-        // 점수 계산: 기본 100점 + 시간 보너스 (최대 50점)
-        const timeBonus = Math.max(0, Math.floor((600 - totalTime) / 12)) // 10분 기준
-        const matchScore = 100 + timeBonus
-        setScore((prev) => prev + matchScore)
-
-        // 경험치 계산: 기본 10점 + 시간 보너스 (최대 5점)
-        const expBonus = Math.max(0, Math.floor((600 - totalTime) / 120))
-        const matchExp = 10 + expBonus
-        setExperience((prev) => prev + matchExp)
-
         // 매칭 성공 모달 표시
         setIsPaused(true) // 게임 일시정지
         setModalHanzi({
@@ -549,7 +568,6 @@ export default function MemoryGame() {
             </div>
             {!showGameSettings && (
               <div className='flex items-center space-x-4'>
-                <div className='text-sm text-gray-600'>점수: {score}</div>
                 <div className='text-sm text-gray-600'>
                   매칭: {matchedPairs}/{(gridSize.cols * gridSize.rows) / 2}
                 </div>
@@ -714,7 +732,10 @@ export default function MemoryGame() {
                 </h3>
                 <p className='text-gray-600 mb-6'>{gradeError}</p>
                 <button
-                  onClick={() => setShowErrorModal(false)}
+                  onClick={() => {
+                    setShowErrorModal(false)
+                    handleBackToSettings()
+                  }}
                   className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
                 >
                   확인
@@ -725,56 +746,60 @@ export default function MemoryGame() {
         )}
 
         {/* 프리뷰 화면 */}
-        {!showGameSettings && !isGeneratingCards && showPreview && (
-          <div className='text-center py-12'>
-            <div className='mb-8'>
-              <Timer className='h-16 w-16 text-blue-600 mx-auto mb-4' />
-              <h2 className='text-3xl font-bold text-gray-900 mb-4'>
-                카드를 기억하세요!
-              </h2>
-              <p className='text-xl text-gray-600 mb-4'>
-                {timeLeft}초 후 카드가 뒤집어집니다
-              </p>
-              <div className='text-sm text-gray-500'>
-                {difficulty === "easy"
-                  ? "쉬움"
-                  : difficulty === "medium"
-                  ? "중간"
-                  : "어려움"}{" "}
-                모드 • {gridSize.cols} x {gridSize.rows} 타일
+        {!showGameSettings &&
+          !isGeneratingCards &&
+          showPreview &&
+          cards.length > 0 && (
+            <div className='text-center py-12'>
+              <div className='mb-8'>
+                <Timer className='h-16 w-16 text-blue-600 mx-auto mb-4' />
+                <h2 className='text-3xl font-bold text-gray-900 mb-4'>
+                  카드를 기억하세요!
+                </h2>
+                <p className='text-xl text-gray-600 mb-4'>
+                  {timeLeft}초 후 카드가 뒤집어집니다
+                </p>
+                <div className='text-sm text-gray-500'>
+                  {difficulty === "easy"
+                    ? "쉬움"
+                    : difficulty === "medium"
+                    ? "중간"
+                    : "어려움"}{" "}
+                  모드 • {gridSize.cols} x {gridSize.rows} 타일
+                </div>
+              </div>
+
+              {/* 카드 프리뷰 */}
+              <div
+                className={`grid gap-2 sm:gap-3 max-w-6xl mx-auto`}
+                style={{
+                  gridTemplateColumns: `repeat(${gridSize.cols}, 1fr)`,
+                  gridTemplateRows: `repeat(${gridSize.rows}, 1fr)`,
+                }}
+              >
+                {cards.map((card, index) => (
+                  <div
+                    key={card.id}
+                    className='bg-white rounded-lg shadow-md p-2 sm:p-3 text-center border-2 border-blue-200 aspect-square flex flex-col justify-center card-hover'
+                  >
+                    <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
+                      {card.hanzi}
+                    </div>
+                    <div className='text-xs sm:text-sm text-gray-600'>
+                      {card.meaning} {card.sound}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-
-            {/* 카드 프리뷰 */}
-            <div
-              className={`grid gap-2 sm:gap-3 max-w-6xl mx-auto`}
-              style={{
-                gridTemplateColumns: `repeat(${gridSize.cols}, 1fr)`,
-                gridTemplateRows: `repeat(${gridSize.rows}, 1fr)`,
-              }}
-            >
-              {cards.map((card, index) => (
-                <div
-                  key={card.id}
-                  className='bg-white rounded-lg shadow-md p-2 sm:p-3 text-center border-2 border-blue-200 aspect-square flex flex-col justify-center card-hover'
-                >
-                  <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
-                    {card.hanzi}
-                  </div>
-                  <div className='text-xs sm:text-sm text-gray-600'>
-                    {card.meaning} {card.sound}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
 
         {/* 게임 화면 */}
         {!showGameSettings &&
           !isGeneratingCards &&
           !showPreview &&
-          !gameEnded && (
+          !gameEnded &&
+          cards.length > 0 && (
             <div className='space-y-6'>
               {/* 타이머와 횟수 표시 */}
               {(timeLimit > 0 || flipLimit > 0) && (
@@ -896,12 +921,12 @@ export default function MemoryGame() {
             </h2>
             <div className='space-y-4'>
               <div className='text-xl'>
-                <span className='font-semibold'>최종 점수:</span>{" "}
-                {score + Math.max(0, Math.floor((600 - totalTime) / 6))}점
+                <span className='font-semibold'>매칭 완료:</span> {matchedPairs}
+                /{(gridSize.cols * gridSize.rows) / 2}쌍
               </div>
               <div className='text-lg'>
                 <span className='font-semibold'>획득 경험치:</span>{" "}
-                {experience + Math.max(0, Math.floor((600 - totalTime) / 60))}점
+                {calculateGameExperience("memory")}EXP
               </div>
               <div className='text-lg'>
                 <span className='font-semibold'>소요 시간:</span>{" "}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useData } from "@/contexts/DataContext"
 import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -13,6 +13,8 @@ import {
   XCircle,
 } from "lucide-react"
 import Link from "next/link"
+import { calculateGameExperience } from "@/lib/experienceSystem"
+import { ApiClient } from "@/lib/apiClient"
 
 interface WritingSession {
   hanzi: string
@@ -25,11 +27,11 @@ interface WritingSession {
 
 export default function WritingGame() {
   const { hanziList, selectedGrade, isLoading: dataLoading } = useData()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, refreshUserData } = useAuth()
   const [currentSession, setCurrentSession] = useState<WritingSession | null>(
     null
   )
-  const [score, setScore] = useState<number>(0)
+  const [completedSessions, setCompletedSessions] = useState<number>(0)
   const [currentIndex, setCurrentIndex] = useState<number>(0)
   const [totalSessions] = useState<number>(5)
   const [gameEnded, setGameEnded] = useState<boolean>(false)
@@ -38,6 +40,71 @@ export default function WritingGame() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const contextRef = useRef<CanvasRenderingContext2D | null>(null)
+
+  const clearCanvas = useCallback(() => {
+    const canvas = canvasRef.current
+    const context = contextRef.current
+    if (!canvas || !context) return
+
+    context.clearRect(0, 0, canvas.width, canvas.height)
+  }, [])
+
+  const initializeGame = useCallback(async () => {
+    // 선택된 등급의 한자들 중에서 5개를 랜덤하게 선택
+    const gradeHanzi = hanziList.filter((h) => h.grade === selectedGrade)
+    const selectedHanzi = gradeHanzi
+      .sort(() => Math.random() - 0.5)
+      .slice(0, totalSessions)
+
+    if (selectedHanzi.length > 0) {
+      const firstHanzi = selectedHanzi[0]
+
+      // Stroke order가 없으면 자동 생성
+      await ensureStrokeOrder(firstHanzi)
+
+      setCurrentSession({
+        hanzi: firstHanzi.character,
+        meaning: firstHanzi.meaning,
+        sound: firstHanzi.sound || firstHanzi.pinyin || "",
+        strokes: firstHanzi.strokes || 5,
+        userDrawing: "",
+        isCorrect: null,
+      })
+    }
+
+    setCurrentIndex(0)
+    setCompletedSessions(0)
+    setGameEnded(false)
+    setShowResult(false)
+    clearCanvas()
+  }, [hanziList, selectedGrade, totalSessions, clearCanvas])
+
+  // 게임 초기화 - 조건부 return 이전에 배치
+  useEffect(() => {
+    if (hanziList.length > 0) {
+      initializeGame()
+    }
+  }, [initializeGame])
+
+  // Canvas 초기화 - 조건부 return 이전에 배치
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    canvas.width = canvas.offsetWidth * 2
+    canvas.height = canvas.offsetHeight * 2
+    canvas.style.width = `${canvas.offsetWidth}px`
+    canvas.style.height = `${canvas.offsetHeight}px`
+
+    const context = canvas.getContext("2d")
+    if (context) {
+      context.scale(2, 2)
+      context.lineCap = "round"
+      context.strokeStyle = "#1f2937"
+      context.lineWidth = 3
+      contextRef.current = context
+    }
+  }, [])
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading || dataLoading) {
@@ -71,71 +138,6 @@ export default function WritingGame() {
         <LoadingSpinner message='쓰기 연습을 준비하는 중...' />
       </div>
     )
-  }
-
-  // 게임 초기화
-  useEffect(() => {
-    if (hanziList.length > 0) {
-      initializeGame()
-    }
-  }, [hanziList, selectedGrade])
-
-  // Canvas 초기화
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    canvas.width = canvas.offsetWidth * 2
-    canvas.height = canvas.offsetHeight * 2
-    canvas.style.width = `${canvas.offsetWidth}px`
-    canvas.style.height = `${canvas.offsetHeight}px`
-
-    const context = canvas.getContext("2d")
-    if (context) {
-      context.scale(2, 2)
-      context.lineCap = "round"
-      context.strokeStyle = "#1f2937"
-      context.lineWidth = 3
-      contextRef.current = context
-    }
-  }, [])
-
-  const initializeGame = async () => {
-    // 선택된 등급의 한자들 중에서 5개를 랜덤하게 선택
-    const gradeHanzi = hanziList.filter((h) => h.grade === selectedGrade)
-    const selectedHanzi = gradeHanzi
-      .sort(() => Math.random() - 0.5)
-      .slice(0, totalSessions)
-
-    if (selectedHanzi.length > 0) {
-      const firstHanzi = selectedHanzi[0]
-
-      // Stroke order가 없으면 자동 생성
-      await ensureStrokeOrder(firstHanzi)
-
-      setCurrentSession({
-        hanzi: firstHanzi.character,
-        meaning: firstHanzi.meaning,
-        sound: firstHanzi.sound || firstHanzi.pinyin || "",
-        strokes: firstHanzi.strokes || 5,
-        userDrawing: "",
-        isCorrect: null,
-      })
-    }
-
-    setCurrentIndex(0)
-    setScore(0)
-    setGameEnded(false)
-    setShowResult(false)
-    clearCanvas()
-  }
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current
-    const context = contextRef.current
-    if (!canvas || !context) return
-
-    context.clearRect(0, 0, canvas.width, canvas.height)
   }
 
   const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
@@ -192,7 +194,7 @@ export default function WritingGame() {
     setShowResult(true)
 
     if (isCorrect) {
-      setScore((prev) => prev + 10)
+      setCompletedSessions((prev) => prev + 1)
     }
 
     // 3초 후 다음 문제로
@@ -230,6 +232,40 @@ export default function WritingGame() {
     }
   }
 
+  // 게임 종료 시 경험치 계산
+  useEffect(() => {
+    if (gameEnded && user) {
+      // 간단한 경험치 계산: 게임 완료 시 고정 경험치
+      const experience = calculateGameExperience("writing")
+
+      // 사용자 경험치 업데이트
+      const updateStats = async () => {
+        try {
+          // 경험치 추가
+          await ApiClient.addUserExperience(user.id, experience)
+          console.log(
+            `쓰기 연습 완료! 완료: ${completedSessions}, 경험치: ${experience}`
+          )
+
+          // 게임 통계 업데이트
+          await ApiClient.updateGameStatistics(user.id, "writing", {
+            totalPlayed: 1,
+            completedSessions: completedSessions,
+            totalSessions: totalSessions,
+          })
+          console.log("게임 통계가 업데이트되었습니다.")
+
+          // 사용자 데이터 새로고침
+          refreshUserData()
+        } catch (error) {
+          console.error("경험치 저장 실패:", error)
+        }
+      }
+
+      updateStats()
+    }
+  }, [gameEnded, completedSessions, totalSessions, user, refreshUserData])
+
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 헤더 */}
@@ -243,7 +279,9 @@ export default function WritingGame() {
               <h1 className='text-2xl font-bold text-gray-900'>쓰기 연습</h1>
             </div>
             <div className='flex items-center space-x-4'>
-              <div className='text-sm text-gray-600'>점수: {score}</div>
+              <div className='text-sm text-gray-600'>
+                완료: {completedSessions}/{totalSessions}
+              </div>
               <div className='text-sm text-gray-600'>
                 문제: {currentIndex + 1}/{totalSessions}
               </div>
@@ -259,7 +297,7 @@ export default function WritingGame() {
             {/* 문제 정보 */}
             <div className='bg-white rounded-lg shadow-lg p-6 text-center'>
               <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-                "{currentSession.hanzi}"를 써보세요
+                &ldquo;{currentSession.hanzi}&rdquo;를 써보세요
               </h2>
               <div className='grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600'>
                 <div>
@@ -351,13 +389,21 @@ export default function WritingGame() {
               </h2>
               <div className='space-y-4 mb-6'>
                 <p className='text-lg text-gray-600'>
-                  최종 점수:{" "}
-                  <span className='font-bold text-blue-600'>{score}</span>
+                  완료 개수:{" "}
+                  <span className='font-bold text-blue-600'>
+                    {completedSessions}
+                  </span>
+                </p>
+                <p className='text-lg text-gray-600'>
+                  획득 경험치:{" "}
+                  <span className='font-bold text-green-600'>
+                    {calculateGameExperience("writing")}EXP
+                  </span>
                 </p>
                 <p className='text-gray-600'>
-                  정확도:{" "}
+                  완료율:{" "}
                   <span className='font-bold text-green-600'>
-                    {Math.round((score / (totalSessions * 10)) * 100)}%
+                    {Math.round((completedSessions / totalSessions) * 100)}%
                   </span>
                 </p>
                 <p className='text-gray-600'>연습한 한자: {totalSessions}개</p>

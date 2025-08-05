@@ -8,14 +8,13 @@ import { Hanzi } from "@/types"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import ConfirmModal from "@/components/ConfirmModal"
 import { ensureStrokeOrder } from "@/lib/hanziWriter"
-import { Plus, Edit, Trash2, Save, X, Upload, Download } from "lucide-react"
+import { Edit, Trash2, Save, Upload, Download } from "lucide-react"
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth()
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [isLoading, setIsLoading] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingHanzi, setEditingHanzi] = useState<Hanzi | null>(null)
   const [deletingHanzi, setDeletingHanzi] = useState<Hanzi | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)

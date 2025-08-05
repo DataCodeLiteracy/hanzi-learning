@@ -7,11 +7,21 @@ import { BookOpen, Gamepad2, PenTool, Eye, LogIn, User } from "lucide-react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import {
+  calculateLevel,
+  calculateLevelProgress,
+  calculateExperienceToNextLevel,
+} from "@/lib/experienceSystem"
 
 export default function Home() {
-  const { user, loading: authLoading, signIn, signOutUser } = useAuth()
+  const { user, loading: authLoading, signIn } = useAuth()
   const { userStatistics, isLoading: dataLoading } = useData()
-  const router = useRouter()
+
+  // 데이터베이스의 level과 experience 사용
+  const currentLevel = user?.level || 1
+  const currentExperience = user?.experience || 0
+  const levelProgress = calculateLevelProgress(currentExperience)
+  const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -153,11 +163,25 @@ export default function Home() {
                 </div>
                 <div className='text-right'>
                   <p className='text-xs sm:text-sm font-medium text-gray-900'>
-                    레벨 {user.level}
+                    레벨 {currentLevel}
                   </p>
                   <p className='text-xs sm:text-sm text-gray-500'>
                     경험치 {user.experience}
                   </p>
+                </div>
+              </div>
+
+              {/* 레벨 진행률 바 */}
+              <div className='mb-2'>
+                <div className='flex justify-between text-xs text-gray-500 mb-1'>
+                  <span>다음 레벨까지 {expToNextLevel} EXP</span>
+                  <span>{Math.round(levelProgress * 100)}%</span>
+                </div>
+                <div className='w-full bg-gray-200 rounded-full h-2'>
+                  <div
+                    className='bg-blue-600 h-2 rounded-full transition-all duration-300'
+                    style={{ width: `${levelProgress * 100}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
