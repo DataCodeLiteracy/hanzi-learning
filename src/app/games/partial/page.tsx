@@ -166,6 +166,8 @@ export default function PartialGame() {
     setIsCorrect(correct)
     if (correct) {
       setCorrectAnswers((prev) => prev + 1)
+      // 문제별로 경험치 추가
+      addQuestionExperience()
     }
 
     // 정답 모달 표시
@@ -187,6 +189,18 @@ export default function PartialGame() {
         setGameEnded(true)
       }
     }, 3000)
+  }
+
+  // 문제별 경험치 추가
+  const addQuestionExperience = async () => {
+    if (user) {
+      try {
+        await ApiClient.addUserExperience(user.id, 1) // 문제당 1EXP
+        console.log("문제 경험치 추가: 1EXP")
+      } catch (error) {
+        console.error("경험치 저장 실패:", error)
+      }
+    }
   }
 
   // 게임 종료 시 최종 통계 업데이트
@@ -217,13 +231,21 @@ export default function PartialGame() {
   const getHiddenPartStyle = (part: string) => {
     switch (part) {
       case "top-left":
-        return { clipPath: "polygon(0% 0%, 50% 0%, 50% 50%, 0% 50%)" }
+        return {
+          clipPath: "polygon(0% 0%, 70% 0%, 50% 50%, 0% 70%)",
+        }
       case "top-right":
-        return { clipPath: "polygon(50% 0%, 100% 0%, 100% 50%, 50% 50%)" }
+        return {
+          clipPath: "polygon(30% 0%, 100% 0%, 100% 70%, 50% 50%)",
+        }
       case "bottom-left":
-        return { clipPath: "polygon(0% 50%, 50% 50%, 50% 100%, 0% 100%)" }
+        return {
+          clipPath: "polygon(0% 30%, 50% 50%, 0% 100%, 0% 100%)",
+        }
       case "bottom-right":
-        return { clipPath: "polygon(50% 50%, 100% 50%, 100% 100%, 50% 100%)" }
+        return {
+          clipPath: "polygon(50% 50%, 100% 30%, 100% 100%, 70% 100%)",
+        }
       default:
         return {}
     }
@@ -413,7 +435,11 @@ export default function PartialGame() {
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center py-4'>
             <div className='flex items-center space-x-4'>
-              <Link href='/' className='text-blue-600 hover:text-blue-700'>
+              <Link
+                href='/'
+                className='text-blue-600 hover:text-blue-700'
+                onClick={() => refreshUserData()}
+              >
                 <ArrowLeft className='h-5 w-5' />
               </Link>
               <h1 className='text-2xl font-bold text-gray-900'>부분 맞추기</h1>
@@ -462,7 +488,7 @@ export default function PartialGame() {
                     {currentQuestion.hanzi}
                   </div>
                   <div
-                    className='absolute inset-0 bg-gray-100 rounded-lg'
+                    className='absolute inset-0 bg-gray-800 rounded-lg'
                     style={{
                       width: "200px",
                       height: "200px",
