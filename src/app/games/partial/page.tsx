@@ -10,21 +10,17 @@ import { calculateGameExperience } from "@/lib/experienceSystem"
 import { ApiClient } from "@/lib/apiClient"
 
 interface PartialQuestion {
-  id: string
   hanzi: string
   meaning: string
   sound: string
   options: string[]
   correctAnswer: string
   hiddenPart: "top-left" | "top-right" | "bottom-left" | "bottom-right"
+  hanziId: string // 한자 ID 추가
 }
 
 export default function PartialGame() {
-  const {
-    hanziList,
-    selectedGrade: dataSelectedGrade,
-    isLoading: dataLoading,
-  } = useData()
+  const { hanziList, isLoading: dataLoading } = useData()
   const { user, loading: authLoading, refreshUserData } = useAuth()
   const [questions, setQuestions] = useState<PartialQuestion[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
@@ -38,10 +34,23 @@ export default function PartialGame() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
   const [noDataMessage, setNoDataMessage] = useState<string>("")
-  const [gradeHanzi, setGradeHanzi] = useState<any[]>([])
+  const [gradeHanzi, setGradeHanzi] = useState<
+    {
+      id: string
+      character: string
+      meaning: string
+      sound: string
+      pinyin?: string
+      grade: number
+    }[]
+  >([])
   const [hasUpdatedStats, setHasUpdatedStats] = useState<boolean>(false)
   const [showModal, setShowModal] = useState<boolean>(false)
-  const [modalHanzi, setModalHanzi] = useState<any>(null)
+  const [modalHanzi, setModalHanzi] = useState<{
+    hanzi: string
+    meaning: string
+    sound: string
+  } | null>(null)
 
   // 8급 데이터 기본 로딩
   useEffect(() => {
@@ -75,7 +84,7 @@ export default function PartialGame() {
   }
 
   // 게임 초기화 함수 정의
-  const initializeGame = () => {
+  const initializeGame = async () => {
     // 선택된 급수의 한자 수 확인
     if (gradeHanzi.length === 0) {
       setNoDataMessage(
@@ -104,56 +113,66 @@ export default function PartialGame() {
 
     setIsGenerating(true)
 
-    // 선택된 등급의 한자들 중에서 문제 수만큼 랜덤하게 선택
-    const selectedHanzi = gradeHanzi
-      .sort(() => Math.random() - 0.5)
-      .slice(0, questionCount)
+    try {
+      // 우선순위 기반으로 한자 선택
+      const selectedHanzi = await ApiClient.getPrioritizedHanzi(
+        user!.id,
+        selectedGrade,
+        questionCount
+      )
 
-    // 문제 생성
-    const generatedQuestions = selectedHanzi.map((hanzi) => {
-      const hiddenParts: Array<
-        "top-left" | "top-right" | "bottom-left" | "bottom-right"
-      > = ["top-left", "top-right", "bottom-left", "bottom-right"]
-      const hiddenPart =
-        hiddenParts[Math.floor(Math.random() * hiddenParts.length)]
+      // 문제 생성
+      const generatedQuestions = selectedHanzi.map((hanzi) => {
+        const hiddenParts: Array<
+          "top-left" | "top-right" | "bottom-left" | "bottom-right"
+        > = ["top-left", "top-right", "bottom-left", "bottom-right"]
+        const hiddenPart =
+          hiddenParts[Math.floor(Math.random() * hiddenParts.length)]
 
-      // 다른 한자들에서 오답 생성 (같은 급수 내에서)
-      const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
-      const wrongAnswers = otherHanzi
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-        .map((h) => `${h.meaning} ${h.sound || h.pinyin || ""}`)
+        // 다른 한자들에서 오답 생성 (같은 급수 내에서)
+        const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
+        const wrongAnswers = otherHanzi
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
+          .map((h) => `${h.meaning} ${h.sound || h.pinyin || ""}`)
 
-      // 정답과 오답을 섞어서 4지선다 생성
-      const correctAnswer = `${hanzi.meaning} ${
-        hanzi.sound || hanzi.pinyin || ""
-      }`
-      const allOptions = [correctAnswer, ...wrongAnswers]
-        .sort(() => Math.random() - 0.5)
-        .filter((option) => option !== undefined) as string[]
+        // 정답과 오답을 섞어서 4지선다 생성
+        const correctAnswer = `${hanzi.meaning} ${
+          hanzi.sound || hanzi.pinyin || ""
+        }`
+        const allOptions = [correctAnswer, ...wrongAnswers]
+          .sort(() => Math.random() - 0.5)
+          .filter((option) => option !== undefined) as string[]
 
-      return {
-        id: hanzi.id,
-        hanzi: hanzi.character,
-        meaning: hanzi.meaning,
-        sound: hanzi.sound || hanzi.pinyin || "",
-        options: allOptions,
-        correctAnswer,
-        hiddenPart,
-      }
-    })
+        return {
+          id: hanzi.id,
+          hanzi: hanzi.character,
+          meaning: hanzi.meaning,
+          sound: hanzi.sound || hanzi.pinyin || "",
+          options: allOptions,
+          correctAnswer,
+          hiddenPart: hiddenPart,
+          hanziId: hanzi.id,
+        }
+      })
 
-    setTimeout(() => {
-      setQuestions(generatedQuestions)
-      setCurrentQuestionIndex(0)
-      setCorrectAnswers(0)
-      setSelectedAnswer(null)
-      setIsCorrect(null)
-      setGameEnded(false)
-      setShowSettings(false)
+      setTimeout(() => {
+        setQuestions(generatedQuestions)
+        setCurrentQuestionIndex(0)
+        setCorrectAnswers(0)
+        setSelectedAnswer(null)
+        setIsCorrect(null)
+        setGameEnded(false)
+        setShowSettings(false)
+        setIsGenerating(false)
+        setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
+      }, 1000)
+    } catch (error) {
+      console.error("게임 초기화 실패:", error)
       setIsGenerating(false)
-      setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
-    }, 1000)
+      setNoDataMessage("게임 초기화 중 오류가 발생했습니다.")
+      setShowNoDataModal(true)
+    }
   }
 
   const handleAnswerSelect = (answer: string) => {
@@ -166,17 +185,20 @@ export default function PartialGame() {
     setIsCorrect(correct)
     if (correct) {
       setCorrectAnswers((prev) => prev + 1)
-      // 문제별로 경험치 추가
+      // 문제별로 경험치 추가 및 한자별 통계 업데이트
       addQuestionExperience()
+
+      // 정답인 경우에만 모달 표시
+      setModalHanzi({
+        hanzi: currentQuestion.hanzi,
+        meaning: currentQuestion.meaning,
+        sound: currentQuestion.sound,
+      })
+      setShowModal(true)
     }
 
-    // 정답 모달 표시
-    setModalHanzi({
-      hanzi: currentQuestion.hanzi,
-      meaning: currentQuestion.meaning,
-      sound: currentQuestion.sound,
-    })
-    setShowModal(true)
+    // 문제별 통계 업데이트
+    updateQuestionStats(correct)
 
     // 3초 후 모달 닫고 다음 문제로
     setTimeout(() => {
@@ -191,14 +213,41 @@ export default function PartialGame() {
     }, 3000)
   }
 
-  // 문제별 경험치 추가
+  // 문제별 경험치 추가 및 한자별 통계 업데이트
   const addQuestionExperience = async () => {
+    if (!user) return
+    try {
+      await ApiClient.addUserExperience(user.id, 1) // 1 EXP 추가
+
+      // 현재 문제의 한자 통계 업데이트
+      const currentQuestion = questions[currentQuestionIndex]
+      if (currentQuestion && currentQuestion.hanziId) {
+        await ApiClient.updateHanziStatistics(
+          user.id,
+          currentQuestion.hanziId,
+          "partial",
+          true // 정답이므로 true
+        )
+      }
+
+      // refreshUserData() 제거 - 깜빡임 방지
+    } catch (error) {
+      console.error("경험치 추가 실패:", error)
+    }
+  }
+
+  // 문제별 통계 업데이트
+  const updateQuestionStats = async (isCorrect: boolean) => {
     if (user) {
       try {
-        await ApiClient.addUserExperience(user.id, 1) // 문제당 1EXP
-        console.log("문제 경험치 추가: 1EXP")
+        await ApiClient.updateGameStatistics(user.id, "partial", {
+          totalPlayed: 1,
+          correctAnswers: isCorrect ? 1 : 0,
+          wrongAnswers: isCorrect ? 0 : 1,
+        })
+        console.log(`문제 통계 업데이트: ${isCorrect ? "정답" : "오답"}`)
       } catch (error) {
-        console.error("경험치 저장 실패:", error)
+        console.error("문제 통계 업데이트 실패:", error)
       }
     }
   }
@@ -208,7 +257,7 @@ export default function PartialGame() {
     if (gameEnded && user && !hasUpdatedStats) {
       const updateFinalStats = async () => {
         try {
-          // 게임 완료 통계 업데이트
+          // 게임이 완료되면 최종 통계도 업데이트 (중간에 나가도 문제를 풀었다면 통계 반영)
           await ApiClient.updateGameStatistics(user.id, "partial", {
             totalPlayed: 1,
             correctAnswers: correctAnswers,

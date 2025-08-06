@@ -6,7 +6,6 @@ import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
 import Link from "next/link"
-import { calculateGameExperience } from "@/lib/experienceSystem"
 import { ApiClient } from "@/lib/apiClient"
 
 interface Question {
@@ -17,14 +16,11 @@ interface Question {
   options: string[]
   correctAnswer: string
   questionType: "meaning" | "sound"
+  hanziId?: string // 한자 ID 추가
 }
 
 export default function QuizGame() {
-  const {
-    hanziList,
-    selectedGrade: dataSelectedGrade,
-    isLoading: dataLoading,
-  } = useData()
+  const { hanziList, isLoading: dataLoading } = useData()
   const { user, loading: authLoading, refreshUserData } = useAuth()
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
@@ -38,7 +34,16 @@ export default function QuizGame() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
   const [noDataMessage, setNoDataMessage] = useState<string>("")
-  const [gradeHanzi, setGradeHanzi] = useState<any[]>([])
+  const [gradeHanzi, setGradeHanzi] = useState<
+    {
+      id: string
+      character: string
+      meaning: string
+      sound: string
+      pinyin?: string
+      grade: number
+    }[]
+  >([])
   const [hasUpdatedStats, setHasUpdatedStats] = useState<boolean>(false)
 
   // 8급 데이터 기본 로딩
@@ -73,7 +78,7 @@ export default function QuizGame() {
   }
 
   // 게임 초기화 함수 정의
-  const initializeGame = () => {
+  const initializeGame = async () => {
     // 선택된 급수의 한자 수 확인
     if (gradeHanzi.length === 0) {
       setNoDataMessage(
@@ -102,53 +107,63 @@ export default function QuizGame() {
 
     setIsGenerating(true)
 
-    // 선택된 등급의 한자들 중에서 문제 수만큼 랜덤하게 선택
-    const selectedHanzi = gradeHanzi
-      .sort(() => Math.random() - 0.5)
-      .slice(0, questionCount)
+    try {
+      // 우선순위 기반으로 한자 선택
+      const selectedHanzi = await ApiClient.getPrioritizedHanzi(
+        user!.id,
+        selectedGrade,
+        questionCount
+      )
 
-    // 문제 생성
-    const generatedQuestions = selectedHanzi.map((hanzi) => {
-      const questionType = Math.random() > 0.5 ? "meaning" : "sound"
-      const correctAnswer =
-        questionType === "meaning" ? hanzi.meaning : hanzi.sound
+      // 문제 생성
+      const generatedQuestions = selectedHanzi.map((hanzi) => {
+        const questionType = Math.random() > 0.5 ? "meaning" : "sound"
+        const correctAnswer =
+          questionType === "meaning" ? hanzi.meaning : hanzi.sound
 
-      // 다른 한자들에서 오답 생성 (같은 급수 내에서)
-      const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
-      const wrongAnswers = otherHanzi
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-        .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
+        // 다른 한자들에서 오답 생성 (같은 급수 내에서)
+        const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
+        const wrongAnswers = otherHanzi
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
+          .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
 
-      // 정답과 오답을 섞어서 4지선다 생성
-      const allOptions = [correctAnswer, ...wrongAnswers]
-        .sort(() => Math.random() - 0.5)
-        .filter((option) => option !== undefined) as string[]
+        // 정답과 오답을 섞어서 4지선다 생성
+        const allOptions = [correctAnswer, ...wrongAnswers]
+          .sort(() => Math.random() - 0.5)
+          .filter((option) => option !== undefined) as string[]
 
-      return {
-        id: hanzi.id,
-        hanzi: hanzi.character,
-        meaning: hanzi.meaning,
-        sound: hanzi.sound || hanzi.pinyin || "",
-        options: allOptions,
-        correctAnswer:
-          correctAnswer ||
-          (questionType === "meaning" ? hanzi.meaning : hanzi.sound),
-        questionType: questionType as "meaning" | "sound",
-      }
-    })
+        return {
+          id: hanzi.id,
+          hanzi: hanzi.character,
+          meaning: hanzi.meaning,
+          sound: hanzi.sound || hanzi.pinyin || "",
+          options: allOptions,
+          correctAnswer:
+            correctAnswer ||
+            (questionType === "meaning" ? hanzi.meaning : hanzi.sound),
+          questionType: questionType as "meaning" | "sound",
+          hanziId: hanzi.id, // 한자 ID 추가
+        }
+      })
 
-    setTimeout(() => {
-      setQuestions(generatedQuestions)
-      setCurrentQuestionIndex(0)
-      setCorrectAnswers(0)
-      setSelectedAnswer(null)
-      setIsCorrect(null)
-      setGameEnded(false)
-      setShowSettings(false)
+      setTimeout(() => {
+        setQuestions(generatedQuestions)
+        setCurrentQuestionIndex(0)
+        setCorrectAnswers(0)
+        setSelectedAnswer(null)
+        setIsCorrect(null)
+        setGameEnded(false)
+        setShowSettings(false)
+        setIsGenerating(false)
+        setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
+      }, 1000)
+    } catch (error) {
+      console.error("게임 초기화 실패:", error)
       setIsGenerating(false)
-      setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
-    }, 1000)
+      setNoDataMessage("게임 초기화 중 오류가 발생했습니다.")
+      setShowNoDataModal(true)
+    }
   }
 
   const handleAnswerSelect = (answer: string) => {
@@ -161,9 +176,12 @@ export default function QuizGame() {
     setIsCorrect(correct)
     if (correct) {
       setCorrectAnswers((prev) => prev + 1)
-      // 문제별로 경험치 추가
+      // 문제별로 경험치 추가 및 한자별 통계 업데이트
       addQuestionExperience()
     }
+
+    // 문제별 통계 업데이트
+    updateQuestionStats(correct)
 
     // 2초 후 다음 문제로
     setTimeout(() => {
@@ -177,14 +195,41 @@ export default function QuizGame() {
     }, 2000)
   }
 
-  // 문제별 경험치 추가
+  // 문제별 경험치 추가 및 한자별 통계 업데이트
   const addQuestionExperience = async () => {
+    if (!user) return
+    try {
+      await ApiClient.addUserExperience(user.id, 1) // 1 EXP 추가
+
+      // 현재 문제의 한자 통계 업데이트
+      const currentQuestion = questions[currentQuestionIndex]
+      if (currentQuestion && currentQuestion.hanziId) {
+        await ApiClient.updateHanziStatistics(
+          user.id,
+          currentQuestion.hanziId,
+          "quiz",
+          true // 정답이므로 true
+        )
+      }
+
+      // refreshUserData() 제거 - 깜빡임 방지
+    } catch (error) {
+      console.error("경험치 추가 실패:", error)
+    }
+  }
+
+  // 문제별 통계 업데이트
+  const updateQuestionStats = async (isCorrect: boolean) => {
     if (user) {
       try {
-        await ApiClient.addUserExperience(user.id, 1) // 문제당 1EXP
-        console.log("문제 경험치 추가: 1EXP")
+        await ApiClient.updateGameStatistics(user.id, "quiz", {
+          totalPlayed: 1,
+          correctAnswers: isCorrect ? 1 : 0,
+          wrongAnswers: isCorrect ? 0 : 1,
+        })
+        console.log(`문제 통계 업데이트: ${isCorrect ? "정답" : "오답"}`)
       } catch (error) {
-        console.error("경험치 저장 실패:", error)
+        console.error("문제 통계 업데이트 실패:", error)
       }
     }
   }
@@ -194,14 +239,13 @@ export default function QuizGame() {
     if (gameEnded && user && !hasUpdatedStats) {
       const updateFinalStats = async () => {
         try {
-          // 게임 완료 통계 업데이트
+          // 게임이 완료되면 최종 통계도 업데이트 (중간에 나가도 문제를 풀었다면 통계 반영)
           await ApiClient.updateGameStatistics(user.id, "quiz", {
             totalPlayed: 1,
-            correctAnswers: correctAnswers, // 실제 정답 개수
+            correctAnswers: correctAnswers,
             wrongAnswers: questionCount - correctAnswers,
           })
           console.log(`퀴즈 완료! 정답: ${correctAnswers}/${questionCount}`)
-          // refreshUserData를 한 번만 호출
           refreshUserData()
           setHasUpdatedStats(true)
         } catch (error) {
@@ -211,7 +255,7 @@ export default function QuizGame() {
 
       updateFinalStats()
     }
-  }, [gameEnded, user, correctAnswers, questionCount, hasUpdatedStats]) // refreshUserData만 제거
+  }, [gameEnded, user, correctAnswers, questionCount, hasUpdatedStats])
 
   const getQuestionText = (question: Question) => {
     return question.questionType === "meaning"

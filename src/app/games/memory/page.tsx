@@ -16,10 +16,11 @@ interface Card {
   sound: string
   isFlipped: boolean
   isMatched: boolean
+  hanziId: string // 한자 ID 추가
 }
 
 export default function MemoryGame() {
-  const { hanziList, selectedGrade, isLoading: dataLoading } = useData()
+  const { hanziList, isLoading: dataLoading } = useData()
   const { user, loading: authLoading, refreshUserData } = useAuth()
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
@@ -134,7 +135,7 @@ export default function MemoryGame() {
   }
 
   // 게임 초기화 함수 정의
-  const initializeGame = () => {
+  const initializeGame = async () => {
     setIsGeneratingCards(true)
     setGradeError("")
 
@@ -191,105 +192,57 @@ export default function MemoryGame() {
       return
     }
 
-    const selectedHanzi = gradeHanzi
-      .sort(() => Math.random() - 0.5)
-      .slice(0, totalPairs)
+    try {
+      // 우선순위 기반으로 한자 선택
+      const selectedHanzi = await ApiClient.getPrioritizedHanzi(
+        user!.id,
+        currentGrade,
+        totalPairs
+      )
 
-    // 각 한자를 2개씩 만들어서 카드 배열 생성
-    const cardPairs = selectedHanzi.flatMap((hanzi) => [
-      {
-        id: `${hanzi.id}_1`,
-        hanzi: hanzi.character,
-        meaning: hanzi.meaning,
-        sound: hanzi.sound || hanzi.pinyin || "",
-        isFlipped: false,
-        isMatched: false,
-      },
-      {
-        id: `${hanzi.id}_2`,
-        hanzi: hanzi.character,
-        meaning: hanzi.meaning,
-        sound: hanzi.sound || hanzi.pinyin || "",
-        isFlipped: false,
-        isMatched: false,
-      },
-    ])
+      // 각 한자를 2개씩 만들어서 카드 배열 생성
+      const cardPairs = selectedHanzi.flatMap((hanzi) => [
+        {
+          id: `${hanzi.id}-1`,
+          hanzi: hanzi.character,
+          meaning: hanzi.meaning,
+          sound: hanzi.sound || hanzi.pinyin || "",
+          isFlipped: false,
+          isMatched: false,
+          hanziId: hanzi.id,
+        },
+        {
+          id: `${hanzi.id}-2`,
+          hanzi: hanzi.character,
+          meaning: hanzi.meaning,
+          sound: hanzi.sound || hanzi.pinyin || "",
+          isFlipped: false,
+          isMatched: false,
+          hanziId: hanzi.id,
+        },
+      ])
 
-    // 카드 순서를 섞기
-    const shuffledCards = cardPairs.sort(() => Math.random() - 0.5)
+      // 카드를 랜덤하게 섞기
+      const shuffledCards = cardPairs.sort(() => Math.random() - 0.5)
 
-    // 약간의 지연을 두어 로딩 효과 생성
-    setTimeout(() => {
-      setCards(shuffledCards)
-      setFlippedCards([])
-      setMatchedPairs(0)
-      setGameStarted(false)
-      setGameEnded(false)
-      setShowPreview(true)
-      setTimeLeft(getPreviewTime())
-      setTotalTime(0)
+      setTimeout(() => {
+        setCards(shuffledCards)
+        setFlippedCards([])
+        setMatchedPairs(0)
+        setGameStarted(false)
+        setGameEnded(false)
+        setShowPreview(true)
+        setTimeLeft(getPreviewTime())
+        setTotalTime(getPreviewTime())
+        setIsGeneratingCards(false)
+        setIsProcessing(false)
+      }, 1000)
+    } catch (error) {
+      console.error("게임 초기화 실패:", error)
       setIsGeneratingCards(false)
-      setIsProcessing(false) // 처리 중 상태 리셋
-
-      // 난이도 설정 적용 및 remaining 값들 즉시 설정
-      setDifficultySettings(difficulty)
-      const totalPairs = (gridSize.cols * gridSize.rows) / 2
-
-      // 난이도에 따른 초기값 설정
-      let initialTimeLimit = 0
-      let initialFlipLimit = 0
-
-      switch (difficulty) {
-        case "easy":
-          initialTimeLimit = 0
-          initialFlipLimit = 0
-          break
-        case "medium":
-          if (totalPairs <= 8) {
-            initialTimeLimit = 300
-            initialFlipLimit = totalPairs * 3
-          } else if (totalPairs <= 12) {
-            initialTimeLimit = 420
-            initialFlipLimit = totalPairs * 3
-          } else if (totalPairs <= 14) {
-            initialTimeLimit = 480
-            initialFlipLimit = totalPairs * 3
-          } else {
-            initialTimeLimit = 600
-            initialFlipLimit = totalPairs * 3
-          }
-          break
-        case "hard":
-          if (totalPairs <= 8) {
-            initialTimeLimit = 180
-            initialFlipLimit = totalPairs * 2
-          } else if (totalPairs <= 12) {
-            initialTimeLimit = 240
-            initialFlipLimit = totalPairs * 2
-          } else if (totalPairs <= 14) {
-            initialTimeLimit = 300
-            initialFlipLimit = totalPairs * 2
-          } else {
-            initialTimeLimit = 360
-            initialFlipLimit = totalPairs * 2
-          }
-          break
-      }
-
-      setTimeLimit(initialTimeLimit)
-      setFlipLimit(initialFlipLimit)
-      setRemainingTime(initialTimeLimit)
-      setRemainingFlips(initialFlipLimit)
-
-      console.log("게임 초기화:", {
-        difficulty,
-        totalPairs,
-        initialTimeLimit,
-        initialFlipLimit,
-        remainingTime: initialTimeLimit,
-        remainingFlips: initialFlipLimit,
-      })
-    }, 1000)
+      setGradeError("게임 초기화 중 오류가 발생했습니다.")
+      setShowErrorModal(true)
+    }
   }
 
   // 게임 초기화
@@ -457,6 +410,30 @@ export default function MemoryGame() {
     }
   }
 
+  // 매칭 성공 시 경험치 추가 및 한자별 통계 업데이트
+  const addMatchExperience = async (matchedCards: Card[]) => {
+    if (!user) return
+    try {
+      await ApiClient.addUserExperience(user.id, 2) // 매칭당 2 EXP 추가
+
+      // 매칭된 카드들의 한자 통계 업데이트
+      for (const card of matchedCards) {
+        if (card.hanziId) {
+          await ApiClient.updateHanziStatistics(
+            user.id,
+            card.hanziId,
+            "memory",
+            true // 매칭 성공이므로 true
+          )
+        }
+      }
+
+      refreshUserData()
+    } catch (error) {
+      console.error("경험치 추가 실패:", error)
+    }
+  }
+
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading || dataLoading) {
     return (
@@ -520,6 +497,7 @@ export default function MemoryGame() {
         newCards[secondIndex].isMatched = true
         setCards(newCards)
         setMatchedPairs((prev) => prev + 1)
+        addMatchExperience([firstCard, secondCard]) // 매칭된 카드들 전달
 
         // 매칭 성공 모달 표시
         setIsPaused(true) // 게임 일시정지
@@ -777,7 +755,7 @@ export default function MemoryGame() {
                   gridTemplateRows: `repeat(${gridSize.rows}, 1fr)`,
                 }}
               >
-                {cards.map((card, index) => (
+                {cards.map((card) => (
                   <div
                     key={card.id}
                     className='bg-white rounded-lg shadow-md p-2 sm:p-3 text-center border-2 border-blue-200 aspect-square flex flex-col justify-center card-hover'

@@ -3,31 +3,36 @@
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { BookOpen, Gamepad2, PenTool, Eye, LogIn, User } from "lucide-react"
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import {
+  ArrowRight,
+  Brain,
+  BookOpen,
+  PenTool,
+  Puzzle,
+  Trophy,
+  User,
+  LogIn,
+  Gamepad2,
+  Eye,
+} from "lucide-react"
 import Link from "next/link"
 import {
-  calculateLevel,
   calculateLevelProgress,
   calculateExperienceToNextLevel,
+  calculateRequiredExperience,
 } from "@/lib/experienceSystem"
+import { useState } from "react"
 
 export default function Home() {
   const { user, loading: authLoading, signIn } = useAuth()
   const { userStatistics, isLoading: dataLoading } = useData()
+  const [showWritingModal, setShowWritingModal] = useState(false)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
   const currentExperience = user?.experience || 0
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
-
-  useEffect(() => {
-    if (user && !authLoading) {
-      console.log("사용자 로그인됨:", user.displayName)
-    }
-  }, [user, authLoading])
 
   // 로딩 중일 때는 로딩 스피너만 표시
   if (authLoading) {
@@ -114,6 +119,14 @@ export default function Home() {
     },
   ]
 
+  const handleGameClick = (gameId: string, href: string) => {
+    if (gameId === "writing") {
+      setShowWritingModal(true)
+    } else {
+      window.location.href = href
+    }
+  }
+
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 헤더 */}
@@ -166,22 +179,37 @@ export default function Home() {
                     레벨 {currentLevel}
                   </p>
                   <p className='text-xs sm:text-sm text-gray-500'>
-                    경험치 {user.experience}
+                    총 경험치 {user.experience}
                   </p>
                 </div>
               </div>
 
-              {/* 레벨 진행률 바 */}
-              <div className='mb-2'>
-                <div className='flex justify-between text-xs text-gray-500 mb-1'>
-                  <span>다음 레벨까지 {expToNextLevel} EXP</span>
-                  <span>{Math.round(levelProgress * 100)}%</span>
+              {/* 레벨 정보 */}
+              <div className='space-y-3'>
+                <div className='flex items-center justify-between'>
+                  <h3 className='text-lg font-semibold text-gray-900'>
+                    레벨 {currentLevel}
+                  </h3>
+                  <span className='text-sm text-gray-600'>
+                    다음 레벨까지 {expToNextLevel} EXP 필요
+                  </span>
                 </div>
-                <div className='w-full bg-gray-200 rounded-full h-2'>
+                <div className='w-full bg-gray-200 rounded-full h-4 relative'>
                   <div
-                    className='bg-blue-600 h-2 rounded-full transition-all duration-300'
+                    className='bg-blue-600 h-4 rounded-full transition-all duration-300'
                     style={{ width: `${levelProgress * 100}%` }}
                   ></div>
+                  <div className='absolute inset-0 flex items-center justify-between px-3 text-xs text-gray-600'>
+                    <span className='font-medium'>
+                      총 경험치: {currentExperience} EXP
+                    </span>
+                    <span className='font-medium'>
+                      {calculateRequiredExperience(currentLevel + 1)} EXP
+                    </span>
+                  </div>
+                </div>
+                <div className='flex justify-between text-sm text-gray-500'>
+                  <span>진행률: {Math.round(levelProgress * 100)}%</span>
                 </div>
               </div>
             </div>
@@ -223,10 +251,10 @@ export default function Home() {
               </h2>
               <div className='grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6'>
                 {games.map((game) => (
-                  <a
+                  <button
                     key={game.id}
-                    href={game.href}
-                    className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer'
+                    onClick={() => handleGameClick(game.id, game.href)}
+                    className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
                   >
                     <div
                       className={`w-10 h-10 sm:w-12 sm:h-12 ${game.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4`}
@@ -239,7 +267,7 @@ export default function Home() {
                     <p className='text-xs sm:text-sm text-gray-600'>
                       {game.description}
                     </p>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -266,6 +294,37 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* 쓰기 게임 준비 중 모달 */}
+      {showWritingModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          {/* 배경 오버레이 */}
+          <div
+            className='absolute inset-0'
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+            onClick={() => setShowWritingModal(false)}
+          />
+
+          {/* 모달 */}
+          <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
+            <div className='text-center'>
+              <div className='text-yellow-500 text-4xl mb-4'>🚧</div>
+              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+                준비 중인 기능
+              </h3>
+              <p className='text-gray-700 mb-6'>
+                쓰기 연습 기능은 현재 개발 중입니다.
+              </p>
+              <button
+                onClick={() => setShowWritingModal(false)}
+                className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

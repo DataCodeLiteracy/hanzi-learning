@@ -167,12 +167,12 @@ export class ApiClient {
         const currentExperience = currentData.experience || 0
         const newExperience = currentExperience + experienceToAdd
         const newLevel = calculateLevel(newExperience)
-        const currentLevel = currentData.level || 1
-        await updateDoc(userRef, {
-          experience: newExperience,
-          level: newLevel, // Level field updated
+        const updatedData = {
+          experience: currentExperience + experienceToAdd,
+          level: newLevel,
           updatedAt: new Date().toISOString(),
-        })
+        }
+        await updateDoc(userRef, updatedData)
       }
     } catch (error) {
       console.error("Error adding user experience:", error)
@@ -269,6 +269,212 @@ export class ApiClient {
     } catch (error) {
       console.error("Error getting game statistics:", error)
       throw new Error("게임 통계 조회에 실패했습니다.")
+    }
+  }
+
+  // 한자별 통계 업데이트
+  static async updateHanziStatistics(
+    userId: string,
+    hanziId: string,
+    gameType: "quiz" | "writing" | "partial" | "memory",
+    isCorrect: boolean
+  ): Promise<void> {
+    try {
+      const userRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userRef)
+      if (userDoc.exists()) {
+        const currentData = userDoc.data()
+        const currentStats = currentData.hanziStatistics || {}
+        const hanziStats = currentStats[hanziId] || {
+          totalStudied: 0,
+          correctAnswers: 0,
+          wrongAnswers: 0,
+          lastStudied: null,
+        }
+
+        // 통계 업데이트
+        const updatedHanziStats = {
+          ...hanziStats,
+          totalStudied: hanziStats.totalStudied + 1,
+          correctAnswers: hanziStats.correctAnswers + (isCorrect ? 1 : 0),
+          wrongAnswers: hanziStats.wrongAnswers + (isCorrect ? 0 : 1),
+          lastStudied: new Date().toISOString(),
+        }
+
+        const updatedStats = {
+          ...currentStats,
+          [hanziId]: updatedHanziStats,
+        }
+
+        await updateDoc(userRef, {
+          hanziStatistics: updatedStats,
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error("Error updating hanzi statistics:", error)
+      throw new Error("한자 통계 업데이트에 실패했습니다.")
+    }
+  }
+
+  // 한자별 통계 조회
+  static async getHanziStatistics(
+    userId: string,
+    hanziId: string
+  ): Promise<{
+    totalStudied: number
+    correctAnswers: number
+    wrongAnswers: number
+    lastStudied: string | null
+    accuracy: number
+  } | null> {
+    try {
+      const userRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userRef)
+      if (userDoc.exists()) {
+        const currentData = userDoc.data()
+        const hanziStats = currentData.hanziStatistics?.[hanziId] || {
+          totalStudied: 0,
+          correctAnswers: 0,
+          wrongAnswers: 0,
+          lastStudied: null,
+        }
+
+        const accuracy =
+          hanziStats.totalStudied > 0
+            ? (hanziStats.correctAnswers / hanziStats.totalStudied) * 100
+            : 0
+
+        return {
+          ...hanziStats,
+          accuracy: Math.round(accuracy),
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("Error getting hanzi statistics:", error)
+      throw new Error("한자 통계 조회에 실패했습니다.")
+    }
+  }
+
+  // 급수별 한자 통계 조회
+  static async getGradeHanziStatistics(
+    userId: string,
+    grade: number
+  ): Promise<
+    {
+      hanziId: string
+      character: string
+      meaning: string
+      sound: string
+      totalStudied: number
+      correctAnswers: number
+      wrongAnswers: number
+      accuracy: number
+      lastStudied: string | null
+    }[]
+  > {
+    try {
+      // 해당 급수의 한자들 조회
+      const gradeHanzi = await this.getHanziByGrade(grade)
+
+      // 각 한자의 통계 조회
+      const hanziStatsPromises = gradeHanzi.map(async (hanzi) => {
+        const stats = await this.getHanziStatistics(userId, hanzi.id)
+        return {
+          hanziId: hanzi.id,
+          character: hanzi.character,
+          meaning: hanzi.meaning,
+          sound: hanzi.sound,
+          totalStudied: stats?.totalStudied || 0,
+          correctAnswers: stats?.correctAnswers || 0,
+          wrongAnswers: stats?.wrongAnswers || 0,
+          accuracy: stats?.accuracy || 0,
+          lastStudied: stats?.lastStudied || null,
+        }
+      })
+
+      const hanziStats = await Promise.all(hanziStatsPromises)
+
+      // 학습한 횟수가 많은 순으로 정렬 (정답률이 높은 것 우선)
+      return hanziStats.sort((a, b) => {
+        // 학습한 한자 우선
+        if (a.totalStudied > 0 && b.totalStudied === 0) return -1
+        if (b.totalStudied > 0 && a.totalStudied === 0) return 1
+
+        // 학습한 횟수가 많은 순
+        if (a.totalStudied !== b.totalStudied) {
+          return b.totalStudied - a.totalStudied
+        }
+
+        // 정답률이 높은 순
+        return b.accuracy - a.accuracy
+      })
+    } catch (error) {
+      console.error("Error getting grade hanzi statistics:", error)
+      throw new Error("급수별 한자 통계 조회에 실패했습니다.")
+    }
+  }
+
+  // 우선순위 기반 한자 선택
+  static async getPrioritizedHanzi(
+    userId: string,
+    grade: number,
+    count: number
+  ): Promise<Hanzi[]> {
+    try {
+      // 해당 급수의 한자들 조회
+      const gradeHanzi = await this.getHanziByGrade(grade)
+
+      // 각 한자의 통계 조회
+      const hanziStatsPromises = gradeHanzi.map(async (hanzi) => {
+        const stats = await this.getHanziStatistics(userId, hanzi.id)
+        return {
+          ...hanzi,
+          totalStudied: stats?.totalStudied || 0,
+          correctAnswers: stats?.correctAnswers || 0,
+          wrongAnswers: stats?.wrongAnswers || 0,
+          accuracy: stats?.accuracy || 0,
+          lastStudied: stats?.lastStudied || null,
+        }
+      })
+
+      const hanziWithStats = await Promise.all(hanziStatsPromises)
+
+      // 우선순위 정렬:
+      // 1. 오답률이 높은 한자 우선 (accuracy가 낮은 순)
+      // 2. 학습이 부족한 한자 우선 (totalStudied가 적은 순)
+      // 3. 최근에 학습하지 않은 한자 우선 (lastStudied가 null이거나 오래된 순)
+      const sortedHanzi = hanziWithStats.sort((a, b) => {
+        // 1순위: 오답률이 높은 한자 우선
+        if (a.accuracy !== b.accuracy) {
+          return a.accuracy - b.accuracy // 낮은 정답률 우선
+        }
+
+        // 2순위: 학습이 부족한 한자 우선
+        if (a.totalStudied !== b.totalStudied) {
+          return a.totalStudied - b.totalStudied // 적은 학습 횟수 우선
+        }
+
+        // 3순위: 최근에 학습하지 않은 한자 우선
+        if (a.lastStudied === null && b.lastStudied !== null) return -1
+        if (b.lastStudied === null && a.lastStudied !== null) return 1
+        if (a.lastStudied && b.lastStudied) {
+          return (
+            new Date(a.lastStudied).getTime() -
+            new Date(b.lastStudied).getTime()
+          )
+        }
+
+        // 모든 조건이 같으면 랜덤
+        return Math.random() - 0.5
+      })
+
+      // 요청된 개수만큼 반환
+      return sortedHanzi.slice(0, count)
+    } catch (error) {
+      console.error("Error getting prioritized hanzi:", error)
+      throw new Error("우선순위 기반 한자 선택에 실패했습니다.")
     }
   }
 }
