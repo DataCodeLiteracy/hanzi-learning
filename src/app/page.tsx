@@ -146,13 +146,13 @@ export default function Home() {
                   <span>마이페이지</span>
                 </Link>
               ) : (
-                <button
-                  onClick={signIn}
+                <Link
+                  href='/login'
                   className='flex items-center space-x-1 px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors'
                 >
                   <LogIn className='h-3 w-3 sm:h-4 sm:w-4' />
                   <span className='hidden sm:inline'>로그인</span>
-                </button>
+                </Link>
               )}
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function Home() {
         {user ? (
           <div className='space-y-6 sm:space-y-8'>
             {/* 사용자 정보 및 환영 메시지 */}
-            <div className='bg-white rounded-lg shadow-sm p-4 sm:p-6'>
+            <div className='bg-white rounded-lg shadow-sm p-4 sm:p-6 pb-8'>
               <div className='flex items-center justify-between mb-4'>
                 <div>
                   <h2 className='text-lg sm:text-xl font-semibold text-gray-900 mb-1'>
@@ -174,42 +174,60 @@ export default function Home() {
                     오늘도 한자 학습을 시작해보세요.
                   </p>
                 </div>
-                <div className='text-right'>
-                  <p className='text-xs sm:text-sm font-medium text-gray-900'>
-                    레벨 {currentLevel}
-                  </p>
-                  <p className='text-xs sm:text-sm text-gray-500'>
-                    총 경험치 {user.experience}
-                  </p>
-                </div>
               </div>
 
               {/* 레벨 정보 */}
               <div className='space-y-3'>
-                <div className='flex items-center justify-between'>
-                  <h3 className='text-lg font-semibold text-gray-900'>
-                    레벨 {currentLevel}
-                  </h3>
-                  <span className='text-sm text-gray-600'>
-                    다음 레벨까지 {expToNextLevel} EXP 필요
+                {/* 레벨 표시 */}
+                <h3 className='text-lg font-semibold text-gray-900'>
+                  레벨 {currentLevel}
+                </h3>
+
+                {/* 다음 레벨까지와 진행률 */}
+                <div className='flex items-center justify-between text-sm text-gray-600'>
+                  <span>다음 레벨까지 {expToNextLevel} EXP 필요</span>
+                  <span>
+                    진행률:{" "}
+                    <span className='text-blue-600 font-semibold'>
+                      {Math.round(levelProgress * 100)}%
+                    </span>
                   </span>
                 </div>
-                <div className='w-full bg-gray-200 rounded-full h-4 relative'>
-                  <div
-                    className='bg-blue-600 h-4 rounded-full transition-all duration-300'
-                    style={{ width: `${levelProgress * 100}%` }}
-                  ></div>
-                  <div className='absolute inset-0 flex items-center justify-between px-3 text-xs text-gray-600'>
-                    <span className='font-medium'>
-                      총 경험치: {currentExperience} EXP
-                    </span>
-                    <span className='font-medium'>
-                      {calculateRequiredExperience(currentLevel + 1)} EXP
-                    </span>
+
+                {/* 경험치 바와 정보 */}
+                <div className='space-y-2'>
+                  {/* 레벨 시작/끝 경험치 (바 위) */}
+                  <div className='flex justify-between text-xs text-gray-500'>
+                    <span>{calculateRequiredExperience(currentLevel)}</span>
+                    <span>{calculateRequiredExperience(currentLevel + 1)}</span>
                   </div>
-                </div>
-                <div className='flex justify-between text-sm text-gray-500'>
-                  <span>진행률: {Math.round(levelProgress * 100)}%</span>
+
+                  {/* 경험치 바 */}
+                  <div className='w-full bg-gray-200 rounded-full h-4 relative'>
+                    <div
+                      className='bg-blue-600 h-4 rounded-full transition-all duration-300'
+                      style={{ width: `${levelProgress * 100}%` }}
+                    ></div>
+                  </div>
+
+                  {/* 화살표와 현재 경험치 (바 아래, 진행률에 따라 위치) */}
+                  <div className='relative'>
+                    <div
+                      className='absolute transform -translate-x-1/2 text-center'
+                      style={{
+                        left: `${Math.min(
+                          100,
+                          Math.max(0, levelProgress * 100)
+                        )}%`,
+                        top: "-8px",
+                      }}
+                    >
+                      <div className='text-blue-600 text-xs'>▲</div>
+                      <div className='text-blue-600 text-xs font-medium'>
+                        {currentExperience}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -284,7 +302,7 @@ export default function Home() {
                 재미있게 배워보세요.
               </p>
               <button
-                onClick={signIn}
+                onClick={() => (window.location.href = "/login")}
                 className='flex items-center space-x-2 px-4 py-3 sm:px-6 sm:py-3 text-base sm:text-lg text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors mx-auto'
               >
                 <LogIn className='h-4 w-4 sm:h-5 sm:w-5' />

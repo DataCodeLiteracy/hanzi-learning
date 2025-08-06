@@ -137,32 +137,56 @@ export default function ProfilePage() {
             </div>
 
             {/* 레벨 정보 */}
-            <div className='mb-6'>
-              <div className='flex items-center justify-between mb-3'>
-                <h3 className='text-lg font-semibold text-gray-900'>
-                  레벨 {currentLevel}
-                </h3>
-                <span className='text-sm text-gray-600'>
-                  다음 레벨까지 {expToNextLevel} EXP 필요
+            <div className='mb-10'>
+              {/* 레벨 표시 */}
+              <h3 className='text-lg font-semibold text-gray-900 mb-3'>
+                레벨 {currentLevel}
+              </h3>
+
+              {/* 다음 레벨까지와 진행률 */}
+              <div className='flex items-center justify-between text-sm text-gray-600 mb-3'>
+                <span>다음 레벨까지 {expToNextLevel} EXP 필요</span>
+                <span>
+                  진행률:{" "}
+                  <span className='text-blue-600 font-semibold'>
+                    {Math.round(levelProgress * 100)}%
+                  </span>
                 </span>
               </div>
-              <div className='space-y-3'>
+
+              {/* 경험치 바와 정보 */}
+              <div className='space-y-2'>
+                {/* 레벨 시작/끝 경험치 (바 위) */}
+                <div className='flex justify-between text-xs text-gray-500'>
+                  <span>{calculateRequiredExperience(currentLevel)}</span>
+                  <span>{calculateRequiredExperience(currentLevel + 1)}</span>
+                </div>
+
+                {/* 경험치 바 */}
                 <div className='w-full bg-gray-200 rounded-full h-4 relative'>
                   <div
                     className='bg-blue-600 h-4 rounded-full transition-all duration-300'
                     style={{ width: `${levelProgress * 100}%` }}
                   ></div>
-                  <div className='absolute inset-0 flex items-center justify-between px-3 text-xs text-gray-600'>
-                    <span className='font-medium'>
-                      총 경험치: {currentExperience} EXP
-                    </span>
-                    <span className='font-medium'>
-                      {calculateRequiredExperience(currentLevel + 1)} EXP
-                    </span>
-                  </div>
                 </div>
-                <div className='flex justify-between text-sm text-gray-500'>
-                  <span>진행률: {Math.round(levelProgress * 100)}%</span>
+
+                {/* 화살표와 현재 경험치 (바 아래, 진행률에 따라 위치) */}
+                <div className='relative'>
+                  <div
+                    className='absolute transform -translate-x-1/2 text-center'
+                    style={{
+                      left: `${Math.min(
+                        100,
+                        Math.max(0, levelProgress * 100)
+                      )}%`,
+                      top: "-8px",
+                    }}
+                  >
+                    <div className='text-blue-600 text-xs'>▲</div>
+                    <div className='text-blue-600 text-xs font-medium'>
+                      {currentExperience}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

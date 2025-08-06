@@ -126,6 +126,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOutUser = async () => {
     try {
       await signOut(auth)
+      // 로그아웃 후 로그인 페이지로 리다이렉트
+      window.location.href = "/login"
     } catch (error) {
       console.error("로그아웃 에러:", error)
       throw new Error("로그아웃에 실패했습니다.")

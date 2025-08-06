@@ -26,6 +26,42 @@ export const calculateGameExperience = (
 }
 
 /**
+ * 카드 뒤집기 게임 경험치 계산 (난이도와 카드 수에 따라 차등)
+ * @param difficulty 난이도 ('easy' | 'medium' | 'hard')
+ * @param totalPairs 총 카드 쌍 수
+ * @returns 경험치
+ */
+export const calculateMemoryGameExperience = (
+  difficulty: "easy" | "medium" | "hard",
+  totalPairs: number
+): number => {
+  // 카드 수에 따른 기본 경험치
+  let baseExp = 0
+  if (totalPairs <= 8) {
+    // 4x4, 4x5
+    baseExp = 2
+  } else if (totalPairs <= 14) {
+    // 4x6, 4x7, 4x8
+    baseExp = 3
+  } else {
+    // 그 이상
+    baseExp = 4
+  }
+
+  // 난이도에 따른 배수
+  switch (difficulty) {
+    case "easy":
+      return baseExp
+    case "medium":
+      return baseExp + 1
+    case "hard":
+      return baseExp + 2
+    default:
+      return baseExp
+  }
+}
+
+/**
  * 레벨별 필요 경험치 계산 (누적 방식)
  * 레벨 1: 0점
  * 레벨 2: 100점

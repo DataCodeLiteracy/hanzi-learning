@@ -7,7 +7,10 @@ import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { Timer, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { calculateGameExperience } from "@/lib/experienceSystem"
+import {
+  calculateGameExperience,
+  calculateMemoryGameExperience,
+} from "@/lib/experienceSystem"
 
 interface Card {
   id: string
@@ -414,7 +417,9 @@ export default function MemoryGame() {
   const addMatchExperience = async (matchedCards: Card[]) => {
     if (!user) return
     try {
-      await ApiClient.addUserExperience(user.id, 2) // 매칭당 2 EXP 추가
+      const totalPairs = (gridSize.cols * gridSize.rows) / 2
+      const experience = calculateMemoryGameExperience(difficulty, totalPairs)
+      await ApiClient.addUserExperience(user.id, experience) // 난이도와 카드 수에 따른 경험치 추가
 
       // 매칭된 카드들의 한자 통계 업데이트
       for (const card of matchedCards) {
