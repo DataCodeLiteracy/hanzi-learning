@@ -10,6 +10,7 @@ import {
 import { auth, googleProvider, db } from "@/lib/firebase"
 import { doc, setDoc, getDoc } from "firebase/firestore"
 import { User } from "@/types"
+import { calculateLevel } from "@/lib/experienceSystem"
 
 interface AuthContextType {
   user: User | null
@@ -18,6 +19,7 @@ interface AuthContextType {
   signIn: () => Promise<void>
   signOutUser: () => Promise<void>
   refreshUserData: () => Promise<void>
+  updateUserExperience: (experience: number) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -70,6 +72,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error("사용자 데이터 새로고침 에러:", error)
+      }
+    }
+  }
+
+  // 실시간 경험치 업데이트 (새로고침 없이)
+  const updateUserExperience = async (experience: number) => {
+    if (firebaseUser && user) {
+      try {
+        const newExperience = user.experience + experience
+        const newLevel = calculateLevel(newExperience)
+
+        // 로컬 상태 즉시 업데이트
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                experience: newExperience,
+                level: newLevel,
+              }
+            : null
+        )
+
+        // Firestore 업데이트
+        const userRef = doc(db, "users", firebaseUser.uid)
+        await setDoc(
+          userRef,
+          {
+            ...user,
+            experience: newExperience,
+            level: newLevel,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        )
+      } catch (error) {
+        console.error("경험치 업데이트 에러:", error)
+        // 에러 발생 시 전체 새로고침
+        await refreshUserData()
       }
     }
   }
@@ -141,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOutUser,
     refreshUserData,
+    updateUserExperience,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

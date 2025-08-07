@@ -24,7 +24,7 @@ interface Card {
 
 export default function MemoryGame() {
   const { hanziList, isLoading: dataLoading } = useData()
-  const { user, loading: authLoading, refreshUserData } = useAuth()
+  const { user, loading: authLoading, updateUserExperience } = useAuth()
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
   const [matchedPairs, setMatchedPairs] = useState<number>(0)
@@ -333,7 +333,7 @@ export default function MemoryGame() {
         const updateStats = async () => {
           try {
             // 경험치 추가
-            await ApiClient.addUserExperience(user.id, experience)
+            await updateUserExperience(experience)
             console.log(
               `게임 완료! 매칭: ${matchedPairs}, 경험치: ${experience}`
             )
@@ -345,9 +345,6 @@ export default function MemoryGame() {
               wrongAnswers: 0, // 카드 뒤집기는 오답 개념이 없음
             })
             console.log("게임 통계가 업데이트되었습니다.")
-
-            // 사용자 데이터 새로고침
-            refreshUserData()
           } catch (error) {
             console.error("경험치 저장 실패:", error)
           }
@@ -356,7 +353,7 @@ export default function MemoryGame() {
         updateStats()
       }
     }
-  }, [matchedPairs, gameEnded, gridSize, user, refreshUserData])
+  }, [matchedPairs, gameEnded, gridSize, user, updateUserExperience])
 
   // 게임 시작 처리
   const handleStartGame = () => {
@@ -419,7 +416,7 @@ export default function MemoryGame() {
     try {
       const totalPairs = (gridSize.cols * gridSize.rows) / 2
       const experience = calculateMemoryGameExperience(difficulty, totalPairs)
-      await ApiClient.addUserExperience(user.id, experience) // 난이도와 카드 수에 따른 경험치 추가
+      await updateUserExperience(experience) // 난이도와 카드 수에 따른 경험치 추가 (새로고침 없이)
 
       // 매칭된 카드들의 한자 통계 업데이트
       for (const card of matchedCards) {
@@ -432,8 +429,6 @@ export default function MemoryGame() {
           )
         }
       }
-
-      refreshUserData()
     } catch (error) {
       console.error("경험치 추가 실패:", error)
     }

@@ -21,7 +21,7 @@ interface Question {
 
 export default function QuizGame() {
   const { hanziList, isLoading: dataLoading } = useData()
-  const { user, loading: authLoading, refreshUserData } = useAuth()
+  const { user, loading: authLoading, updateUserExperience } = useAuth()
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
   const [correctAnswers, setCorrectAnswers] = useState<number>(0)
@@ -199,7 +199,7 @@ export default function QuizGame() {
   const addQuestionExperience = async () => {
     if (!user) return
     try {
-      await ApiClient.addUserExperience(user.id, 1) // 1 EXP 추가
+      await updateUserExperience(1) // 1 EXP 추가 (새로고침 없이)
 
       // 현재 문제의 한자 통계 업데이트
       const currentQuestion = questions[currentQuestionIndex]
@@ -211,8 +211,6 @@ export default function QuizGame() {
           true // 정답이므로 true
         )
       }
-
-      // refreshUserData() 제거 - 깜빡임 방지
     } catch (error) {
       console.error("경험치 추가 실패:", error)
     }
@@ -246,7 +244,7 @@ export default function QuizGame() {
             wrongAnswers: questionCount - correctAnswers,
           })
           console.log(`퀴즈 완료! 정답: ${correctAnswers}/${questionCount}`)
-          refreshUserData()
+          updateUserExperience(1) // 게임 종료 시 경험치 업데이트
           setHasUpdatedStats(true)
         } catch (error) {
           console.error("게임 통계 업데이트 실패:", error)
@@ -448,7 +446,7 @@ export default function QuizGame() {
               <Link
                 href='/'
                 className='text-blue-600 hover:text-blue-700'
-                onClick={() => refreshUserData()}
+                onClick={() => updateUserExperience(0)} // 홈으로 돌아갈 때 경험치 초기화
               >
                 <ArrowLeft className='h-5 w-5' />
               </Link>

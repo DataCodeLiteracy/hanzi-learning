@@ -33,6 +33,9 @@ interface DataContextType {
 
   // 사용자 통계 업데이트
   updateUserStatistics: (session: LearningSession) => Promise<void>
+
+  // 실시간 통계 업데이트 (새로고침 없이)
+  updateStatisticsRealTime: (gameType: string, stats: any) => Promise<void>
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
@@ -99,27 +102,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (!user) return
 
       try {
-        // 학습 세션 저장
-        await ApiClient.createDocument("learningSessions", {
-          userId: user.id,
-          gameType: session.gameType,
-          score: session.score,
-          experience: session.experience,
-          duration: session.duration,
-          completedAt: new Date().toISOString(),
-        })
+        // 새로운 세션 추가
+        const updatedSessions = [session, ...learningSessions]
+        setLearningSessions(updatedSessions)
 
-        // 사용자 경험치 업데이트
-        await ApiClient.addUserExperience(user.id, session.experience)
-
-        // 데이터 새로고침
-        refreshUserStatistics()
-        refreshLearningSessions()
+        // 통계 업데이트
+        const updatedStats = await ApiClient.getUserStatistics(user.id)
+        setUserStatistics(updatedStats)
       } catch (error) {
         console.error("사용자 통계 업데이트 에러:", error)
       }
     },
-    [user, refreshUserStatistics, refreshLearningSessions]
+    [user, learningSessions]
+  )
+
+  // 실시간 통계 업데이트 (새로고침 없이)
+  const updateStatisticsRealTime = useCallback(
+    async (gameType: string, stats: any) => {
+      if (!user) return
+
+      try {
+        // 로컬 상태 즉시 업데이트 (간단한 방식)
+        if (userStatistics) {
+          const updatedStats = { ...userStatistics }
+          updatedStats.totalExperience += stats.experience || 0
+          updatedStats.totalSessions += stats.totalPlayed || 0
+          setUserStatistics(updatedStats)
+        }
+      } catch (error) {
+        console.error("실시간 통계 업데이트 에러:", error)
+      }
+    },
+    [user, userStatistics]
   )
 
   // 등급 변경 시 한자 데이터 새로고침
@@ -192,6 +206,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     refreshUserStatistics,
     refreshLearningSessions,
     updateUserStatistics,
+    updateStatisticsRealTime,
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

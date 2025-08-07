@@ -21,7 +21,7 @@ interface PartialQuestion {
 
 export default function PartialGame() {
   const { hanziList, isLoading: dataLoading } = useData()
-  const { user, loading: authLoading, refreshUserData } = useAuth()
+  const { user, loading: authLoading, updateUserExperience } = useAuth()
   const [questions, setQuestions] = useState<PartialQuestion[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
   const [correctAnswers, setCorrectAnswers] = useState<number>(0)
@@ -217,7 +217,7 @@ export default function PartialGame() {
   const addQuestionExperience = async () => {
     if (!user) return
     try {
-      await ApiClient.addUserExperience(user.id, 1) // 1 EXP 추가
+      await updateUserExperience(1) // 1 EXP 추가 (새로고침 없이)
 
       // 현재 문제의 한자 통계 업데이트
       const currentQuestion = questions[currentQuestionIndex]
@@ -229,8 +229,6 @@ export default function PartialGame() {
           true // 정답이므로 true
         )
       }
-
-      // refreshUserData() 제거 - 깜빡임 방지
     } catch (error) {
       console.error("경험치 추가 실패:", error)
     }
@@ -266,7 +264,7 @@ export default function PartialGame() {
           console.log(
             `부분 맞추기 완료! 정답: ${correctAnswers}/${questionCount}`
           )
-          refreshUserData()
+          // 경험치는 이미 각 문제마다 추가되었으므로 여기서는 추가하지 않음
           setHasUpdatedStats(true)
         } catch (error) {
           console.error("게임 통계 업데이트 실패:", error)
@@ -484,11 +482,7 @@ export default function PartialGame() {
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center py-4'>
             <div className='flex items-center space-x-4'>
-              <Link
-                href='/'
-                className='text-blue-600 hover:text-blue-700'
-                onClick={() => refreshUserData()}
-              >
+              <Link href='/' className='text-blue-600 hover:text-blue-700'>
                 <ArrowLeft className='h-5 w-5' />
               </Link>
               <h1 className='text-2xl font-bold text-gray-900'>부분 맞추기</h1>
