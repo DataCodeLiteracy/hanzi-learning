@@ -15,34 +15,62 @@ import {
   Trash2,
 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   calculateLevelProgress,
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
 import { ApiClient } from "@/lib/apiClient"
-
-interface GameStatistics {
-  totalPlayed: number
-  correctAnswers: number
-  wrongAnswers: number
-  completedSessions: number
-  totalSessions: number
-  accuracy: number
-}
+import {
+  GameStatisticsService,
+  GameStatistics,
+} from "@/lib/services/gameStatisticsService"
 
 export default function ProfilePage() {
   const { user, loading: authLoading, signOutUser } = useAuth()
   const { userStatistics, learningSessions } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [gameStatistics, setGameStatistics] = useState<Record<
+    string,
+    GameStatistics
+  > | null>(null)
+
+  // 사용자 정보 디버깅
+  useEffect(() => {
+    if (user) {
+      console.log("👤 사용자 정보:", {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        isAdmin: user.isAdmin,
+        level: user.level,
+        experience: user.experience,
+      })
+    }
+  }, [user])
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
   const currentExperience = user?.experience || 0
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
+
+  // 게임 통계 로드
+  useEffect(() => {
+    if (user) {
+      const loadGameStatistics = async () => {
+        try {
+          const stats = await GameStatisticsService.getGameStatistics(user.id)
+          setGameStatistics(stats)
+        } catch (error) {
+          console.error("게임 통계 로드 실패:", error)
+        }
+      }
+      loadGameStatistics()
+    }
+  }, [user])
 
   const handleLogout = async () => {
     try {
@@ -265,6 +293,39 @@ export default function ProfilePage() {
               </Link>
             </div>
           </div>
+
+          {/* 게임별 통계 요약 */}
+          {gameStatistics && (
+            <div className='bg-white rounded-lg shadow-lg p-6'>
+              <h3 className='text-xl font-semibold text-gray-900 mb-4'>
+                게임별 통계 요약
+              </h3>
+              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+                {Object.entries(gameStatistics).map(([gameType, stats]) => (
+                  <div
+                    key={gameType}
+                    className='p-4 bg-gray-50 rounded-lg text-center'
+                  >
+                    <div className='text-lg font-semibold text-gray-900 mb-2'>
+                      {gameType === "memory"
+                        ? "카드 뒤집기"
+                        : gameType === "quiz"
+                        ? "퀴즈"
+                        : gameType === "writing"
+                        ? "쓰기 연습"
+                        : "부분 맞추기"}
+                    </div>
+                    <div className='text-sm text-gray-600'>
+                      총 플레이: {stats.totalPlayed}회
+                    </div>
+                    <div className='text-sm text-gray-600'>
+                      정답률: {Math.round(stats.accuracy)}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 최근 학습 기록 */}
           {learningSessions.length > 0 && (

@@ -51,35 +51,98 @@ export default function PartialGame() {
     meaning: string
     sound: string
   } | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [gradeDataStatus, setGradeDataStatus] = useState<{
+    [key: number]: boolean
+  }>({}) // 각 급수별 데이터 존재 여부
+
+  // 각 급수별 데이터 존재 여부 확인
+  const checkGradeDataStatus = async () => {
+    const status: { [key: number]: boolean } = {}
+    const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
+
+    for (const grade of grades) {
+      try {
+        const data = await ApiClient.getHanziByGrade(grade)
+        status[grade] = data.length > 0
+      } catch (error) {
+        console.error(`${grade}급 데이터 확인 실패:`, error)
+        status[grade] = false
+      }
+    }
+
+    setGradeDataStatus(status)
+  }
+
+  // 컴포넌트 마운트 시 데이터 상태 확인
+  useEffect(() => {
+    checkGradeDataStatus()
+  }, [])
 
   // 8급 데이터 기본 로딩
   useEffect(() => {
-    if (hanziList.length > 0) {
-      const grade8Hanzi = hanziList.filter((h) => h.grade === 8)
-      setGradeHanzi(grade8Hanzi)
+    const loadInitialData = async () => {
+      setIsLoading(true)
+      try {
+        const grade8Data = await ApiClient.getHanziByGrade(8)
+        setGradeHanzi(grade8Data)
+      } catch (error) {
+        console.error("초기 데이터 로드 실패:", error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [hanziList])
+
+    loadInitialData()
+  }, [])
 
   // 급수 변경 시 데이터 업데이트
-  const handleGradeChange = (grade: number) => {
+  const handleGradeChange = async (grade: number) => {
     setSelectedGrade(grade)
-    const newGradeHanzi = hanziList.filter((h) => h.grade === grade)
-    setGradeHanzi(newGradeHanzi)
+    setIsLoading(true)
 
-    // 데이터가 없으면 즉시 알림
-    if (newGradeHanzi.length === 0) {
-      setNoDataMessage(
-        `선택한 급수(${
-          grade === 5.5
-            ? "준5급"
-            : grade === 4.5
-            ? "준4급"
-            : grade === 3.5
-            ? "준3급"
-            : `${grade}급`
-        })에 데이터가 없습니다.`
-      )
+    try {
+      // 직접 API 호출하여 해당 급수 데이터 가져오기
+      const gradeData = await ApiClient.getHanziByGrade(grade)
+      setGradeHanzi(gradeData)
+
+      // 데이터가 없으면 즉시 알림
+      if (gradeData.length === 0) {
+        setNoDataMessage(
+          `선택한 급수(${
+            grade === 5.5
+              ? "준5급"
+              : grade === 4.5
+              ? "준4급"
+              : grade === 3.5
+              ? "준3급"
+              : `${grade}급`
+          })에 데이터가 없습니다.`
+        )
+        setShowNoDataModal(true)
+      } else {
+        // 데이터가 있으면 오류 메시지 제거
+        setNoDataMessage("")
+        setShowNoDataModal(false)
+      }
+
+      // 데이터 상태 업데이트
+      setGradeDataStatus((prev) => ({
+        ...prev,
+        [grade]: gradeData.length > 0,
+      }))
+    } catch (error) {
+      console.error("급수 데이터 로드 실패:", error)
+      setNoDataMessage("데이터 로드 중 오류가 발생했습니다.")
       setShowNoDataModal(true)
+
+      // 오류 시 데이터 상태 업데이트
+      setGradeDataStatus((prev) => ({
+        ...prev,
+        [grade]: false,
+      }))
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -222,7 +285,7 @@ export default function PartialGame() {
       // 현재 문제의 한자 통계 업데이트
       const currentQuestion = questions[currentQuestionIndex]
       if (currentQuestion && currentQuestion.hanziId) {
-        await ApiClient.updateHanziStatistics(
+        await ApiClient.updateHanziStatisticsNew(
           user.id,
           currentQuestion.hanziId,
           "partial",
@@ -238,7 +301,7 @@ export default function PartialGame() {
   const updateQuestionStats = async (isCorrect: boolean) => {
     if (user) {
       try {
-        await ApiClient.updateGameStatistics(user.id, "partial", {
+        await ApiClient.updateGameStatisticsNew(user.id, "partial", {
           totalPlayed: 1,
           correctAnswers: isCorrect ? 1 : 0,
           wrongAnswers: isCorrect ? 0 : 1,
@@ -256,7 +319,7 @@ export default function PartialGame() {
       const updateFinalStats = async () => {
         try {
           // 게임이 완료되면 최종 통계도 업데이트 (중간에 나가도 문제를 풀었다면 통계 반영)
-          await ApiClient.updateGameStatistics(user.id, "partial", {
+          await ApiClient.updateGameStatisticsNew(user.id, "partial", {
             totalPlayed: 1,
             correctAnswers: correctAnswers,
             wrongAnswers: questionCount - correctAnswers,
@@ -299,7 +362,7 @@ export default function PartialGame() {
   }
 
   // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading || dataLoading) {
+  if (authLoading || dataLoading || isLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='게임을 준비하는 중...' />
@@ -364,21 +427,18 @@ export default function PartialGame() {
                 onChange={(e) => handleGradeChange(Number(e.target.value))}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
               >
-                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => {
-                  const gradeData = hanziList.filter((h) => h.grade === grade)
-                  return (
-                    <option key={grade} value={grade} className='font-medium'>
-                      {grade === 5.5
-                        ? "준5급"
-                        : grade === 4.5
-                        ? "준4급"
-                        : grade === 3.5
-                        ? "준3급"
-                        : `${grade}급`}{" "}
-                      {gradeData.length === 0 ? "(데이터 없음)" : ""}
-                    </option>
-                  )
-                })}
+                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
+                  <option key={grade} value={grade} className='font-medium'>
+                    {grade === 5.5
+                      ? "준5급"
+                      : grade === 4.5
+                      ? "준4급"
+                      : grade === 3.5
+                      ? "준3급"
+                      : `${grade}급`}{" "}
+                    {gradeDataStatus[grade] === false ? "(데이터 없음)" : ""}
+                  </option>
+                ))}
               </select>
               {gradeHanzi.length > 0 ? (
                 <p className='mt-2 text-sm text-gray-600'>

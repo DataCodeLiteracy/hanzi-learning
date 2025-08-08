@@ -37,6 +37,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!userDoc.exists()) {
         // 새 사용자인 경우 Firestore에 저장
+        const isAdmin = false // 새 사용자는 기본적으로 관리자가 아님
+        console.log("🔐 새 사용자 생성:", {
+          email: firebaseUser.email,
+          isAdmin: isAdmin,
+        })
+
         const newUser: User = {
           id: firebaseUser.uid,
           email: firebaseUser.email || "",
@@ -44,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           photoURL: firebaseUser.photoURL || "",
           level: 1,
           experience: 0,
-          isAdmin: firebaseUser.email === "admin@example.com", // 특정 이메일을 관리자로 설정
+          isAdmin: isAdmin,
           createdAt:
             firebaseUser.metadata.creationTime || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -53,7 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return newUser
       } else {
         // 기존 사용자인 경우 기존 데이터 반환
-        return userDoc.data() as User
+        const userData = userDoc.data() as User
+
+        console.log("🔐 기존 사용자 로드:", {
+          email: userData.email,
+          isAdmin: userData.isAdmin,
+        })
+        return userData
       }
     } catch (error) {
       console.error("사용자 정보 저장 에러:", error)
@@ -137,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             photoURL: firebaseUser.photoURL || "",
             level: 1,
             experience: 0,
-            isAdmin: firebaseUser.email === "admin@example.com",
+            isAdmin: false, // 기본적으로 관리자가 아님
             createdAt:
               firebaseUser.metadata.creationTime || new Date().toISOString(),
             updatedAt: new Date().toISOString(),

@@ -1,0 +1,37 @@
+[
+  {
+    "gradeNumber": 1,
+    "character": "九",
+    "pinyin": "jiǔ",
+    "meaning": "아홉",
+    "sound": "구",
+    "grade": 8,
+    "strokes": 2,
+    "radicals": ["乙"],
+    "relatedWords": [
+      { "hanzi": "九月", "korean": "구월", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "테스트용 한자"
+  },
+  {
+    "gradeNumber": 2,
+    "character": "口",
+    "pinyin": "kǒu",
+    "meaning": "입",
+    "sound": "구",
+    "grade": 8,
+    "strokes": 3,
+    "radicals": ["口"],
+    "relatedWords": [
+      { "hanzi": "人口", "korean": "인구", "isTextBook": false },
+      { "hanzi": "出口", "korean": "출구", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "테스트용 한자"
+  }
+]

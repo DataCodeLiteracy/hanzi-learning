@@ -91,3 +91,20 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Selectbox 선택된 텍스트 진하게 */
+select option {
+  font-weight: bold;
+  color: #1f2937;
+}
+
+select option:checked {
+  font-weight: bold;
+  color: #1f2937;
+  background-color: #f3f4f6;
+}
+
+select {
+  font-weight: bold;
+  color: #1f2937;
+}

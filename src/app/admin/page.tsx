@@ -9,6 +9,7 @@ import LoadingSpinner from "@/components/LoadingSpinner"
 import ConfirmModal from "@/components/ConfirmModal"
 import { ensureStrokeOrder } from "@/lib/hanziWriter"
 import { Edit, Trash2, Save, Upload, Download } from "lucide-react"
+import { migrateAllUsers, migrateUserData } from "@/lib/migration"
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth()
@@ -18,6 +19,24 @@ export default function AdminPage() {
   const [editingHanzi, setEditingHanzi] = useState<Hanzi | null>(null)
   const [deletingHanzi, setDeletingHanzi] = useState<Hanzi | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [migrationStatus, setMigrationStatus] = useState<string>("")
+  const [isMigrating, setIsMigrating] = useState(false)
+  const [showDeleteGradeModal, setShowDeleteGradeModal] = useState(false)
+  const [deleteGrade, setDeleteGrade] = useState<number>(8)
+  const [isDeletingGrade, setIsDeletingGrade] = useState(false)
+  const [showEmptyGradeModal, setShowEmptyGradeModal] = useState(false)
+  const [emptyGrade, setEmptyGrade] = useState<number>(8)
+
+  // 테스트용: 모든 한자 조회
+  const testGetAllHanzi = async () => {
+    try {
+      console.log("🧪 모든 한자 조회 테스트 시작...")
+      const allHanzi = await ApiClient.getAllHanzi()
+      console.log("🧪 테스트 완료:", allHanzi.length, "개의 한자")
+    } catch (error) {
+      console.error("🧪 테스트 실패:", error)
+    }
+  }
 
   // 페이지 로드 시 데이터 자동 로드
   useEffect(() => {
@@ -58,9 +77,22 @@ export default function AdminPage() {
       console.log(`Loading hanzi data for grade: ${selectedGrade}`)
       const data = await ApiClient.getHanziByGrade(selectedGrade)
       console.log(`Loaded ${data.length} hanzi characters`)
+
+      if (data.length === 0) {
+        // 한자가 없는 경우 모달 표시
+        setEmptyGrade(selectedGrade)
+        setShowEmptyGradeModal(true)
+      }
+
       setHanziList(data)
     } catch (error) {
       console.error("한자 데이터 로드 에러:", error)
+      // 오류가 발생해도 빈 배열로 설정하여 UI가 깨지지 않도록 함
+      setHanziList([])
+      // 사용자에게는 조용히 처리하고 콘솔에만 로그 출력
+      console.log(
+        `${selectedGrade}급 한자 데이터를 불러오는 중 오류가 발생했습니다.`
+      )
     } finally {
       setIsLoading(false)
     }
@@ -85,8 +117,15 @@ export default function AdminPage() {
       const data = JSON.parse(text)
 
       if (Array.isArray(data)) {
-        // 현재 등급의 기존 한자 데이터 가져오기
-        const existingHanzi = await ApiClient.getHanziByGrade(selectedGrade)
+        // JSON 파일의 첫 번째 항목에서 grade 확인
+        const jsonGrade = data[0]?.grade
+        if (!jsonGrade) {
+          alert("JSON 파일에 grade 정보가 없습니다.")
+          return
+        }
+
+        // JSON 파일의 grade에 해당하는 기존 한자 데이터 가져오기
+        const existingHanzi = await ApiClient.getHanziByGrade(jsonGrade)
         const existingCharacters = new Set(
           existingHanzi.map((h) => h.character)
         )
@@ -98,52 +137,124 @@ export default function AdminPage() {
 
         for (const hanziData of data) {
           try {
-            // 중복 체크
-            if (existingCharacters.has(hanziData.character)) {
-              console.log(`중복된 한자 건너뛰기: ${hanziData.character}`)
-              duplicateCount++
-              continue
-            }
+            // 필수 필드 확인
+            if (
+              hanziData.character &&
+              hanziData.meaning &&
+              hanziData.sound &&
+              hanziData.grade
+            ) {
+              // 중복 확인 (JSON 파일의 grade 기준)
+              if (existingCharacters.has(hanziData.character)) {
+                duplicateCount++
+                continue
+              }
 
-            await ApiClient.createDocument("hanzi", {
-              character: hanziData.character,
-              meaning: hanziData.meaning,
-              sound: hanziData.sound || hanziData.pinyin,
-              pinyin: hanziData.pinyin,
-              grade: hanziData.grade || selectedGrade,
-              strokes: hanziData.strokes || 0,
-              radicals: hanziData.radicals || [],
-              relatedWords: hanziData.relatedWords || [],
-              strokeOrder: hanziData.strokeOrder || [],
-              difficulty: hanziData.difficulty || "easy",
-              frequency: hanziData.frequency || 1,
-              notes: hanziData.notes || "",
-            })
-            successCount++
-            existingCharacters.add(hanziData.character) // 새로 추가된 한자도 중복 체크에 포함
+              // 한자 데이터 생성
+              await ApiClient.createDocument("hanzi", {
+                character: hanziData.character,
+                meaning: hanziData.meaning,
+                sound: hanziData.sound,
+                pinyin: hanziData.pinyin || "",
+                grade: hanziData.grade,
+                gradeNumber: hanziData.gradeNumber || 0,
+                strokes: hanziData.strokes || 0,
+                radicals: hanziData.radicals || [],
+                relatedWords:
+                  hanziData.relatedWords?.map((word: any) => ({
+                    hanzi: word.hanzi,
+                    korean: word.korean,
+                    isTextBook: word.isTextBook || false,
+                  })) || [],
+                strokeOrder: hanziData.strokeOrder || [],
+                difficulty: hanziData.difficulty || "medium",
+                frequency: hanziData.frequency || 0,
+                notes: hanziData.notes || "",
+              })
+
+              successCount++
+              existingCharacters.add(hanziData.character)
+            } else {
+              errorCount++
+            }
           } catch (error) {
-            console.error(`한자 ${hanziData.character} 등록 실패:`, error)
+            console.error("한자 데이터 처리 에러:", error)
             errorCount++
           }
         }
 
-        let message = `${successCount}개의 한자가 성공적으로 등록되었습니다.`
-        if (duplicateCount > 0) {
-          message += `\n${duplicateCount}개의 중복 한자는 건너뛰었습니다.`
-        }
-        if (errorCount > 0) {
-          message += `\n${errorCount}개의 한자 등록에 실패했습니다.`
-        }
+        alert(
+          `업로드 완료!\n성공: ${successCount}개\n중복: ${duplicateCount}개\n오류: ${errorCount}개\n업로드된 급수: ${jsonGrade}급`
+        )
 
-        alert(message)
-        setUploadedFile(null)
+        // 데이터 새로고침 (JSON 파일의 grade로 설정)
+        setSelectedGrade(jsonGrade)
         loadHanziData()
+        setUploadedFile(null)
       } else {
-        alert("JSON 파일 형식이 올바르지 않습니다. 배열 형태여야 합니다.")
+        alert("올바른 JSON 형식이 아닙니다.")
       }
     } catch (error) {
       console.error("파일 처리 에러:", error)
       alert("파일 처리 중 오류가 발생했습니다.")
+    }
+  }
+
+  // 전체 사용자 마이그레이션
+  const handleMigrateAllUsers = async () => {
+    if (
+      !confirm(
+        "모든 사용자의 데이터를 새로운 구조로 마이그레이션하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+      )
+    ) {
+      return
+    }
+
+    setIsMigrating(true)
+    setMigrationStatus("마이그레이션을 시작합니다...")
+
+    try {
+      const result = await migrateAllUsers()
+      setMigrationStatus(result.message)
+
+      if (result.success) {
+        alert("마이그레이션이 성공적으로 완료되었습니다!")
+      } else {
+        alert("마이그레이션 중 오류가 발생했습니다.")
+      }
+    } catch (error) {
+      console.error("마이그레이션 실패:", error)
+      setMigrationStatus("마이그레이션 중 오류가 발생했습니다.")
+      alert("마이그레이션 중 오류가 발생했습니다.")
+    } finally {
+      setIsMigrating(false)
+    }
+  }
+
+  // 특정 사용자 마이그레이션
+  const handleMigrateUser = async (userId: string) => {
+    if (!confirm(`사용자 ${userId}의 데이터를 마이그레이션하시겠습니까?`)) {
+      return
+    }
+
+    setIsMigrating(true)
+    setMigrationStatus(`${userId} 사용자 마이그레이션 중...`)
+
+    try {
+      const result = await migrateUserData(userId)
+      setMigrationStatus(result.message)
+
+      if (result.success) {
+        alert("사용자 마이그레이션이 완료되었습니다!")
+      } else {
+        alert("사용자 마이그레이션 중 오류가 발생했습니다.")
+      }
+    } catch (error) {
+      console.error("사용자 마이그레이션 실패:", error)
+      setMigrationStatus("사용자 마이그레이션 중 오류가 발생했습니다.")
+      alert("사용자 마이그레이션 중 오류가 발생했습니다.")
+    } finally {
+      setIsMigrating(false)
     }
   }
 
@@ -189,6 +300,44 @@ export default function AdminPage() {
     } catch (error) {
       console.error("한자 삭제 에러:", error)
       alert("한자 삭제에 실패했습니다.")
+    }
+  }
+
+  // 특정 급수 삭제
+  const deleteGradeHanzi = async () => {
+    if (
+      !confirm(
+        `정말로 ${deleteGrade}급 한자들을 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
+      )
+    ) {
+      return
+    }
+
+    setIsDeletingGrade(true)
+    try {
+      // 해당 급수의 모든 한자 가져오기
+      const gradeHanzi = await ApiClient.getHanziByGrade(deleteGrade)
+
+      if (gradeHanzi.length === 0) {
+        alert(`${deleteGrade}급 한자가 없습니다.`)
+        return
+      }
+
+      // 배치 삭제
+      const batch = await ApiClient.deleteGradeHanzi(deleteGrade)
+
+      alert(`${deleteGrade}급 한자 ${gradeHanzi.length}개가 삭제되었습니다.`)
+      setShowDeleteGradeModal(false)
+
+      // 현재 선택된 급수가 삭제된 급수라면 데이터 새로고침
+      if (selectedGrade === deleteGrade) {
+        loadHanziData()
+      }
+    } catch (error) {
+      console.error("급수 삭제 에러:", error)
+      alert("급수 삭제에 실패했습니다.")
+    } finally {
+      setIsDeletingGrade(false)
     }
   }
 
@@ -255,14 +404,29 @@ export default function AdminPage() {
           <div className='bg-white rounded-lg shadow-sm p-6'>
             <div className='flex justify-between items-center mb-4'>
               <h2 className='text-lg font-semibold text-gray-900'>등급 선택</h2>
-              <button
-                onClick={generateStrokeOrdersForGrade}
-                disabled={isLoading || hanziList.length === 0}
-                className='flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
-              >
-                <Download className='h-4 w-4' />
-                <span>Stroke Order 생성</span>
-              </button>
+              <div className='flex space-x-2'>
+                <button
+                  onClick={generateStrokeOrdersForGrade}
+                  disabled={isLoading || hanziList.length === 0}
+                  className='flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
+                >
+                  <Download className='h-4 w-4' />
+                  <span>Stroke Order 생성</span>
+                </button>
+                <button
+                  onClick={() => setShowDeleteGradeModal(true)}
+                  className='flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors'
+                >
+                  <Trash2 className='h-4 w-4' />
+                  <span>급수 삭제</span>
+                </button>
+                <button
+                  onClick={testGetAllHanzi}
+                  className='flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors'
+                >
+                  <span>🧪 전체 테스트</span>
+                </button>
+              </div>
             </div>
             <div className='flex flex-wrap gap-2'>
               {[8, 7, 6].map((grade) => (
@@ -342,7 +506,10 @@ export default function AdminPage() {
           </div>
 
           {/* JSON 파일 업로드 */}
-          <div className='bg-white rounded-lg shadow-sm p-6'>
+          <div
+            id='json-upload-section'
+            className='bg-white rounded-lg shadow-sm p-6'
+          >
             <h2 className='text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
               <Upload className='h-5 w-5' />
               <span>JSON 파일로 한자 일괄 등록</span>
@@ -370,22 +537,21 @@ export default function AdminPage() {
                 <pre className='bg-gray-100 p-2 rounded text-xs mt-2 overflow-x-auto'>
                   {`[
   {
-    "character": "火",
-    "meaning": "불",
-    "sound": "화",
-    "pinyin": "huǒ",
+    "gradeNumber": 1,
+    "character": "九",
+    "pinyin": "jiǔ",
+    "meaning": "아홉",
+    "sound": "구",
     "grade": 8,
-    "strokes": 4,
-    "radicals": ["火"],
+    "strokes": 2,
+    "radicals": ["乙"],
     "relatedWords": [
-      {"hanzi": "火事", "korean": "화재"},
-      {"hanzi": "火山", "korean": "화산"},
-      {"hanzi": "火災", "korean": "화재"}
+      { "hanzi": "九月", "korean": "구월", "isTextBook": false }
     ],
-    "strokeOrder": ["1", "2", "3", "4"],
+    "strokeOrder": [],
     "difficulty": "easy",
     "frequency": 1,
-    "notes": "기본 한자"
+    "notes": "한국한자실력평가원 8급 선정한자"
   }
 ]`}
                 </pre>
@@ -393,6 +559,52 @@ export default function AdminPage() {
                   💡 등급이 일치하는 기존 데이터에 누적 등록됩니다.
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* 데이터 마이그레이션 */}
+          <div className='bg-white rounded-lg shadow-sm p-6'>
+            <h2 className='text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
+              <Download className='h-5 w-5' />
+              <span>데이터 마이그레이션</span>
+            </h2>
+            <div className='space-y-4'>
+              <div className='bg-yellow-50 border border-yellow-200 rounded-lg p-4'>
+                <h3 className='text-sm font-semibold text-yellow-800 mb-2'>
+                  ⚠️ 주의사항
+                </h3>
+                <p className='text-sm text-yellow-700'>
+                  이 작업은 기존 사용자 데이터를 새로운 구조로
+                  마이그레이션합니다. 마이그레이션 후에는 기존 데이터가 새로운
+                  컬렉션으로 분리됩니다.
+                </p>
+              </div>
+
+              <div className='flex space-x-4'>
+                <button
+                  onClick={handleMigrateAllUsers}
+                  disabled={isMigrating}
+                  className='flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  <Download className='h-4 w-4' />
+                  <span>전체 사용자 마이그레이션</span>
+                </button>
+              </div>
+
+              {migrationStatus && (
+                <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+                  <p className='text-sm text-blue-700'>{migrationStatus}</p>
+                </div>
+              )}
+
+              {isMigrating && (
+                <div className='flex items-center space-x-2'>
+                  <LoadingSpinner message='' />
+                  <span className='text-sm text-gray-600'>
+                    마이그레이션 중...
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -413,6 +625,9 @@ export default function AdminPage() {
                 <table className='min-w-full divide-y divide-gray-200'>
                   <thead className='bg-gray-50'>
                     <tr>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                        번호
+                      </th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                         한자
                       </th>
@@ -439,6 +654,9 @@ export default function AdminPage() {
                   <tbody className='bg-white divide-y divide-gray-200'>
                     {hanziList.map((hanzi) => (
                       <tr key={hanzi.id}>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
+                          {hanzi.gradeNumber || "미설정"}
+                        </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
                           {hanzi.character}
                         </td>
@@ -641,6 +859,123 @@ export default function AdminPage() {
         cancelText='취소'
         type='warning'
       />
+
+      {/* 급수 삭제 모달 */}
+      {showDeleteGradeModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div
+            className='absolute inset-0'
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+            onClick={() => setShowDeleteGradeModal(false)}
+          />
+          <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
+            <div className='text-center'>
+              <div className='text-red-500 text-4xl mb-4'>⚠️</div>
+              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+                급수 삭제
+              </h3>
+              <p className='text-gray-700 mb-4'>
+                삭제할 급수를 선택하세요. 이 작업은 되돌릴 수 없습니다.
+              </p>
+
+              <select
+                value={deleteGrade}
+                onChange={(e) => setDeleteGrade(Number(e.target.value))}
+                className='w-full px-3 py-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-red-500 font-semibold text-gray-900'
+              >
+                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => {
+                  const gradeName =
+                    grade === 5.5
+                      ? "준5급"
+                      : grade === 4.5
+                      ? "준4급"
+                      : grade === 3.5
+                      ? "준3급"
+                      : `${grade}급`
+                  return (
+                    <option key={grade} value={grade}>
+                      {gradeName}
+                    </option>
+                  )
+                })}
+              </select>
+
+              <div className='flex justify-center space-x-3'>
+                <button
+                  onClick={() => setShowDeleteGradeModal(false)}
+                  className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md'
+                >
+                  취소
+                </button>
+                <button
+                  onClick={deleteGradeHanzi}
+                  disabled={isDeletingGrade}
+                  className='flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50'
+                >
+                  <Trash2 className='h-4 w-4' />
+                  <span>{isDeletingGrade ? "삭제 중..." : "삭제"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 빈 급수 모달 */}
+      {showEmptyGradeModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div
+            className='absolute inset-0'
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+            onClick={() => setShowEmptyGradeModal(false)}
+          />
+          <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
+            <div className='text-center'>
+              <div className='text-blue-500 text-4xl mb-4'>📝</div>
+              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+                등록된 한자가 없습니다
+              </h3>
+              <p className='text-gray-700 mb-4'>
+                {emptyGrade === 5.5
+                  ? "준5급"
+                  : emptyGrade === 4.5
+                  ? "준4급"
+                  : emptyGrade === 3.5
+                  ? "준3급"
+                  : `${emptyGrade}급`}
+                에 등록된 한자가 없습니다.
+              </p>
+              <p className='text-sm text-gray-600 mb-6'>
+                JSON 파일을 업로드하여 한자를 등록하거나, 다른 급수를
+                선택해보세요.
+              </p>
+
+              <div className='flex justify-center space-x-3'>
+                <button
+                  onClick={() => setShowEmptyGradeModal(false)}
+                  className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md'
+                >
+                  확인
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEmptyGradeModal(false)
+                    // JSON 업로드 섹션으로 스크롤
+                    document
+                      .getElementById("json-upload-section")
+                      ?.scrollIntoView({
+                        behavior: "smooth",
+                      })
+                  }}
+                  className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700'
+                >
+                  한자 등록하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

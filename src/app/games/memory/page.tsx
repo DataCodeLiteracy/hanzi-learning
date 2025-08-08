@@ -57,6 +57,32 @@ export default function MemoryGame() {
     sound: string
   } | null>(null) // 모달에 표시할 한자
   const [isPaused, setIsPaused] = useState<boolean>(false) // 게임 일시정지 상태
+  const [gradeDataStatus, setGradeDataStatus] = useState<{
+    [key: number]: boolean
+  }>({}) // 각 급수별 데이터 존재 여부
+
+  // 각 급수별 데이터 존재 여부 확인
+  const checkGradeDataStatus = async () => {
+    const status: { [key: number]: boolean } = {}
+    const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
+
+    for (const grade of grades) {
+      try {
+        const data = await ApiClient.getHanziByGrade(grade)
+        status[grade] = data.length > 0
+      } catch (error) {
+        console.error(`${grade}급 데이터 확인 실패:`, error)
+        status[grade] = false
+      }
+    }
+
+    setGradeDataStatus(status)
+  }
+
+  // 컴포넌트 마운트 시 데이터 상태 확인
+  useEffect(() => {
+    checkGradeDataStatus()
+  }, [])
 
   // 난이도 정보 가져오기 함수
   const getDifficultyInfo = (level: "easy" | "medium" | "hard") => {
@@ -339,7 +365,7 @@ export default function MemoryGame() {
             )
 
             // 게임 통계 업데이트
-            await ApiClient.updateGameStatistics(user.id, "memory", {
+            await ApiClient.updateGameStatisticsNew(user.id, "memory", {
               totalPlayed: 1,
               correctAnswers: matchedPairs, // 매칭된 쌍의 수
               wrongAnswers: 0, // 카드 뒤집기는 오답 개념이 없음
@@ -377,9 +403,37 @@ export default function MemoryGame() {
   }
 
   // 급수 변경 처리
-  const handleGradeChange = (grade: number) => {
+  const handleGradeChange = async (grade: number) => {
     setCurrentGrade(grade)
     setGradeError("")
+
+    try {
+      // 해당 급수의 한자 데이터 확인
+      const gradeData = await ApiClient.getHanziByGrade(grade)
+
+      if (gradeData.length === 0) {
+        setGradeError(
+          `선택한 급수(${
+            grade === 5.5
+              ? "준5급"
+              : grade === 4.5
+              ? "준4급"
+              : grade === 3.5
+              ? "준3급"
+              : `${grade}급`
+          })에 데이터가 없습니다.`
+        )
+        setShowErrorModal(true)
+      } else {
+        // 데이터가 있으면 오류 메시지 제거
+        setGradeError("")
+        setShowErrorModal(false)
+      }
+    } catch (error) {
+      console.error("급수 데이터 확인 실패:", error)
+      setGradeError("데이터 확인 중 오류가 발생했습니다.")
+      setShowErrorModal(true)
+    }
   }
 
   // 프리뷰 시간 계산 함수
@@ -421,7 +475,7 @@ export default function MemoryGame() {
       // 매칭된 카드들의 한자 통계 업데이트
       for (const card of matchedCards) {
         if (card.hanziId) {
-          await ApiClient.updateHanziStatistics(
+          await ApiClient.updateHanziStatisticsNew(
             user.id,
             card.hanziId,
             "memory",
@@ -583,7 +637,8 @@ export default function MemoryGame() {
                         ? "준4급"
                         : grade === 3.5
                         ? "준3급"
-                        : `${grade}급`}
+                        : `${grade}급`}{" "}
+                      {gradeDataStatus[grade] === false ? "(데이터 없음)" : ""}
                     </option>
                   ))}
                 </select>

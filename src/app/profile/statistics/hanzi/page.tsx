@@ -12,47 +12,40 @@ import {
   XCircle,
 } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { ApiClient } from "@/lib/apiClient"
+import {
+  HanziStatisticsService,
+  HanziStatistics,
+} from "@/lib/services/hanziStatisticsService"
+import { useSearchParams } from "next/navigation"
 
-interface HanziStatistic {
-  hanziId: string
-  character: string
-  meaning: string
-  sound: string
-  totalStudied: number
-  correctAnswers: number
-  wrongAnswers: number
-  accuracy: number
-  lastStudied: string | null
-}
-
-export default function HanziStatisticsPage() {
+function HanziStatisticsContent() {
   const { user, loading: authLoading } = useAuth()
   const { hanziList } = useData()
-  const [selectedGrade, setSelectedGrade] = useState<number>(8)
-  const [hanziStats, setHanziStats] = useState<HanziStatistic[]>([])
+  const searchParams = useSearchParams()
+  const [selectedGrade, setSelectedGrade] = useState<number>(() => {
+    const gradeParam = searchParams.get("grade")
+    return gradeParam ? Number(gradeParam) : 8
+  })
+  const [hanziStatistics, setHanziStatistics] = useState<HanziStatistics[]>([])
   const [loading, setLoading] = useState<boolean>(false)
 
-  // 급수별 한자 통계 로드
+  // 한자 통계 로드
   useEffect(() => {
-    if (user) {
-      const loadHanziStats = async () => {
-        setLoading(true)
+    if (user && selectedGrade) {
+      const loadHanziStatistics = async () => {
         try {
-          const stats = await ApiClient.getGradeHanziStatistics(
+          const stats = await HanziStatisticsService.getGradeHanziStatistics(
             user.id,
             selectedGrade
           )
-          setHanziStats(stats)
+          setHanziStatistics(stats)
         } catch (error) {
           console.error("한자 통계 로드 실패:", error)
-        } finally {
-          setLoading(false)
         }
       }
-
-      loadHanziStats()
+      loadHanziStatistics()
     }
   }, [user, selectedGrade])
 
@@ -81,13 +74,15 @@ export default function HanziStatisticsPage() {
     )
   }
 
-  const totalHanzi = hanziStats.length
-  const studiedHanzi = hanziStats.filter((h) => h.totalStudied > 0).length
+  const totalHanzi = hanziStatistics.length
+  const studiedHanzi = hanziStatistics.filter((h) => h.totalStudied > 0).length
   const notStudiedHanzi = totalHanzi - studiedHanzi
+  const studiedStats = hanziStatistics.filter((h) => h.totalStudied > 0)
   const averageAccuracy =
-    studiedHanzi > 0
+    studiedStats.length > 0
       ? Math.round(
-          hanziStats.reduce((sum, h) => sum + h.accuracy, 0) / studiedHanzi
+          studiedStats.reduce((sum, h) => sum + (h.accuracy || 0), 0) /
+            studiedStats.length
         )
       : 0
 
@@ -188,7 +183,7 @@ export default function HanziStatisticsPage() {
               </div>
             ) : (
               <div className='space-y-4'>
-                {hanziStats.map((hanzi) => (
+                {hanziStatistics.map((hanzi) => (
                   <div
                     key={hanzi.hanziId}
                     className='relative bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors'
@@ -202,6 +197,20 @@ export default function HanziStatisticsPage() {
                     )}
 
                     <div className='space-y-3'>
+                      {/* 한자 번호 */}
+                      <div className='text-center'>
+                        <div className='text-sm text-gray-500 font-medium'>
+                          {selectedGrade === 5.5
+                            ? "준5급"
+                            : selectedGrade === 4.5
+                            ? "준4급"
+                            : selectedGrade === 3.5
+                            ? "준3급"
+                            : `${selectedGrade}급`}{" "}
+                          {hanzi.gradeNumber}번
+                        </div>
+                      </div>
+
                       {/* 한자 */}
                       <div className='text-center'>
                         <div className='text-4xl font-bold text-gray-900'>
@@ -282,5 +291,15 @@ export default function HanziStatisticsPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function HanziStatisticsPage() {
+  return (
+    <Suspense
+      fallback={<LoadingSpinner message='통계 데이터를 불러오는 중...' />}
+    >
+      <HanziStatisticsContent />
+    </Suspense>
   )
 }

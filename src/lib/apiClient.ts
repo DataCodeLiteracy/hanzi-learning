@@ -11,6 +11,8 @@ import {
   QueryConstraint,
   DocumentData,
   QueryDocumentSnapshot,
+  setDoc,
+  writeBatch,
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { Hanzi, UserStatistics } from "@/types"
@@ -101,7 +103,8 @@ export class ApiClient {
       })) as T[]
     } catch (error) {
       console.error("Error querying documents:", error)
-      throw new Error("문서 쿼리에 실패했습니다.")
+      // 오류가 발생해도 빈 배열을 반환하여 앱이 중단되지 않도록 함
+      return []
     }
   }
 
@@ -120,8 +123,55 @@ export class ApiClient {
 
   // 등급별 한자 조회
   static async getHanziByGrade(grade: number): Promise<Hanzi[]> {
-    const gradeConstraint = where("grade", "==", grade)
-    return this.queryDocuments<Hanzi>("hanzi", [gradeConstraint])
+    try {
+      console.log(`🔍 ${grade}급 한자 조회 시작...`)
+      const gradeConstraint = where("grade", "==", grade)
+      console.log(`🔍 쿼리 제약조건: grade == ${grade}`)
+
+      const results = await this.queryDocuments<Hanzi>("hanzi", [
+        gradeConstraint,
+      ])
+      console.log(`✅ ${grade}급 한자 조회 결과: ${results.length}개`)
+
+      // gradeNumber 순서대로 정렬
+      const sortedResults = results.sort(
+        (a, b) => (a.gradeNumber || 0) - (b.gradeNumber || 0)
+      )
+      console.log(`📊 ${grade}급 한자 정렬 완료: ${sortedResults.length}개`)
+
+      // 결과 상세 로깅
+      if (sortedResults.length > 0) {
+        console.log(`📝 첫 번째 결과:`, sortedResults[0])
+      }
+
+      return sortedResults
+    } catch (error) {
+      console.error(`❌ ${grade}급 한자 조회 실패:`, error)
+      // 오류가 발생해도 빈 배열을 반환하여 앱이 중단되지 않도록 함
+      return []
+    }
+  }
+
+  // 모든 한자 조회 (테스트용)
+  static async getAllHanzi(): Promise<Hanzi[]> {
+    try {
+      console.log(`🔍 모든 한자 조회 시작...`)
+      const results = await this.queryDocuments<Hanzi>("hanzi", [])
+      console.log(`✅ 모든 한자 조회 결과: ${results.length}개`)
+
+      // 급수별 통계
+      const gradeStats: { [key: number]: number } = {}
+      results.forEach((hanzi) => {
+        const grade = hanzi.grade
+        gradeStats[grade] = (gradeStats[grade] || 0) + 1
+      })
+      console.log(`📊 급수별 통계:`, gradeStats)
+
+      return results
+    } catch (error) {
+      console.error(`❌ 모든 한자 조회 실패:`, error)
+      return []
+    }
   }
 
   // 사용자 통계 조회
@@ -180,7 +230,7 @@ export class ApiClient {
     }
   }
 
-  // 게임별 통계 업데이트
+  // 게임별 통계 업데이트 (기존 구조 - 제거 예정)
   static async updateGameStatistics(
     userId: string,
     gameType: "quiz" | "writing" | "partial" | "memory",
@@ -192,46 +242,11 @@ export class ApiClient {
       totalSessions?: number
     }
   ): Promise<void> {
-    try {
-      const userRef = doc(db, "users", userId)
-      const userDoc = await getDoc(userRef)
-      if (userDoc.exists()) {
-        const currentData = userDoc.data()
-        const currentStats = currentData.gameStatistics || {}
-        const gameStats = currentStats[gameType] || {}
-
-        // 기존 통계와 새로운 데이터를 병합
-        const updatedGameStats = {
-          totalPlayed:
-            (gameStats.totalPlayed || 0) + (gameData.totalPlayed || 0),
-          correctAnswers:
-            (gameStats.correctAnswers || 0) + (gameData.correctAnswers || 0),
-          wrongAnswers:
-            (gameStats.wrongAnswers || 0) + (gameData.wrongAnswers || 0),
-          completedSessions:
-            (gameStats.completedSessions || 0) +
-            (gameData.completedSessions || 0),
-          totalSessions:
-            (gameStats.totalSessions || 0) + (gameData.totalSessions || 0),
-        }
-
-        const updatedStats = {
-          ...currentStats,
-          [gameType]: updatedGameStats,
-        }
-
-        await updateDoc(userRef, {
-          gameStatistics: updatedStats,
-          updatedAt: new Date().toISOString(),
-        })
-      }
-    } catch (error) {
-      console.error("Error updating game statistics:", error)
-      throw new Error("게임 통계 업데이트에 실패했습니다.")
-    }
+    // 새로운 구조로 리다이렉트
+    return this.updateGameStatisticsNew(userId, gameType, gameData)
   }
 
-  // 게임별 통계 조회
+  // 게임별 통계 조회 (기존 구조 - 제거 예정)
   static async getGameStatistics(
     userId: string,
     gameType: "quiz" | "writing" | "partial" | "memory"
@@ -243,81 +258,23 @@ export class ApiClient {
     totalSessions: number
     accuracy: number
   } | null> {
-    try {
-      const userRef = doc(db, "users", userId)
-      const userDoc = await getDoc(userRef)
-      if (userDoc.exists()) {
-        const currentData = userDoc.data()
-        const gameStats = currentData.gameStatistics?.[gameType] || {
-          totalPlayed: 0,
-          correctAnswers: 0,
-          wrongAnswers: 0,
-          completedSessions: 0,
-          totalSessions: 0,
-        }
-
-        const totalAnswers = gameStats.correctAnswers + gameStats.wrongAnswers
-        const accuracy =
-          totalAnswers > 0 ? (gameStats.correctAnswers / totalAnswers) * 100 : 0
-
-        return {
-          ...gameStats,
-          accuracy: Math.round(accuracy),
-        }
-      }
-      return null
-    } catch (error) {
-      console.error("Error getting game statistics:", error)
-      throw new Error("게임 통계 조회에 실패했습니다.")
-    }
+    // 새로운 구조로 리다이렉트
+    const allStats = await this.getGameStatisticsNew(userId)
+    return allStats[gameType] || null
   }
 
-  // 한자별 통계 업데이트
+  // 한자별 통계 업데이트 (기존 구조 - 제거 예정)
   static async updateHanziStatistics(
     userId: string,
     hanziId: string,
     gameType: "quiz" | "writing" | "partial" | "memory",
     isCorrect: boolean
   ): Promise<void> {
-    try {
-      const userRef = doc(db, "users", userId)
-      const userDoc = await getDoc(userRef)
-      if (userDoc.exists()) {
-        const currentData = userDoc.data()
-        const currentStats = currentData.hanziStatistics || {}
-        const hanziStats = currentStats[hanziId] || {
-          totalStudied: 0,
-          correctAnswers: 0,
-          wrongAnswers: 0,
-          lastStudied: null,
-        }
-
-        // 통계 업데이트
-        const updatedHanziStats = {
-          ...hanziStats,
-          totalStudied: hanziStats.totalStudied + 1,
-          correctAnswers: hanziStats.correctAnswers + (isCorrect ? 1 : 0),
-          wrongAnswers: hanziStats.wrongAnswers + (isCorrect ? 0 : 1),
-          lastStudied: new Date().toISOString(),
-        }
-
-        const updatedStats = {
-          ...currentStats,
-          [hanziId]: updatedHanziStats,
-        }
-
-        await updateDoc(userRef, {
-          hanziStatistics: updatedStats,
-          updatedAt: new Date().toISOString(),
-        })
-      }
-    } catch (error) {
-      console.error("Error updating hanzi statistics:", error)
-      throw new Error("한자 통계 업데이트에 실패했습니다.")
-    }
+    // 새로운 구조로 리다이렉트
+    return this.updateHanziStatisticsNew(userId, hanziId, gameType, isCorrect)
   }
 
-  // 한자별 통계 조회
+  // 한자별 통계 조회 (기존 구조 - 제거 예정)
   static async getHanziStatistics(
     userId: string,
     hanziId: string
@@ -328,32 +285,26 @@ export class ApiClient {
     lastStudied: string | null
     accuracy: number
   } | null> {
-    try {
-      const userRef = doc(db, "users", userId)
-      const userDoc = await getDoc(userRef)
-      if (userDoc.exists()) {
-        const currentData = userDoc.data()
-        const hanziStats = currentData.hanziStatistics?.[hanziId] || {
-          totalStudied: 0,
-          correctAnswers: 0,
-          wrongAnswers: 0,
-          lastStudied: null,
-        }
+    // 새로운 구조로 리다이렉트
+    const allStats = await this.getHanziStatisticsNew(userId)
+    const hanziStat = allStats.find((stat) => stat.hanziId === hanziId)
 
-        const accuracy =
-          hanziStats.totalStudied > 0
-            ? (hanziStats.correctAnswers / hanziStats.totalStudied) * 100
-            : 0
-
-        return {
-          ...hanziStats,
-          accuracy: Math.round(accuracy),
-        }
+    if (!hanziStat) {
+      return {
+        totalStudied: 0,
+        correctAnswers: 0,
+        wrongAnswers: 0,
+        lastStudied: null,
+        accuracy: 0,
       }
-      return null
-    } catch (error) {
-      console.error("Error getting hanzi statistics:", error)
-      throw new Error("한자 통계 조회에 실패했습니다.")
+    }
+
+    return {
+      totalStudied: hanziStat.totalStudied || 0,
+      correctAnswers: hanziStat.correctAnswers || 0,
+      wrongAnswers: hanziStat.wrongAnswers || 0,
+      lastStudied: hanziStat.lastStudied || null,
+      accuracy: hanziStat.accuracy || 0,
     }
   }
 
@@ -367,6 +318,7 @@ export class ApiClient {
       character: string
       meaning: string
       sound: string
+      gradeNumber: number
       totalStudied: number
       correctAnswers: number
       wrongAnswers: number
@@ -378,14 +330,23 @@ export class ApiClient {
       // 해당 급수의 한자들 조회
       const gradeHanzi = await this.getHanziByGrade(grade)
 
-      // 각 한자의 통계 조회
-      const hanziStatsPromises = gradeHanzi.map(async (hanzi) => {
-        const stats = await this.getHanziStatistics(userId, hanzi.id)
+      // 새로운 구조의 한자 통계 조회
+      const hanziStats = await this.getHanziStatisticsNew(userId)
+
+      // 각 한자의 통계 매핑
+      const hanziStatsMap = new Map()
+      hanziStats.forEach((stat) => {
+        hanziStatsMap.set(stat.hanziId, stat)
+      })
+
+      const result = gradeHanzi.map((hanzi) => {
+        const stats = hanziStatsMap.get(hanzi.id)
         return {
           hanziId: hanzi.id,
           character: hanzi.character,
           meaning: hanzi.meaning,
           sound: hanzi.sound,
+          gradeNumber: hanzi.gradeNumber || 0,
           totalStudied: stats?.totalStudied || 0,
           correctAnswers: stats?.correctAnswers || 0,
           wrongAnswers: stats?.wrongAnswers || 0,
@@ -394,10 +355,8 @@ export class ApiClient {
         }
       })
 
-      const hanziStats = await Promise.all(hanziStatsPromises)
-
       // 학습한 횟수가 많은 순으로 정렬 (정답률이 높은 것 우선)
-      return hanziStats.sort((a, b) => {
+      return result.sort((a, b) => {
         // 학습한 한자 우선
         if (a.totalStudied > 0 && b.totalStudied === 0) return -1
         if (b.totalStudied > 0 && a.totalStudied === 0) return 1
@@ -426,9 +385,17 @@ export class ApiClient {
       // 해당 급수의 한자들 조회
       const gradeHanzi = await this.getHanziByGrade(grade)
 
-      // 각 한자의 통계 조회
-      const hanziStatsPromises = gradeHanzi.map(async (hanzi) => {
-        const stats = await this.getHanziStatistics(userId, hanzi.id)
+      // 새로운 구조의 한자 통계 조회
+      const hanziStats = await this.getHanziStatisticsNew(userId)
+
+      // 각 한자의 통계 매핑
+      const hanziStatsMap = new Map()
+      hanziStats.forEach((stat) => {
+        hanziStatsMap.set(stat.hanziId, stat)
+      })
+
+      const hanziWithStats = gradeHanzi.map((hanzi) => {
+        const stats = hanziStatsMap.get(hanzi.id)
         return {
           ...hanzi,
           totalStudied: stats?.totalStudied || 0,
@@ -438,8 +405,6 @@ export class ApiClient {
           lastStudied: stats?.lastStudied || null,
         }
       })
-
-      const hanziWithStats = await Promise.all(hanziStatsPromises)
 
       // 우선순위 정렬:
       // 1. 오답률이 높은 한자 우선 (accuracy가 낮은 순)
@@ -475,6 +440,227 @@ export class ApiClient {
     } catch (error) {
       console.error("Error getting prioritized hanzi:", error)
       throw new Error("우선순위 기반 한자 선택에 실패했습니다.")
+    }
+  }
+
+  // 새로운 분리된 컬렉션 구조의 함수들
+
+  /**
+   * 게임 통계 업데이트 (새로운 구조)
+   */
+  static async updateGameStatisticsNew(
+    userId: string,
+    gameType: string,
+    stats: {
+      totalPlayed?: number
+      correctAnswers?: number
+      wrongAnswers?: number
+      completedSessions?: number
+      totalSessions?: number
+    }
+  ): Promise<void> {
+    try {
+      // 기존 통계 찾기
+      const gameStatsRef = collection(db, "gameStatistics")
+      const q = query(
+        gameStatsRef,
+        where("userId", "==", userId),
+        where("gameType", "==", gameType)
+      )
+      const snapshot = await getDocs(q)
+
+      if (snapshot.empty) {
+        // 새로운 통계 생성
+        const newStatsRef = doc(collection(db, "gameStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          userId,
+          gameType,
+          totalPlayed: stats.totalPlayed || 0,
+          correctAnswers: stats.correctAnswers || 0,
+          wrongAnswers: stats.wrongAnswers || 0,
+          completedSessions: stats.completedSessions || 0,
+          totalSessions: stats.totalSessions || 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        // 기존 통계 업데이트
+        const existingDoc = snapshot.docs[0]
+        const existingData = existingDoc.data()
+
+        const newTotalPlayed =
+          existingData.totalPlayed + (stats.totalPlayed || 0)
+        const newCorrectAnswers =
+          existingData.correctAnswers + (stats.correctAnswers || 0)
+        const newWrongAnswers =
+          existingData.wrongAnswers + (stats.wrongAnswers || 0)
+        const newCompletedSessions =
+          existingData.completedSessions + (stats.completedSessions || 0)
+        const newTotalSessions =
+          existingData.totalSessions + (stats.totalSessions || 0)
+
+        const updatedData = {
+          ...existingData,
+          totalPlayed: newTotalPlayed,
+          correctAnswers: newCorrectAnswers,
+          wrongAnswers: newWrongAnswers,
+          completedSessions: newCompletedSessions,
+          totalSessions: newTotalSessions,
+          updatedAt: new Date().toISOString(),
+        }
+
+        await setDoc(existingDoc.ref, updatedData)
+      }
+    } catch (error) {
+      console.error("게임 통계 업데이트 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 한자 통계 업데이트 (새로운 구조)
+   */
+  static async updateHanziStatisticsNew(
+    userId: string,
+    hanziId: string,
+    gameType: string,
+    isCorrect: boolean
+  ): Promise<void> {
+    try {
+      // 기존 통계 찾기
+      const hanziStatsRef = collection(db, "hanziStatistics")
+      const q = query(
+        hanziStatsRef,
+        where("userId", "==", userId),
+        where("hanziId", "==", hanziId)
+      )
+      const snapshot = await getDocs(q)
+
+      if (snapshot.empty) {
+        // 새로운 통계 생성
+        const newStatsRef = doc(collection(db, "hanziStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          userId,
+          hanziId,
+          totalStudied: 1,
+          correctAnswers: isCorrect ? 1 : 0,
+          wrongAnswers: isCorrect ? 0 : 1,
+          lastStudied: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        // 기존 통계 업데이트
+        const existingDoc = snapshot.docs[0]
+        const existingData = existingDoc.data()
+
+        const newTotalStudied = existingData.totalStudied + 1
+        const newCorrectAnswers =
+          existingData.correctAnswers + (isCorrect ? 1 : 0)
+        const newWrongAnswers = existingData.wrongAnswers + (isCorrect ? 0 : 1)
+
+        const updatedData = {
+          ...existingData,
+          totalStudied: newTotalStudied,
+          correctAnswers: newCorrectAnswers,
+          wrongAnswers: newWrongAnswers,
+          lastStudied: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+
+        await setDoc(existingDoc.ref, updatedData)
+      }
+    } catch (error) {
+      console.error("한자 통계 업데이트 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 사용자의 게임 통계 가져오기 (새로운 구조)
+   */
+  static async getGameStatisticsNew(userId: string): Promise<any> {
+    try {
+      const gameStatsRef = collection(db, "gameStatistics")
+      const q = query(gameStatsRef, where("userId", "==", userId))
+      const snapshot = await getDocs(q)
+
+      const gameStats: any = {}
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data()
+        gameStats[data.gameType] = {
+          totalPlayed: data.totalPlayed || 0,
+          correctAnswers: data.correctAnswers || 0,
+          wrongAnswers: data.wrongAnswers || 0,
+          completedSessions: data.completedSessions || 0,
+          totalSessions: data.totalSessions || 0,
+          accuracy: data.accuracy || 0,
+        }
+      })
+
+      return gameStats
+    } catch (error) {
+      console.error("게임 통계 가져오기 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 사용자의 한자 통계 가져오기 (새로운 구조)
+   */
+  static async getHanziStatisticsNew(userId: string): Promise<any[]> {
+    try {
+      const hanziStatsRef = collection(db, "hanziStatistics")
+      const q = query(hanziStatsRef, where("userId", "==", userId))
+      const snapshot = await getDocs(q)
+
+      return snapshot.docs.map((doc) => doc.data())
+    } catch (error) {
+      console.error("한자 통계 가져오기 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 한자들에 gradeNumber를 일괄 추가하는 메서드
+   */
+  static async addGradeNumberToHanzi(
+    hanziIds: string[],
+    gradeNumber: number
+  ): Promise<void> {
+    try {
+      const batch = writeBatch(db)
+      hanziIds.forEach((hanziId) => {
+        const hanziRef = doc(collection(db, "hanzi"), hanziId)
+        batch.update(hanziRef, { gradeNumber })
+      })
+      await batch.commit()
+    } catch (error) {
+      console.error("한자들에 gradeNumber 추가 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 등급별 한자 삭제
+   */
+  static async deleteGradeHanzi(grade: number): Promise<void> {
+    try {
+      const hanziList = await this.getHanziByGrade(grade)
+      const batch = writeBatch(db)
+
+      hanziList.forEach((hanzi) => {
+        const docRef = doc(db, "hanzi", hanzi.id)
+        batch.delete(docRef)
+      })
+
+      await batch.commit()
+      console.log(`🗑️ ${grade}급 한자 ${hanziList.length}개 삭제 완료`)
+    } catch (error) {
+      console.error(`${grade}급 한자 삭제 실패:`, error)
+      throw error
     }
   }
 }

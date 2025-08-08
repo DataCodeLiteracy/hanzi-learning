@@ -15,6 +15,7 @@ export interface User {
 export interface RelatedWord {
   hanzi: string // 한자 단어 (예: "火事")
   korean: string // 한글 뜻 (예: "화재")
+  isTextBook?: boolean // 교과서 한자어 여부
 }
 
 // 한자 관련 타입
@@ -25,6 +26,7 @@ export interface Hanzi {
   sound: string // 음 (예: "화")
   pinyin?: string // 병음 (예: "huǒ")
   grade: number
+  gradeNumber: number // 급수 내에서의 번호 (예: 8급 1번, 8급 2번...)
   strokes: number
   radicals: string[]
   relatedWords?: RelatedWord[]
@@ -32,6 +34,8 @@ export interface Hanzi {
   difficulty?: "easy" | "medium" | "hard"
   frequency?: number
   notes?: string
+  createdAt: string
+  updatedAt: string
 }
 
 // 학습 세션 타입

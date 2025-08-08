@@ -15,51 +15,33 @@ import {
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { ApiClient } from "@/lib/apiClient"
-
-interface GameStatistics {
-  totalPlayed: number
-  correctAnswers: number
-  wrongAnswers: number
-  completedSessions: number
-  totalSessions: number
-  accuracy: number
-}
+import {
+  GameStatisticsService,
+  GameStatistics,
+} from "@/lib/services/gameStatisticsService"
 
 export default function GameStatisticsPage() {
   const { user, loading: authLoading } = useAuth()
   const { userStatistics } = useData()
-  const [gameStats, setGameStats] = useState<{
+  const [gameStatistics, setGameStatistics] = useState<{
     quiz?: GameStatistics
     writing?: GameStatistics
     partial?: GameStatistics
     memory?: GameStatistics
   }>({})
 
-  // 게임별 통계 로드
+  // 게임 통계 로드
   useEffect(() => {
     if (user) {
-      const loadGameStats = async () => {
+      const loadGameStatistics = async () => {
         try {
-          const [quizStats, writingStats, partialStats, memoryStats] =
-            await Promise.all([
-              ApiClient.getGameStatistics(user.id, "quiz"),
-              ApiClient.getGameStatistics(user.id, "writing"),
-              ApiClient.getGameStatistics(user.id, "partial"),
-              ApiClient.getGameStatistics(user.id, "memory"),
-            ])
-
-          setGameStats({
-            quiz: quizStats || undefined,
-            writing: writingStats || undefined,
-            partial: partialStats || undefined,
-            memory: memoryStats || undefined,
-          })
+          const stats = await GameStatisticsService.getGameStatistics(user.id)
+          setGameStatistics(stats)
         } catch (error) {
           console.error("게임 통계 로드 실패:", error)
         }
       }
-
-      loadGameStats()
+      loadGameStatistics()
     }
   }, [user])
 
@@ -89,10 +71,10 @@ export default function GameStatisticsPage() {
   }
 
   const totalGames =
-    (gameStats.quiz?.totalPlayed || 0) +
-    (gameStats.writing?.totalPlayed || 0) +
-    (gameStats.partial?.totalPlayed || 0) +
-    (gameStats.memory?.totalPlayed || 0)
+    (gameStatistics.quiz?.totalPlayed || 0) +
+    (gameStatistics.writing?.totalPlayed || 0) +
+    (gameStatistics.partial?.totalPlayed || 0) +
+    (gameStatistics.memory?.totalPlayed || 0)
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
@@ -125,7 +107,7 @@ export default function GameStatisticsPage() {
             <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
               <div className='text-center p-4 bg-blue-50 rounded-lg'>
                 <div className='text-2xl font-bold text-blue-600'>
-                  {gameStats.memory?.totalPlayed || 0}
+                  {gameStatistics.memory?.totalPlayed || 0}
                 </div>
                 <div className='text-sm text-gray-700 font-medium'>
                   카드 뒤집기
@@ -133,13 +115,13 @@ export default function GameStatisticsPage() {
               </div>
               <div className='text-center p-4 bg-green-50 rounded-lg'>
                 <div className='text-2xl font-bold text-green-600'>
-                  {gameStats.quiz?.totalPlayed || 0}
+                  {gameStatistics.quiz?.totalPlayed || 0}
                 </div>
                 <div className='text-sm text-gray-700 font-medium'>퀴즈</div>
               </div>
               <div className='text-center p-4 bg-purple-50 rounded-lg'>
                 <div className='text-2xl font-bold text-purple-600'>
-                  {gameStats.writing?.totalPlayed || 0}
+                  {gameStatistics.writing?.totalPlayed || 0}
                 </div>
                 <div className='text-sm text-gray-700 font-medium'>
                   쓰기 연습
@@ -147,7 +129,7 @@ export default function GameStatisticsPage() {
               </div>
               <div className='text-center p-4 bg-orange-50 rounded-lg'>
                 <div className='text-2xl font-bold text-orange-600'>
-                  {gameStats.partial?.totalPlayed || 0}
+                  {gameStatistics.partial?.totalPlayed || 0}
                 </div>
                 <div className='text-sm text-gray-700 font-medium'>
                   부분 맞추기
@@ -169,7 +151,7 @@ export default function GameStatisticsPage() {
             </h3>
             <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
               {/* 퀴즈 통계 */}
-              {gameStats.quiz && (
+              {gameStatistics.quiz && (
                 <div className='p-4 bg-green-50 rounded-lg'>
                   <div className='flex items-center space-x-2 mb-3'>
                     <BookOpen className='h-5 w-5 text-green-600' />
@@ -179,25 +161,25 @@ export default function GameStatisticsPage() {
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>총 플레이:</span>
                       <span className='font-semibold text-gray-900'>
-                        {gameStats.quiz.totalPlayed}회
+                        {gameStatistics.quiz.totalPlayed}회
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>정답:</span>
                       <span className='font-semibold text-green-600'>
-                        {gameStats.quiz.correctAnswers}개
+                        {gameStatistics.quiz.correctAnswers}개
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>오답:</span>
                       <span className='font-semibold text-red-600'>
-                        {gameStats.quiz.wrongAnswers}개
+                        {gameStatistics.quiz.wrongAnswers}개
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>정답률:</span>
                       <span className='font-semibold text-blue-600'>
-                        {gameStats.quiz.accuracy}%
+                        {gameStatistics.quiz.accuracy || 0}%
                       </span>
                     </div>
                   </div>
@@ -205,7 +187,7 @@ export default function GameStatisticsPage() {
               )}
 
               {/* 부분 맞추기 통계 */}
-              {gameStats.partial && (
+              {gameStatistics.partial && (
                 <div className='p-4 bg-orange-50 rounded-lg'>
                   <div className='flex items-center space-x-2 mb-3'>
                     <Puzzle className='h-5 w-5 text-orange-600' />
@@ -217,25 +199,25 @@ export default function GameStatisticsPage() {
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>총 플레이:</span>
                       <span className='font-semibold text-gray-900'>
-                        {gameStats.partial.totalPlayed}회
+                        {gameStatistics.partial.totalPlayed}회
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>정답:</span>
                       <span className='font-semibold text-green-600'>
-                        {gameStats.partial.correctAnswers}개
+                        {gameStatistics.partial.correctAnswers}개
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>오답:</span>
                       <span className='font-semibold text-red-600'>
-                        {gameStats.partial.wrongAnswers}개
+                        {gameStatistics.partial.wrongAnswers}개
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>정답률:</span>
                       <span className='font-semibold text-blue-600'>
-                        {gameStats.partial.accuracy}%
+                        {gameStatistics.partial.accuracy || 0}%
                       </span>
                     </div>
                   </div>
@@ -243,7 +225,7 @@ export default function GameStatisticsPage() {
               )}
 
               {/* 쓰기 연습 통계 */}
-              {gameStats.writing && (
+              {gameStatistics.writing && (
                 <div className='p-4 bg-purple-50 rounded-lg'>
                   <div className='flex items-center space-x-2 mb-3'>
                     <PenTool className='h-5 w-5 text-purple-600' />
@@ -253,28 +235,28 @@ export default function GameStatisticsPage() {
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>총 플레이:</span>
                       <span className='font-semibold text-gray-900'>
-                        {gameStats.writing.totalPlayed}회
+                        {gameStatistics.writing.totalPlayed}회
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>완료 세션:</span>
                       <span className='font-semibold text-green-600'>
-                        {gameStats.writing.completedSessions}개
+                        {gameStatistics.writing.completedSessions}개
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>총 세션:</span>
                       <span className='font-semibold text-gray-900'>
-                        {gameStats.writing.totalSessions}개
+                        {gameStatistics.writing.totalSessions}개
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>완료율:</span>
                       <span className='font-semibold text-blue-600'>
-                        {gameStats.writing.totalSessions > 0
+                        {gameStatistics.writing.totalSessions > 0
                           ? Math.round(
-                              (gameStats.writing.completedSessions /
-                                gameStats.writing.totalSessions) *
+                              (gameStatistics.writing.completedSessions /
+                                gameStatistics.writing.totalSessions) *
                                 100
                             )
                           : 0}
@@ -286,7 +268,7 @@ export default function GameStatisticsPage() {
               )}
 
               {/* 카드 뒤집기 통계 */}
-              {gameStats.memory && (
+              {gameStatistics.memory && (
                 <div className='p-4 bg-blue-50 rounded-lg'>
                   <div className='flex items-center space-x-2 mb-3'>
                     <Brain className='h-5 w-5 text-blue-600' />
@@ -296,22 +278,22 @@ export default function GameStatisticsPage() {
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>총 플레이:</span>
                       <span className='font-semibold text-gray-900'>
-                        {gameStats.memory.totalPlayed}회
+                        {gameStatistics.memory.totalPlayed || 0}회
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>매칭 성공:</span>
                       <span className='font-semibold text-green-600'>
-                        {gameStats.memory.correctAnswers}쌍
+                        {gameStatistics.memory.correctAnswers || 0}쌍
                       </span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-gray-700'>평균 매칭:</span>
                       <span className='font-semibold text-blue-600'>
-                        {gameStats.memory.totalPlayed > 0
+                        {gameStatistics.memory.totalPlayed > 0
                           ? Math.round(
-                              gameStats.memory.correctAnswers /
-                                gameStats.memory.totalPlayed
+                              (gameStatistics.memory.correctAnswers || 0) /
+                                gameStatistics.memory.totalPlayed
                             )
                           : 0}
                         쌍/게임

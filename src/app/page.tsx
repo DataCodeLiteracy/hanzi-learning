@@ -14,6 +14,7 @@ import {
   LogIn,
   Gamepad2,
   Eye,
+  ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -21,18 +22,44 @@ import {
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { ApiClient } from "@/lib/apiClient"
 
 export default function Home() {
   const { user, loading: authLoading, signIn } = useAuth()
   const { userStatistics, isLoading: dataLoading } = useData()
   const [showWritingModal, setShowWritingModal] = useState(false)
+  const [showGuideModal, setShowGuideModal] = useState(false)
+  const [gradeHanziCounts, setGradeHanziCounts] = useState<
+    Record<number, number>
+  >({})
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
   const currentExperience = user?.experience || 0
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
+
+  // 급수별 한자 개수 로드
+  useEffect(() => {
+    const loadGradeHanziCounts = async () => {
+      try {
+        const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
+        const counts: Record<number, number> = {}
+
+        for (const grade of grades) {
+          const hanziList = await ApiClient.getHanziByGrade(grade)
+          counts[grade] = hanziList.length
+        }
+
+        setGradeHanziCounts(counts)
+      } catch (error) {
+        console.error("급수별 한자 개수 로드 실패:", error)
+      }
+    }
+
+    loadGradeHanziCounts()
+  }, [])
 
   // 로딩 중일 때는 로딩 스피너만 표시
   if (authLoading) {
@@ -135,6 +162,9 @@ export default function Home() {
           <div className='flex justify-between items-center py-4'>
             <h1 className='text-xl sm:text-2xl font-bold text-gray-900'>
               한자 학습 앱
+              <span className='text-sm sm:text-base font-normal text-gray-600 ml-2'>
+                (한자 진흥회 기반)
+              </span>
             </h1>
             <div className='flex items-center space-x-2 sm:space-x-4'>
               {user ? (
@@ -160,7 +190,7 @@ export default function Home() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8'>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-16'>
         {user ? (
           <div className='space-y-6 sm:space-y-8'>
             {/* 사용자 정보 및 환영 메시지 */}
@@ -289,10 +319,68 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            {/* 한자 정보 */}
+            <div>
+              <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6'>
+                한자 정보
+              </h2>
+              <div className='grid grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6'>
+                {/* 한자 목록 카드 */}
+                <button
+                  onClick={() => (window.location.href = "/hanzi/list")}
+                  className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
+                >
+                  <div className='w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-lg flex items-center justify-center mb-3 sm:mb-4'>
+                    <BookOpen className='h-5 w-5 sm:h-6 sm:w-6 text-white' />
+                  </div>
+                  <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2'>
+                    한자 목록
+                  </h3>
+                  <p className='text-xs sm:text-sm text-gray-600'>
+                    급수별 한자 현황과 학습 통계를 확인하세요
+                  </p>
+                </button>
+
+                {/* 교과서 한자어 카드 */}
+                <button
+                  onClick={() => (window.location.href = "/textbook-words")}
+                  className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
+                >
+                  <div className='w-10 h-10 sm:w-12 sm:h-12 bg-orange-500 rounded-lg flex items-center justify-center mb-3 sm:mb-4'>
+                    <BookOpen className='h-5 w-5 sm:h-6 sm:w-6 text-white' />
+                  </div>
+                  <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2'>
+                    교과서 한자어
+                  </h3>
+                  <p className='text-xs sm:text-sm text-gray-600'>
+                    교과서에 나오는 한자어를 학습하세요
+                  </p>
+                </button>
+              </div>
+
+              {/* 학습 가이드 카드 (아래에 배치) */}
+              <div className='grid grid-cols-1 gap-4 sm:gap-6'>
+                <button
+                  onClick={() => setShowGuideModal(true)}
+                  className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
+                >
+                  <div className='w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg flex items-center justify-center mb-3 sm:mb-4'>
+                    <Trophy className='h-5 w-5 sm:h-6 sm:w-6 text-white' />
+                  </div>
+                  <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2'>
+                    학습 가이드
+                  </h3>
+                  <p className='text-xs sm:text-sm text-gray-600'>
+                    효과적인 한자 학습 방법과 팁을 확인하세요
+                  </p>
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           /* 로그인 전 화면 */
-          <div className='text-center py-8 sm:py-12'>
+          <div className='text-center py-8 sm:py-12 pb-16'>
             <div className='max-w-md mx-auto'>
               <h2 className='text-2xl sm:text-3xl font-bold text-gray-900 mb-4'>
                 한자 학습에 오신 것을 환영합니다
@@ -336,6 +424,37 @@ export default function Home() {
               <button
                 onClick={() => setShowWritingModal(false)}
                 className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 학습 가이드 준비 중 모달 */}
+      {showGuideModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          {/* 배경 오버레이 */}
+          <div
+            className='absolute inset-0'
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+            onClick={() => setShowGuideModal(false)}
+          />
+
+          {/* 모달 */}
+          <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
+            <div className='text-center'>
+              <div className='text-yellow-500 text-4xl mb-4'>🚧</div>
+              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+                준비 중인 기능
+              </h3>
+              <p className='text-gray-700 mb-6'>
+                학습 가이드 기능은 현재 개발 중입니다.
+              </p>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                className='px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors'
               >
                 확인
               </button>

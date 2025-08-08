@@ -1,0 +1,2144 @@
+[
+  {
+    "gradeNumber": 1,
+    "character": "九",
+    "pinyin": "jiǔ",
+    "meaning": "아홉",
+    "sound": "구",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["乙"],
+    "relatedWords": [
+      { "hanzi": "九月", "korean": "구월", "isTextBook": false },
+      { "hanzi": "九日", "korean": "구일", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 2,
+    "character": "口",
+    "pinyin": "kǒu",
+    "meaning": "입",
+    "sound": "구",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["口"],
+    "relatedWords": [
+      { "hanzi": "入口", "korean": "입구", "isTextBook": false },
+      { "hanzi": "口語", "korean": "구어", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 3,
+    "character": "女",
+    "pinyin": "nǚ",
+    "meaning": "계집",
+    "sound": "녀",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["女"],
+    "relatedWords": [
+      { "hanzi": "女子", "korean": "여자", "isTextBook": false },
+      { "hanzi": "女校", "korean": "여교", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 4,
+    "character": "六",
+    "pinyin": "liù",
+    "meaning": "여섯",
+    "sound": "륙",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["八"],
+    "relatedWords": [
+      { "hanzi": "六月", "korean": "유월", "isTextBook": false },
+      { "hanzi": "六日", "korean": "육일", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 5,
+    "character": "母",
+    "pinyin": "mǔ",
+    "meaning": "어머니",
+    "sound": "모",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["女"],
+    "relatedWords": [
+      { "hanzi": "父母", "korean": "부모", "isTextBook": false },
+      { "hanzi": "母校", "korean": "모교", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 6,
+    "character": "木",
+    "pinyin": "mù",
+    "meaning": "나무",
+    "sound": "목",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["木"],
+    "relatedWords": [
+      { "hanzi": "木材", "korean": "목재", "isTextBook": false },
+      { "hanzi": "木工", "korean": "목공", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 7,
+    "character": "門",
+    "pinyin": "mén",
+    "meaning": "문",
+    "sound": "문",
+    "grade": 7,
+    "strokes": 8,
+    "radicals": ["門"],
+    "relatedWords": [
+      { "hanzi": "大門", "korean": "대문", "isTextBook": false },
+      { "hanzi": "門外", "korean": "문외", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 8,
+    "character": "白",
+    "pinyin": "bái",
+    "meaning": "흰",
+    "sound": "백",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["白"],
+    "relatedWords": [
+      { "hanzi": "白紙", "korean": "백지", "isTextBook": false },
+      { "hanzi": "白色", "korean": "백색", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 9,
+    "character": "父",
+    "pinyin": "fù",
+    "meaning": "아버지",
+    "sound": "부",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["父"],
+    "relatedWords": [
+      { "hanzi": "父母", "korean": "부모", "isTextBook": false },
+      { "hanzi": "父子", "korean": "부자", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 10,
+    "character": "四",
+    "pinyin": "sì",
+    "meaning": "넉",
+    "sound": "사",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["囗"],
+    "relatedWords": [
+      { "hanzi": "四月", "korean": "사월", "isTextBook": false },
+      { "hanzi": "四方", "korean": "사방", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 11,
+    "character": "山",
+    "pinyin": "shān",
+    "meaning": "메",
+    "sound": "산",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["山"],
+    "relatedWords": [
+      { "hanzi": "山川", "korean": "산천", "isTextBook": false },
+      { "hanzi": "登山", "korean": "등산", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 12,
+    "character": "三",
+    "pinyin": "sān",
+    "meaning": "석",
+    "sound": "삼",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["一"],
+    "relatedWords": [
+      { "hanzi": "三月", "korean": "삼월", "isTextBook": false },
+      { "hanzi": "三角", "korean": "삼각", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 13,
+    "character": "上",
+    "pinyin": "shàng",
+    "meaning": "위",
+    "sound": "상",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["一"],
+    "relatedWords": [
+      { "hanzi": "上昇", "korean": "상승", "isTextBook": false },
+      { "hanzi": "上衣", "korean": "상의", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 14,
+    "character": "小",
+    "pinyin": "xiǎo",
+    "meaning": "작을",
+    "sound": "소",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["小"],
+    "relatedWords": [
+      { "hanzi": "小學", "korean": "소학", "isTextBook": false },
+      { "hanzi": "小型", "korean": "소형", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 15,
+    "character": "水",
+    "pinyin": "shuǐ",
+    "meaning": "물",
+    "sound": "수",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["水"],
+    "relatedWords": [
+      { "hanzi": "水道", "korean": "수도", "isTextBook": false },
+      { "hanzi": "水田", "korean": "수전", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 16,
+    "character": "十",
+    "pinyin": "shí",
+    "meaning": "열",
+    "sound": "십",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["十"],
+    "relatedWords": [
+      { "hanzi": "十月", "korean": "시월", "isTextBook": false },
+      { "hanzi": "十分", "korean": "십분", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 17,
+    "character": "五",
+    "pinyin": "wǔ",
+    "meaning": "다섯",
+    "sound": "오",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["二"],
+    "relatedWords": [
+      { "hanzi": "五月", "korean": "오월", "isTextBook": false },
+      { "hanzi": "五日", "korean": "오일", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 18,
+    "character": "王",
+    "pinyin": "wáng",
+    "meaning": "임금",
+    "sound": "왕",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["王"],
+    "relatedWords": [
+      { "hanzi": "王宮", "korean": "왕궁", "isTextBook": false },
+      { "hanzi": "王子", "korean": "왕자", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 19,
+    "character": "月",
+    "pinyin": "yuè",
+    "meaning": "달",
+    "sound": "월",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["月"],
+    "relatedWords": [
+      { "hanzi": "月光", "korean": "월광", "isTextBook": false },
+      { "hanzi": "月刊", "korean": "월간", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 20,
+    "character": "二",
+    "pinyin": "èr",
+    "meaning": "두",
+    "sound": "이",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["二"],
+    "relatedWords": [
+      { "hanzi": "二月", "korean": "이월", "isTextBook": false },
+      { "hanzi": "二次", "korean": "이차", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 21,
+    "character": "人",
+    "pinyin": "rén",
+    "meaning": "사람",
+    "sound": "인",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["人"],
+    "relatedWords": [
+      { "hanzi": "人間", "korean": "인간", "isTextBook": false },
+      { "hanzi": "人口", "korean": "인구", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 22,
+    "character": "日",
+    "pinyin": "rì",
+    "meaning": "날",
+    "sound": "일",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["日"],
+    "relatedWords": [
+      { "hanzi": "日光", "korean": "일광", "isTextBook": false },
+      { "hanzi": "日記", "korean": "일기", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 23,
+    "character": "一",
+    "pinyin": "yī",
+    "meaning": "한",
+    "sound": "일",
+    "grade": 7,
+    "strokes": 1,
+    "radicals": ["一"],
+    "relatedWords": [
+      { "hanzi": "一月", "korean": "일월", "isTextBook": false },
+      { "hanzi": "一次", "korean": "일차", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 24,
+    "character": "子",
+    "pinyin": "zǐ",
+    "meaning": "아들",
+    "sound": "자",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["子"],
+    "relatedWords": [
+      { "hanzi": "子弟", "korean": "자제", "isTextBook": false },
+      { "hanzi": "子女", "korean": "자녀", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 25,
+    "character": "中",
+    "pinyin": "zhōng",
+    "meaning": "가운데",
+    "sound": "중",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["口"],
+    "relatedWords": [
+      { "hanzi": "中央", "korean": "중앙", "isTextBook": false },
+      { "hanzi": "中間", "korean": "중간", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 26,
+    "character": "七",
+    "pinyin": "qī",
+    "meaning": "일곱",
+    "sound": "칠",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["一"],
+    "relatedWords": [
+      { "hanzi": "七月", "korean": "칠월", "isTextBook": false },
+      { "hanzi": "七日", "korean": "칠일", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 27,
+    "character": "土",
+    "pinyin": "tǔ",
+    "meaning": "흙",
+    "sound": "토",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["土"],
+    "relatedWords": [
+      { "hanzi": "土地", "korean": "토지", "isTextBook": false },
+      { "hanzi": "土壤", "korean": "토양", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 28,
+    "character": "八",
+    "pinyin": "bā",
+    "meaning": "여덟",
+    "sound": "팔",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["八"],
+    "relatedWords": [
+      { "hanzi": "八月", "korean": "팔월", "isTextBook": false },
+      { "hanzi": "八日", "korean": "팔일", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 29,
+    "character": "下",
+    "pinyin": "xià",
+    "meaning": "아래",
+    "sound": "하",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["一"],
+    "relatedWords": [
+      { "hanzi": "下降", "korean": "하강", "isTextBook": false },
+      { "hanzi": "下水", "korean": "하수", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 30,
+    "character": "火",
+    "pinyin": "huǒ",
+    "meaning": "불",
+    "sound": "화",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["火"],
+    "relatedWords": [
+      { "hanzi": "火災", "korean": "화재", "isTextBook": false },
+      { "hanzi": "火山", "korean": "화산", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 31,
+    "character": "江",
+    "pinyin": "jiāng",
+    "meaning": "강",
+    "sound": "강",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["水"],
+    "relatedWords": [
+      { "hanzi": "江水", "korean": "강수", "isTextBook": false },
+      { "hanzi": "江南", "korean": "강남", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 32,
+    "character": "工",
+    "pinyin": "gōng",
+    "meaning": "장인",
+    "sound": "공",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["工"],
+    "relatedWords": [
+      { "hanzi": "工夫", "korean": "공부", "isTextBook": true },
+      { "hanzi": "工場", "korean": "공장", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 33,
+    "character": "金",
+    "pinyin": "jīn",
+    "meaning": "쇠",
+    "sound": "금",
+    "grade": 7,
+    "strokes": 8,
+    "radicals": ["金"],
+    "relatedWords": [
+      { "hanzi": "金屬", "korean": "금속", "isTextBook": false },
+      { "hanzi": "金錢", "korean": "금전", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 34,
+    "character": "男",
+    "pinyin": "nán",
+    "meaning": "사내",
+    "sound": "남",
+    "grade": 7,
+    "strokes": 7,
+    "radicals": ["田"],
+    "relatedWords": [
+      { "hanzi": "男子", "korean": "남자", "isTextBook": false },
+      { "hanzi": "男女", "korean": "남녀", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 35,
+    "character": "力",
+    "pinyin": "lì",
+    "meaning": "힘",
+    "sound": "력",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["力"],
+    "relatedWords": [
+      { "hanzi": "力量", "korean": "역량", "isTextBook": false },
+      { "hanzi": "協力", "korean": "협력", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 36,
+    "character": "立",
+    "pinyin": "lì",
+    "meaning": "설",
+    "sound": "립",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["立"],
+    "relatedWords": [
+      { "hanzi": "立國", "korean": "입국", "isTextBook": false },
+      { "hanzi": "成立", "korean": "성립", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 37,
+    "character": "目",
+    "pinyin": "mù",
+    "meaning": "눈",
+    "sound": "목",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["目"],
+    "relatedWords": [
+      { "hanzi": "目的", "korean": "목적", "isTextBook": false },
+      { "hanzi": "目錄", "korean": "목록", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 38,
+    "character": "百",
+    "pinyin": "bǎi",
+    "meaning": "일백",
+    "sound": "백",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["白"],
+    "relatedWords": [
+      { "hanzi": "百姓", "korean": "백성", "isTextBook": false },
+      { "hanzi": "百貨", "korean": "백화", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 39,
+    "character": "生",
+    "pinyin": "shēng",
+    "meaning": "날",
+    "sound": "생",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["生"],
+    "relatedWords": [
+      { "hanzi": "生活", "korean": "생활", "isTextBook": false },
+      { "hanzi": "學生", "korean": "학생", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 40,
+    "character": "石",
+    "pinyin": "shí",
+    "meaning": "돌",
+    "sound": "석",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["石"],
+    "relatedWords": [
+      { "hanzi": "石器", "korean": "석기", "isTextBook": false },
+      { "hanzi": "石油", "korean": "석유", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 41,
+    "character": "手",
+    "pinyin": "shǒu",
+    "meaning": "손",
+    "sound": "수",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["手"],
+    "relatedWords": [
+      { "hanzi": "手術", "korean": "수술", "isTextBook": false },
+      { "hanzi": "手紙", "korean": "수지", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 42,
+    "character": "心",
+    "pinyin": "xīn",
+    "meaning": "마음",
+    "sound": "심",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["心"],
+    "relatedWords": [
+      { "hanzi": "心臟", "korean": "심장", "isTextBook": false },
+      { "hanzi": "心情", "korean": "심정", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 43,
+    "character": "入",
+    "pinyin": "rù",
+    "meaning": "들",
+    "sound": "입",
+    "grade": 7,
+    "strokes": 2,
+    "radicals": ["入"],
+    "relatedWords": [
+      { "hanzi": "入口", "korean": "입구", "isTextBook": false },
+      { "hanzi": "入場", "korean": "입장", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 44,
+    "character": "自",
+    "pinyin": "zì",
+    "meaning": "스스로",
+    "sound": "자",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["自"],
+    "relatedWords": [
+      { "hanzi": "自由", "korean": "자유", "isTextBook": false },
+      { "hanzi": "自己", "korean": "자기", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 45,
+    "character": "足",
+    "pinyin": "zú",
+    "meaning": "발",
+    "sound": "족",
+    "grade": 7,
+    "strokes": 7,
+    "radicals": ["足"],
+    "relatedWords": [
+      { "hanzi": "足跡", "korean": "족적", "isTextBook": false },
+      { "hanzi": "滿足", "korean": "만족", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 46,
+    "character": "川",
+    "pinyin": "chuān",
+    "meaning": "내",
+    "sound": "천",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["川"],
+    "relatedWords": [
+      { "hanzi": "山川", "korean": "산천", "isTextBook": false },
+      { "hanzi": "川流", "korean": "천류", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 47,
+    "character": "千",
+    "pinyin": "qiān",
+    "meaning": "일천",
+    "sound": "천",
+    "grade": 7,
+    "strokes": 3,
+    "radicals": ["千"],
+    "relatedWords": [
+      { "hanzi": "千年", "korean": "천년", "isTextBook": false },
+      { "hanzi": "千萬", "korean": "천만", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 48,
+    "character": "天",
+    "pinyin": "tiān",
+    "meaning": "하늘",
+    "sound": "천",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["大"],
+    "relatedWords": [
+      { "hanzi": "天氣", "korean": "천기", "isTextBook": false },
+      { "hanzi": "天空", "korean": "천공", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 49,
+    "character": "出",
+    "pinyin": "chū",
+    "meaning": "날",
+    "sound": "출",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["凵"],
+    "relatedWords": [
+      { "hanzi": "出發", "korean": "출발", "isTextBook": false },
+      { "hanzi": "出口", "korean": "출구", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 50,
+    "character": "兄",
+    "pinyin": "xiōng",
+    "meaning": "맏",
+    "sound": "형",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["儿"],
+    "relatedWords": [
+      { "hanzi": "兄弟", "korean": "형제", "isTextBook": false },
+      { "hanzi": "兄長", "korean": "형장", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 선정한자"
+  },
+  {
+    "gradeNumber": 51,
+    "character": "計",
+    "pinyin": "jì",
+    "meaning": "셀",
+    "sound": "계",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["言"],
+    "relatedWords": [
+      { "hanzi": "計算", "korean": "계산", "isTextBook": true },
+      { "hanzi": "計劃", "korean": "계획", "isTextBook": true }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 52,
+    "character": "算",
+    "pinyin": "suàn",
+    "meaning": "셈",
+    "sound": "산",
+    "grade": 7,
+    "strokes": 14,
+    "radicals": ["竹"],
+    "relatedWords": [
+      { "hanzi": "計算", "korean": "계산", "isTextBook": true },
+      { "hanzi": "算數", "korean": "산수", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 53,
+    "character": "場",
+    "pinyin": "chǎng",
+    "meaning": "마당",
+    "sound": "장",
+    "grade": 7,
+    "strokes": 12,
+    "radicals": ["土"],
+    "relatedWords": [
+      { "hanzi": "場面", "korean": "장면", "isTextBook": true },
+      { "hanzi": "場所", "korean": "장소", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 54,
+    "character": "劃",
+    "pinyin": "huà",
+    "meaning": "나눌",
+    "sound": "획",
+    "grade": 7,
+    "strokes": 14,
+    "radicals": ["刀"],
+    "relatedWords": [
+      { "hanzi": "計劃", "korean": "계획", "isTextBook": true },
+      { "hanzi": "區劃", "korean": "구획", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 55,
+    "character": "善",
+    "pinyin": "shàn",
+    "meaning": "착할",
+    "sound": "선",
+    "grade": 7,
+    "strokes": 12,
+    "radicals": ["口"],
+    "relatedWords": [
+      { "hanzi": "善心", "korean": "선심", "isTextBook": true },
+      { "hanzi": "善良", "korean": "선량", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 56,
+    "character": "俗",
+    "pinyin": "sú",
+    "meaning": "풍속",
+    "sound": "속",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["人"],
+    "relatedWords": [
+      { "hanzi": "民俗", "korean": "민속", "isTextBook": true },
+      { "hanzi": "風俗", "korean": "풍속", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 57,
+    "character": "信",
+    "pinyin": "xìn",
+    "meaning": "믿을",
+    "sound": "신",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["人"],
+    "relatedWords": [
+      { "hanzi": "信號", "korean": "신호", "isTextBook": true },
+      { "hanzi": "信用", "korean": "신용", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 58,
+    "character": "備",
+    "pinyin": "bèi",
+    "meaning": "갖출",
+    "sound": "비",
+    "grade": 7,
+    "strokes": 12,
+    "radicals": ["人"],
+    "relatedWords": [
+      { "hanzi": "準備", "korean": "준비", "isTextBook": true },
+      { "hanzi": "裝備", "korean": "장비", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 59,
+    "character": "像",
+    "pinyin": "xiàng",
+    "meaning": "모양",
+    "sound": "상",
+    "grade": 7,
+    "strokes": 13,
+    "radicals": ["人"],
+    "relatedWords": [
+      { "hanzi": "想像", "korean": "상상", "isTextBook": true },
+      { "hanzi": "肖像", "korean": "초상", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 60,
+    "character": "全",
+    "pinyin": "quán",
+    "meaning": "온전",
+    "sound": "전",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["入"],
+    "relatedWords": [
+      { "hanzi": "安全", "korean": "안전", "isTextBook": true },
+      { "hanzi": "完全", "korean": "완전", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 61,
+    "character": "分",
+    "pinyin": "fēn",
+    "meaning": "나눌",
+    "sound": "분",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["刀"],
+    "relatedWords": [
+      { "hanzi": "分明", "korean": "분명", "isTextBook": true },
+      { "hanzi": "分配", "korean": "분배", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 62,
+    "character": "列",
+    "pinyin": "liè",
+    "meaning": "벌일",
+    "sound": "열",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["刀"],
+    "relatedWords": [
+      { "hanzi": "配列", "korean": "배열", "isTextBook": true },
+      { "hanzi": "列車", "korean": "열차", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 63,
+    "character": "則",
+    "pinyin": "zé",
+    "meaning": "법칙",
+    "sound": "측",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["貝"],
+    "relatedWords": [
+      { "hanzi": "規則", "korean": "규칙", "isTextBook": true },
+      { "hanzi": "法則", "korean": "법칙", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 64,
+    "character": "前",
+    "pinyin": "qián",
+    "meaning": "앞",
+    "sound": "전",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["刀"],
+    "relatedWords": [
+      { "hanzi": "午前", "korean": "오전", "isTextBook": true },
+      { "hanzi": "前進", "korean": "전진", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 65,
+    "character": "割",
+    "pinyin": "gē",
+    "meaning": "벨",
+    "sound": "할",
+    "grade": 7,
+    "strokes": 12,
+    "radicals": ["刀"],
+    "relatedWords": [
+      { "hanzi": "割引", "korean": "할인", "isTextBook": false },
+      { "hanzi": "分割", "korean": "분할", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 66,
+    "character": "動",
+    "pinyin": "dòng",
+    "meaning": "움직일",
+    "sound": "동",
+    "grade": 7,
+    "strokes": 11,
+    "radicals": ["力"],
+    "relatedWords": [
+      { "hanzi": "活動", "korean": "활동", "isTextBook": true },
+      { "hanzi": "動物", "korean": "동물", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 67,
+    "character": "勢",
+    "pinyin": "shì",
+    "meaning": "기세",
+    "sound": "세",
+    "grade": 7,
+    "strokes": 13,
+    "radicals": ["力"],
+    "relatedWords": [
+      { "hanzi": "姿勢", "korean": "자세", "isTextBook": true },
+      { "hanzi": "權勢", "korean": "권세", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 68,
+    "character": "午",
+    "pinyin": "wǔ",
+    "meaning": "정오",
+    "sound": "오",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["十"],
+    "relatedWords": [
+      { "hanzi": "午前", "korean": "오전", "isTextBook": true },
+      { "hanzi": "午後", "korean": "오후", "isTextBook": true }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 69,
+    "character": "問",
+    "pinyin": "wèn",
+    "meaning": "물을",
+    "sound": "문",
+    "grade": 7,
+    "strokes": 11,
+    "radicals": ["門"],
+    "relatedWords": [
+      { "hanzi": "質問", "korean": "질문", "isTextBook": true },
+      { "hanzi": "問題", "korean": "문제", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 70,
+    "character": "型",
+    "pinyin": "xíng",
+    "meaning": "거푸집",
+    "sound": "형",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["土"],
+    "relatedWords": [
+      { "hanzi": "模型", "korean": "모형", "isTextBook": true },
+      { "hanzi": "典型", "korean": "전형", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 71,
+    "character": "境",
+    "pinyin": "jìng",
+    "meaning": "지경",
+    "sound": "경",
+    "grade": 7,
+    "strokes": 14,
+    "radicals": ["土"],
+    "relatedWords": [
+      { "hanzi": "環境", "korean": "환경", "isTextBook": true },
+      { "hanzi": "境界", "korean": "경계", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 72,
+    "character": "姿",
+    "pinyin": "zī",
+    "meaning": "자태",
+    "sound": "자",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["女"],
+    "relatedWords": [
+      { "hanzi": "姿勢", "korean": "자세", "isTextBook": true },
+      { "hanzi": "姿態", "korean": "자태", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 73,
+    "character": "學",
+    "pinyin": "xué",
+    "meaning": "배울",
+    "sound": "학",
+    "grade": 7,
+    "strokes": 16,
+    "radicals": ["子"],
+    "relatedWords": [
+      { "hanzi": "學習", "korean": "학습", "isTextBook": true },
+      { "hanzi": "學年", "korean": "학년", "isTextBook": true }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 74,
+    "character": "安",
+    "pinyin": "ān",
+    "meaning": "편안",
+    "sound": "안",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["宀"],
+    "relatedWords": [
+      { "hanzi": "安全", "korean": "안전", "isTextBook": true },
+      { "hanzi": "安心", "korean": "안심", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 75,
+    "character": "室",
+    "pinyin": "shì",
+    "meaning": "방",
+    "sound": "실",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["宀"],
+    "relatedWords": [
+      { "hanzi": "教室", "korean": "교실", "isTextBook": true },
+      { "hanzi": "室內", "korean": "실내", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 76,
+    "character": "實",
+    "pinyin": "shí",
+    "meaning": "열매",
+    "sound": "실",
+    "grade": 7,
+    "strokes": 14,
+    "radicals": ["宀"],
+    "relatedWords": [
+      { "hanzi": "實感", "korean": "실감", "isTextBook": true },
+      { "hanzi": "實際", "korean": "실제", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 77,
+    "character": "年",
+    "pinyin": "nián",
+    "meaning": "해",
+    "sound": "년",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["干"],
+    "relatedWords": [
+      { "hanzi": "學年", "korean": "학년", "isTextBook": true },
+      { "hanzi": "年齡", "korean": "연령", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 78,
+    "character": "式",
+    "pinyin": "shì",
+    "meaning": "법",
+    "sound": "식",
+    "grade": 7,
+    "strokes": 6,
+    "radicals": ["弋"],
+    "relatedWords": [
+      { "hanzi": "式", "korean": "식", "isTextBook": true },
+      { "hanzi": "形式", "korean": "형식", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 79,
+    "character": "形",
+    "pinyin": "xíng",
+    "meaning": "모양",
+    "sound": "형",
+    "grade": 7,
+    "strokes": 7,
+    "radicals": ["彡"],
+    "relatedWords": [
+      { "hanzi": "三角形", "korean": "삼각형", "isTextBook": true },
+      { "hanzi": "形狀", "korean": "형상", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 80,
+    "character": "役",
+    "pinyin": "yì",
+    "meaning": "역군",
+    "sound": "역",
+    "grade": 7,
+    "strokes": 7,
+    "radicals": ["彳"],
+    "relatedWords": [
+      { "hanzi": "役割", "korean": "역할", "isTextBook": true },
+      { "hanzi": "勤務", "korean": "근무", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 81,
+    "character": "後",
+    "pinyin": "hòu",
+    "meaning": "뒤",
+    "sound": "후",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["彳"],
+    "relatedWords": [
+      { "hanzi": "午後", "korean": "오후", "isTextBook": true },
+      { "hanzi": "後退", "korean": "후퇴", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 82,
+    "character": "想",
+    "pinyin": "xiǎng",
+    "meaning": "생각",
+    "sound": "상",
+    "grade": 7,
+    "strokes": 13,
+    "radicals": ["心"],
+    "relatedWords": [
+      { "hanzi": "想像", "korean": "상상", "isTextBook": true },
+      { "hanzi": "思想", "korean": "사상", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 83,
+    "character": "感",
+    "pinyin": "gǎn",
+    "meaning": "느낄",
+    "sound": "감",
+    "grade": 7,
+    "strokes": 13,
+    "radicals": ["心"],
+    "relatedWords": [
+      { "hanzi": "實感", "korean": "실감", "isTextBook": true },
+      { "hanzi": "感情", "korean": "감정", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 84,
+    "character": "教",
+    "pinyin": "jiào",
+    "meaning": "가르칠",
+    "sound": "교",
+    "grade": 7,
+    "strokes": 11,
+    "radicals": ["攴"],
+    "relatedWords": [
+      { "hanzi": "教室", "korean": "교실", "isTextBook": true },
+      { "hanzi": "敎育", "korean": "교육", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 85,
+    "character": "整",
+    "pinyin": "zhěng",
+    "meaning": "고를",
+    "sound": "정",
+    "grade": 7,
+    "strokes": 16,
+    "radicals": ["攴"],
+    "relatedWords": [
+      { "hanzi": "整理", "korean": "정리", "isTextBook": true },
+      { "hanzi": "整頓", "korean": "정돈", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 86,
+    "character": "文",
+    "pinyin": "wén",
+    "meaning": "글월",
+    "sound": "문",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["文"],
+    "relatedWords": [
+      { "hanzi": "文法", "korean": "문법", "isTextBook": true },
+      { "hanzi": "文化", "korean": "문화", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 87,
+    "character": "方",
+    "pinyin": "fāng",
+    "meaning": "모",
+    "sound": "방",
+    "grade": 7,
+    "strokes": 4,
+    "radicals": ["方"],
+    "relatedWords": [
+      { "hanzi": "方法", "korean": "방법", "isTextBook": true },
+      { "hanzi": "方向", "korean": "방향", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 88,
+    "character": "明",
+    "pinyin": "míng",
+    "meaning": "밝을",
+    "sound": "명",
+    "grade": 7,
+    "strokes": 8,
+    "radicals": ["日"],
+    "relatedWords": [
+      { "hanzi": "分明", "korean": "분명", "isTextBook": true },
+      { "hanzi": "明白", "korean": "명백", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 89,
+    "character": "時",
+    "pinyin": "shí",
+    "meaning": "때",
+    "sound": "시",
+    "grade": 7,
+    "strokes": 10,
+    "radicals": ["日"],
+    "relatedWords": [
+      { "hanzi": "時間", "korean": "시간", "isTextBook": true },
+      { "hanzi": "時計", "korean": "시계", "isTextBook": true }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 90,
+    "character": "模",
+    "pinyin": "mó",
+    "meaning": "본뜰",
+    "sound": "모",
+    "grade": 7,
+    "strokes": 14,
+    "radicals": ["木"],
+    "relatedWords": [
+      { "hanzi": "模型", "korean": "모형", "isTextBook": true },
+      { "hanzi": "模範", "korean": "모범", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 91,
+    "character": "正",
+    "pinyin": "zhèng",
+    "meaning": "바를",
+    "sound": "정",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["止"],
+    "relatedWords": [
+      { "hanzi": "正直", "korean": "정직", "isTextBook": true },
+      { "hanzi": "正確", "korean": "정확", "isTextBook": true }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 92,
+    "character": "民",
+    "pinyin": "mín",
+    "meaning": "백성",
+    "sound": "민",
+    "grade": 7,
+    "strokes": 5,
+    "radicals": ["氏"],
+    "relatedWords": [
+      { "hanzi": "民俗", "korean": "민속", "isTextBook": true },
+      { "hanzi": "人民", "korean": "인민", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 93,
+    "character": "法",
+    "pinyin": "fǎ",
+    "meaning": "법",
+    "sound": "법",
+    "grade": 7,
+    "strokes": 8,
+    "radicals": ["水"],
+    "relatedWords": [
+      { "hanzi": "文法", "korean": "문법", "isTextBook": true },
+      { "hanzi": "方法", "korean": "방법", "isTextBook": true }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 94,
+    "character": "活",
+    "pinyin": "huó",
+    "meaning": "살",
+    "sound": "활",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["水"],
+    "relatedWords": [
+      { "hanzi": "活動", "korean": "활동", "isTextBook": true },
+      { "hanzi": "生活", "korean": "생활", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 95,
+    "character": "準",
+    "pinyin": "zhǔn",
+    "meaning": "겨눌",
+    "sound": "준",
+    "grade": 7,
+    "strokes": 13,
+    "radicals": ["水"],
+    "relatedWords": [
+      { "hanzi": "準備", "korean": "준비", "isTextBook": true },
+      { "hanzi": "標準", "korean": "표준", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 96,
+    "character": "然",
+    "pinyin": "rán",
+    "meaning": "저절",
+    "sound": "연",
+    "grade": 7,
+    "strokes": 12,
+    "radicals": ["火"],
+    "relatedWords": [
+      { "hanzi": "自然", "korean": "자연", "isTextBook": true },
+      { "hanzi": "當然", "korean": "당연", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 97,
+    "character": "理",
+    "pinyin": "lǐ",
+    "meaning": "다스릴",
+    "sound": "리",
+    "grade": 7,
+    "strokes": 11,
+    "radicals": ["王"],
+    "relatedWords": [
+      { "hanzi": "整理", "korean": "정리", "isTextBook": true },
+      { "hanzi": "管理", "korean": "관리", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 98,
+    "character": "環",
+    "pinyin": "huán",
+    "meaning": "고리",
+    "sound": "환",
+    "grade": 7,
+    "strokes": 17,
+    "radicals": ["王"],
+    "relatedWords": [
+      { "hanzi": "環境", "korean": "환경", "isTextBook": true },
+      { "hanzi": "環狀", "korean": "환상", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 99,
+    "character": "發",
+    "pinyin": "fā",
+    "meaning": "필",
+    "sound": "발",
+    "grade": 7,
+    "strokes": 12,
+    "radicals": ["癶"],
+    "relatedWords": [
+      { "hanzi": "發音", "korean": "발음", "isTextBook": true },
+      { "hanzi": "發展", "korean": "발전", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 100,
+    "character": "直",
+    "pinyin": "zhí",
+    "meaning": "곧을",
+    "sound": "직",
+    "grade": 7,
+    "strokes": 8,
+    "radicals": ["目"],
+    "relatedWords": [
+      { "hanzi": "正直", "korean": "정직", "isTextBook": true },
+      { "hanzi": "直接", "korean": "직접", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 101,
+    "character": "確",
+    "pinyin": "què",
+    "meaning": "굳을",
+    "sound": "확",
+    "grade": 7,
+    "strokes": 15,
+    "radicals": ["石"],
+    "relatedWords": [
+      { "hanzi": "正確", "korean": "정확", "isTextBook": true },
+      { "hanzi": "確認", "korean": "확인", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 102,
+    "character": "符",
+    "pinyin": "fú",
+    "meaning": "부적",
+    "sound": "부",
+    "grade": 7,
+    "strokes": 11,
+    "radicals": ["竹"],
+    "relatedWords": [
+      { "hanzi": "符號", "korean": "부호", "isTextBook": true },
+      { "hanzi": "符合", "korean": "부합", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 103,
+    "character": "習",
+    "pinyin": "xí",
+    "meaning": "익힐",
+    "sound": "습",
+    "grade": 7,
+    "strokes": 11,
+    "radicals": ["羽"],
+    "relatedWords": [
+      { "hanzi": "學習", "korean": "학습", "isTextBook": true },
+      { "hanzi": "習慣", "korean": "습관", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 104,
+    "character": "育",
+    "pinyin": "yù",
+    "meaning": "기를",
+    "sound": "육",
+    "grade": 7,
+    "strokes": 8,
+    "radicals": ["肉"],
+    "relatedWords": [
+      { "hanzi": "體育", "korean": "체육", "isTextBook": true },
+      { "hanzi": "教育", "korean": "교육", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 105,
+    "character": "號",
+    "pinyin": "hào",
+    "meaning": "신호",
+    "sound": "호",
+    "grade": 7,
+    "strokes": 13,
+    "radicals": ["口"],
+    "relatedWords": [
+      { "hanzi": "信號", "korean": "신호", "isTextBook": true },
+      { "hanzi": "號召", "korean": "호소", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 106,
+    "character": "要",
+    "pinyin": "yào",
+    "meaning": "요긴",
+    "sound": "요",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["女"],
+    "relatedWords": [
+      { "hanzi": "重要", "korean": "중요", "isTextBook": true },
+      { "hanzi": "需要", "korean": "수요", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 107,
+    "character": "規",
+    "pinyin": "guī",
+    "meaning": "법",
+    "sound": "규",
+    "grade": 7,
+    "strokes": 11,
+    "radicals": ["見"],
+    "relatedWords": [
+      { "hanzi": "規則", "korean": "규칙", "isTextBook": true },
+      { "hanzi": "規模", "korean": "규모", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 108,
+    "character": "角",
+    "pinyin": "jiǎo",
+    "meaning": "뿔",
+    "sound": "각",
+    "grade": 7,
+    "strokes": 7,
+    "radicals": ["角"],
+    "relatedWords": [
+      { "hanzi": "三角形", "korean": "삼각형", "isTextBook": true },
+      { "hanzi": "角度", "korean": "각도", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 109,
+    "character": "詩",
+    "pinyin": "shī",
+    "meaning": "시",
+    "sound": "시",
+    "grade": 7,
+    "strokes": 13,
+    "radicals": ["言"],
+    "relatedWords": [
+      { "hanzi": "詩", "korean": "시", "isTextBook": true },
+      { "hanzi": "詩人", "korean": "시인", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 110,
+    "character": "質",
+    "pinyin": "zhì",
+    "meaning": "물질",
+    "sound": "질",
+    "grade": 7,
+    "strokes": 15,
+    "radicals": ["貝"],
+    "relatedWords": [
+      { "hanzi": "質問", "korean": "질문", "isTextBook": true },
+      { "hanzi": "質量", "korean": "질량", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 111,
+    "character": "邊",
+    "pinyin": "biān",
+    "meaning": "곁",
+    "sound": "변",
+    "grade": 7,
+    "strokes": 22,
+    "radicals": ["辵"],
+    "relatedWords": [
+      { "hanzi": "邊", "korean": "변", "isTextBook": true },
+      { "hanzi": "邊境", "korean": "변경", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 112,
+    "character": "配",
+    "pinyin": "pèi",
+    "meaning": "나눌",
+    "sound": "배",
+    "grade": 7,
+    "strokes": 10,
+    "radicals": ["酉"],
+    "relatedWords": [
+      { "hanzi": "配列", "korean": "배열", "isTextBook": true },
+      { "hanzi": "分配", "korean": "분배", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 113,
+    "character": "重",
+    "pinyin": "zhòng",
+    "meaning": "무거울",
+    "sound": "중",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["里"],
+    "relatedWords": [
+      { "hanzi": "重要", "korean": "중요", "isTextBook": true },
+      { "hanzi": "重量", "korean": "중량", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 114,
+    "character": "間",
+    "pinyin": "jiān",
+    "meaning": "사이",
+    "sound": "간",
+    "grade": 7,
+    "strokes": 12,
+    "radicals": ["門"],
+    "relatedWords": [
+      { "hanzi": "時間", "korean": "시간", "isTextBook": true },
+      { "hanzi": "空間", "korean": "공간", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 115,
+    "character": "閱",
+    "pinyin": "yuè",
+    "meaning": "볼",
+    "sound": "열",
+    "grade": 7,
+    "strokes": 15,
+    "radicals": ["門"],
+    "relatedWords": [
+      { "hanzi": "閱", "korean": "열", "isTextBook": true },
+      { "hanzi": "閱覽", "korean": "열람", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 116,
+    "character": "面",
+    "pinyin": "miàn",
+    "meaning": "낯",
+    "sound": "면",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["面"],
+    "relatedWords": [
+      { "hanzi": "場面", "korean": "장면", "isTextBook": true },
+      { "hanzi": "表面", "korean": "표면", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 117,
+    "character": "音",
+    "pinyin": "yīn",
+    "meaning": "소리",
+    "sound": "음",
+    "grade": 7,
+    "strokes": 9,
+    "radicals": ["音"],
+    "relatedWords": [
+      { "hanzi": "發音", "korean": "발음", "isTextBook": true },
+      { "hanzi": "音響", "korean": "음향", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 118,
+    "character": "驗",
+    "pinyin": "yàn",
+    "meaning": "시험할",
+    "sound": "험",
+    "grade": 7,
+    "strokes": 23,
+    "radicals": ["馬"],
+    "relatedWords": [
+      { "hanzi": "體驗", "korean": "체험", "isTextBook": true },
+      { "hanzi": "實驗", "korean": "실험", "isTextBook": false }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  },
+  {
+    "gradeNumber": 119,
+    "character": "體",
+    "pinyin": "tǐ",
+    "meaning": "몸",
+    "sound": "체",
+    "grade": 7,
+    "strokes": 23,
+    "radicals": ["骨"],
+    "relatedWords": [
+      { "hanzi": "體育", "korean": "체육", "isTextBook": true },
+      { "hanzi": "體驗", "korean": "체험", "isTextBook": true }
+    ],
+    "strokeOrder": [],
+    "difficulty": "easy",
+    "frequency": 1,
+    "notes": "한국한자실력평가원 7급 교과서 한자어"
+  }
+]
