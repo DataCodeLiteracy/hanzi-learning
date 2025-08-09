@@ -57,6 +57,7 @@ export default function PartialGame() {
   } | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
+  const [questionsAnswered, setQuestionsAnswered] = useState<number>(0) // 실제 답한 문제 수
 
   // 8급 데이터 기본 로딩
   useEffect(() => {
@@ -74,6 +75,48 @@ export default function PartialGame() {
 
     loadInitialData()
   }, [])
+
+  // 페이지 이탈 시 통계 업데이트 (중도 포기 대응)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (questionsAnswered > 0 && !gameEnded && !hasUpdatedStats) {
+        // 비동기로 통계 업데이트 (페이지 이탈 직전)
+        navigator.sendBeacon(
+          "/api/updateStats",
+          JSON.stringify({
+            userId: user?.id,
+            gameType: "partial",
+            totalPlayed: questionsAnswered,
+            correctAnswers: correctAnswers,
+            wrongAnswers: questionsAnswered - correctAnswers,
+          })
+        )
+      }
+    }
+
+    const handleRouteChange = async () => {
+      if (questionsAnswered > 0 && !gameEnded && !hasUpdatedStats && user) {
+        try {
+          await ApiClient.updateGameStatisticsNew(user.id, "partial", {
+            totalPlayed: questionsAnswered,
+            correctAnswers: correctAnswers,
+            wrongAnswers: questionsAnswered - correctAnswers,
+          })
+          setHasUpdatedStats(true)
+        } catch (error) {
+          console.error("중도 포기 통계 업데이트 실패:", error)
+        }
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+
+    // 컴포넌트 언마운트 시에도 통계 업데이트
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      handleRouteChange()
+    }
+  }, [questionsAnswered, gameEnded, hasUpdatedStats, user, correctAnswers])
 
   // 급수 변경 시 데이터 업데이트
   const handleGradeChange = async (grade: number) => {
@@ -189,6 +232,7 @@ export default function PartialGame() {
         setQuestions(generatedQuestions)
         setCurrentQuestionIndex(0)
         setCorrectAnswers(0)
+        setQuestionsAnswered(0) // 답한 문제 수 리셋
         setSelectedAnswer(null)
         setIsCorrect(null)
         setGameEnded(false)
@@ -212,6 +256,8 @@ export default function PartialGame() {
     const correct = answer === currentQuestion.correctAnswer
 
     setIsCorrect(correct)
+    setQuestionsAnswered((prev) => prev + 1) // 답한 문제 수 증가
+
     if (correct) {
       setCorrectAnswers((prev) => prev + 1)
       // 문제별로 경험치 추가 및 한자별 통계 업데이트
@@ -301,9 +347,9 @@ export default function PartialGame() {
         try {
           // 게임이 완료되면 게임 통계만 업데이트 (세션 단위)
           await ApiClient.updateGameStatisticsNew(user.id, "partial", {
-            totalPlayed: 1, // 게임 세션 1회
+            totalPlayed: questionsAnswered, // 실제 답한 문제 수
             correctAnswers: correctAnswers, // 이번 게임의 총 정답수
-            wrongAnswers: questionCount - correctAnswers, // 이번 게임의 총 오답수
+            wrongAnswers: questionsAnswered - correctAnswers, // 실제 답한 문제 중 오답수
           })
           // 경험치는 이미 각 문제마다 추가되었으므로 여기서는 추가하지 않음
           setHasUpdatedStats(true)
@@ -314,7 +360,14 @@ export default function PartialGame() {
 
       updateFinalStats()
     }
-  }, [gameEnded, user, correctAnswers, questionCount, hasUpdatedStats])
+  }, [
+    gameEnded,
+    user,
+    correctAnswers,
+    questionCount,
+    hasUpdatedStats,
+    questionsAnswered,
+  ])
 
   const getHiddenPartStyle = (part: string) => {
     switch (part) {
@@ -709,6 +762,7 @@ export default function PartialGame() {
                 <button
                   onClick={() => {
                     setShowSettings(true)
+                    setQuestionsAnswered(0) // 답한 문제 수 리셋
                     setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
                   }}
                   className='flex-1 max-w-xs px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'

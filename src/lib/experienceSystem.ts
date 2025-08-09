@@ -35,20 +35,20 @@ export const calculateMemoryGameExperience = (
   difficulty: "easy" | "medium" | "hard",
   totalPairs: number
 ): number => {
-  // 카드 수에 따른 기본 경험치
+  // 카드 수에 따른 기본 경험치 (기존 +2)
   let baseExp = 0
   if (totalPairs <= 8) {
-    // 4x4, 4x5
-    baseExp = 2
-  } else if (totalPairs <= 14) {
-    // 4x6, 4x7, 4x8
-    baseExp = 3
-  } else {
-    // 그 이상
+    // 4x4 (8쌍)
     baseExp = 4
+  } else if (totalPairs <= 12) {
+    // 4x6 (12쌍)
+    baseExp = 5
+  } else {
+    // 4x8 (16쌍) 이상
+    baseExp = 6
   }
 
-  // 난이도에 따른 배수
+  // 난이도에 따른 추가 경험치
   switch (difficulty) {
     case "easy":
       return baseExp

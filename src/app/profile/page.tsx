@@ -308,7 +308,9 @@ export default function ProfilePage() {
                         : "부분 맞추기"}
                     </div>
                     <div className='text-sm text-gray-600'>
-                      총 플레이: {stats.totalPlayed}회
+                      {gameType === "memory" ? "총 게임: " : "총 문제: "}
+                      {stats.totalPlayed}
+                      {gameType === "memory" ? "회" : "개"}
                     </div>
                     <div className='text-sm text-gray-600'>
                       정답률: {Math.round(stats.accuracy)}%

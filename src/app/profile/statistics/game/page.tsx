@@ -164,9 +164,9 @@ export default function GameStatisticsPage() {
                   </div>
                   <div className='space-y-2 text-sm'>
                     <div className='flex justify-between'>
-                      <span className='text-gray-700'>총 플레이:</span>
+                      <span className='text-gray-700'>총 문제:</span>
                       <span className='font-semibold text-gray-900'>
-                        {gameStatistics.quiz.totalPlayed}회
+                        {gameStatistics.quiz.totalPlayed}개
                       </span>
                     </div>
                     <div className='flex justify-between'>
@@ -202,9 +202,9 @@ export default function GameStatisticsPage() {
                   </div>
                   <div className='space-y-2 text-sm'>
                     <div className='flex justify-between'>
-                      <span className='text-gray-700'>총 플레이:</span>
+                      <span className='text-gray-700'>총 문제:</span>
                       <span className='font-semibold text-gray-900'>
-                        {gameStatistics.partial.totalPlayed}회
+                        {gameStatistics.partial.totalPlayed}개
                       </span>
                     </div>
                     <div className='flex justify-between'>

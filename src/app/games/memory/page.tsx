@@ -384,14 +384,15 @@ export default function MemoryGame() {
     if (matchedPairs === (gridSize.cols * gridSize.rows) / 2 && !gameEnded) {
       setGameEnded(true)
 
-      // 간단한 경험치 계산: 게임 완료 시 고정 경험치
-      const experience = calculateGameExperience("memory")
+      // 난이도와 카드 수에 따른 경험치 계산
+      const totalPairs = (gridSize.cols * gridSize.rows) / 2
+      const experience = calculateMemoryGameExperience(difficulty, totalPairs)
 
       // 사용자 경험치 업데이트
       if (user) {
         const updateStats = async () => {
           try {
-            // 경험치 추가
+            // 게임 완료 시 난이도와 카드 수에 따른 경험치 지급
             await updateUserExperience(experience)
 
             // 게임 통계 업데이트
@@ -408,7 +409,14 @@ export default function MemoryGame() {
         updateStats()
       }
     }
-  }, [matchedPairs, gameEnded, gridSize, user, updateUserExperience])
+  }, [
+    matchedPairs,
+    gameEnded,
+    gridSize,
+    user,
+    updateUserExperience,
+    difficulty,
+  ])
 
   // 게임 시작 처리
   const handleStartGame = () => {
@@ -459,15 +467,14 @@ export default function MemoryGame() {
     }
   }
 
-  // 매칭 성공 시 경험치 추가 및 한자별 통계 업데이트
-  const addMatchExperience = async (matchedCards: Card[]) => {
+  // 매칭 성공 시 한자별 통계만 업데이트 (경험치는 게임 완료 시에만)
+  const updateMatchedHanziStats = async (matchedCards: Card[]) => {
     if (!user) return
     try {
-      const totalPairs = (gridSize.cols * gridSize.rows) / 2
-      const experience = calculateMemoryGameExperience(difficulty, totalPairs)
-      await updateUserExperience(experience) // 난이도와 카드 수에 따른 경험치 추가 (새로고침 없이)
+      // 경험치는 게임 완료 시에만 지급하므로 여기서는 제거
+      // await updateUserExperience(experience) // 제거됨
 
-      // 매칭된 카드들의 한자 통계 업데이트
+      // 매칭된 카드들의 한자 통계만 업데이트
       for (const card of matchedCards) {
         if (card.hanziId) {
           await ApiClient.updateHanziStatisticsNew(
@@ -479,7 +486,7 @@ export default function MemoryGame() {
         }
       }
     } catch (error) {
-      console.error("경험치 추가 실패:", error)
+      console.error("한자 통계 업데이트 실패:", error)
     }
   }
 
@@ -546,7 +553,7 @@ export default function MemoryGame() {
         newCards[secondIndex].isMatched = true
         setCards(newCards)
         setMatchedPairs((prev) => prev + 1)
-        addMatchExperience([firstCard, secondCard]) // 매칭된 카드들 전달
+        updateMatchedHanziStats([firstCard, secondCard]) // 매칭된 카드들 전달
 
         // 매칭 성공 모달 표시
         setIsPaused(true) // 게임 일시정지
@@ -902,8 +909,7 @@ export default function MemoryGame() {
                     onClick={() => handleCardClick(index)}
                     disabled={card.isMatched}
                     className={`
-                    aspect-square rounded-lg shadow-md transition-all duration-300 transform
-                    card-hover perspective-1000
+                    aspect-square rounded-lg shadow-md transform
                     ${
                       card.isMatched
                         ? "bg-green-100 border-2 border-green-500"
@@ -912,38 +918,31 @@ export default function MemoryGame() {
                         : "bg-blue-500 border-2 border-blue-600 hover:bg-blue-600"
                     }
                     ${card.isMatched ? "cursor-default" : "cursor-pointer"}
-                    ${card.isFlipped ? "animate-flip" : ""}
+                    ${!card.isMatched ? "hover:scale-105" : ""}
+                    transition-transform duration-200
                   `}
                   >
-                    <div className='relative w-full h-full transform-style-preserve-3d'>
+                    <div className='relative w-full h-full'>
                       {/* 카드 뒷면 (물음표) */}
-                      <div
-                        className={`
-                        absolute inset-0 flex items-center justify-center
-                        ${card.isFlipped ? "opacity-0" : "opacity-100"}
-                        transition-opacity duration-300
-                      `}
-                      >
-                        <div className='text-lg sm:text-xl md:text-2xl text-white font-bold'>
-                          ?
+                      {!card.isFlipped && (
+                        <div className='absolute inset-0 flex items-center justify-center'>
+                          <div className='text-lg sm:text-xl md:text-2xl text-white font-bold'>
+                            ?
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* 카드 앞면 (한자 정보) */}
-                      <div
-                        className={`
-                        absolute inset-0 flex flex-col items-center justify-center p-2 sm:p-3
-                        ${card.isFlipped ? "opacity-100" : "opacity-0"}
-                        transition-opacity duration-300
-                      `}
-                      >
-                        <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
-                          {card.hanzi}
+                      {card.isFlipped && (
+                        <div className='absolute inset-0 flex flex-col items-center justify-center p-2 sm:p-3'>
+                          <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
+                            {card.hanzi}
+                          </div>
+                          <div className='text-xs sm:text-sm text-gray-600 text-center'>
+                            {card.meaning} {card.sound}
+                          </div>
                         </div>
-                        <div className='text-xs sm:text-sm text-gray-600 text-center'>
-                          {card.meaning} {card.sound}
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -964,7 +963,11 @@ export default function MemoryGame() {
               </div>
               <div className='text-lg'>
                 <span className='font-semibold'>획득 경험치:</span>{" "}
-                {calculateGameExperience("memory")}EXP
+                {calculateMemoryGameExperience(
+                  difficulty,
+                  (gridSize.cols * gridSize.rows) / 2
+                )}
+                EXP
               </div>
               <div className='text-lg'>
                 <span className='font-semibold'>소요 시간:</span>{" "}
