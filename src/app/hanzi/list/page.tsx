@@ -1,7 +1,6 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
-import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, BookOpen, ExternalLink, Search, Info } from "lucide-react"
 import Link from "next/link"
@@ -19,6 +18,7 @@ export default function HanziListPage() {
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
   const [loading, setLoading] = useState(true)
+  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
   const [noDataMessage, setNoDataMessage] = useState<string>("")
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
   const [gradeDataStatus, setGradeDataStatus] = useState<{
@@ -42,36 +42,49 @@ export default function HanziListPage() {
     setGradeDataStatus(status)
   }
 
-  // 한자 데이터 로드 (급수 변경 시에만)
-  useEffect(() => {
-    // 초기 로딩이 아닌 경우에만 실행
-    if (selectedGrade !== 8) {
-      const loadHanziData = async () => {
-        setLoading(true)
+  // 8급 데이터 기본 로딩
+  const loadHanziData = async (grade: number) => {
+    if (grade === 8) setLoading(true)
+    else setIsLoadingGrade(true)
+
+    try {
+      const data = await ApiClient.getHanziByGrade(grade)
+      setHanziList(data)
+
+      if (data.length === 0) {
+        const gradeName =
+          grade === 5.5
+            ? "준5급"
+            : grade === 4.5
+            ? "준4급"
+            : grade === 3.5
+            ? "준3급"
+            : `${grade}급`
+        setNoDataMessage(`${gradeName}에 등록된 한자가 없습니다.`)
+        setShowNoDataModal(true)
+      } else {
         setNoDataMessage("")
         setShowNoDataModal(false)
-
-        try {
-          const data = await ApiClient.getHanziByGrade(selectedGrade)
-          setHanziList(data)
-
-          // 데이터가 없으면 메시지 표시
-          if (data.length === 0) {
-            setNoDataMessage(`${selectedGrade}급 데이터가 없습니다.`)
-            setShowNoDataModal(true)
-          }
-        } catch (error) {
-          console.error("한자 데이터 로드 실패:", error)
-          setNoDataMessage(`${selectedGrade}급 데이터를 불러올 수 없습니다.`)
-          setShowNoDataModal(true)
-        } finally {
-          setLoading(false)
-        }
       }
-
-      loadHanziData()
+    } catch (error) {
+      console.error("한자 데이터 로드 실패:", error)
+    } finally {
+      if (grade === 8) setLoading(false)
+      else setIsLoadingGrade(false)
     }
-  }, [selectedGrade])
+  }
+
+  useEffect(() => {
+    loadHanziData(8) // 8급 기본 로드
+  }, [])
+
+  // 급수 변경 시 데이터 로드
+  const handleGradeChange = async (grade: number) => {
+    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
+
+    setSelectedGrade(grade)
+    await loadHanziData(grade)
+  }
 
   // 컴포넌트 마운트 시 급수별 데이터 상태 확인
   useEffect(() => {
@@ -175,30 +188,38 @@ export default function HanziListPage() {
               <BookOpen className='h-5 w-5' />
               <span>급수 선택</span>
             </h3>
-            <select
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(Number(e.target.value))}
-              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
-            >
-              {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => {
-                const gradeName =
-                  grade === 5.5
-                    ? "준5급"
-                    : grade === 4.5
-                    ? "준4급"
-                    : grade === 3.5
-                    ? "준3급"
-                    : `${grade}급`
-
-                const hasData = gradeDataStatus[grade]
-
-                return (
+            <div className='mb-4'>
+              <label className='block text-sm font-semibold text-gray-700 mb-2'>
+                급수 선택
+              </label>
+              <select
+                value={selectedGrade}
+                onChange={(e) => handleGradeChange(Number(e.target.value))}
+                disabled={isLoadingGrade}
+                className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
+              >
+                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
                   <option key={grade} value={grade} className='font-medium'>
-                    {gradeName} {!hasData && "(데이터 없음)"}
+                    {grade === 5.5
+                      ? "준5급"
+                      : grade === 4.5
+                      ? "준4급"
+                      : grade === 3.5
+                      ? "준3급"
+                      : `${grade}급`}
                   </option>
-                )
-              })}
-            </select>
+                ))}
+              </select>
+
+              {isLoadingGrade && (
+                <div className='mt-2 flex items-center space-x-2'>
+                  <LoadingSpinner message='' />
+                  <span className='text-sm text-gray-600'>
+                    급수 데이터를 불러오는 중...
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 한자 목록 */}

@@ -22,13 +22,7 @@ interface TextbookWord {
 }
 
 export default function TextbookWordsPage() {
-  const {
-    user,
-    loading: authLoading,
-    initialLoading,
-    isAuthenticated,
-  } = useAuth()
-  const [hanziList, setHanziList] = useState<Hanzi[]>([])
+  const { user, loading: authLoading, initialLoading } = useAuth()
   const [textbookWords, setTextbookWords] = useState<TextbookWord[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
@@ -37,33 +31,38 @@ export default function TextbookWordsPage() {
     data: any
   } | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
 
-  // 데이터 로드
+  // 8급 데이터 기본 로딩
+  const loadData = async (grade: number = 8) => {
+    if (grade === 8) setLoading(true)
+    else setIsLoadingGrade(true)
+
+    try {
+      const hanziData = await ApiClient.getHanziByGrade(grade)
+      // setHanziList(hanziData) // This line was removed as per the edit hint
+
+      const words = extractTextbookWords(hanziData, grade, hanziData)
+      setTextbookWords(words)
+    } catch (error) {
+      console.error("데이터 로드 실패:", error)
+    } finally {
+      if (grade === 8) setLoading(false)
+      else setIsLoadingGrade(false)
+    }
+  }
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true)
-        // 선택한 급수의 한자 데이터만 로드
-        const hanzi = await ApiClient.getHanziByGrade(selectedGrade)
-        setHanziList(hanzi)
+    loadData(8) // 8급 기본 로드
+  }, []) // loadData를 dependency에서 제거
 
-        // 전체 한자 데이터를 로드하여 단어 구성 한자 찾기에 사용
-        const allHanzi = await ApiClient.getAllHanzi()
+  // 급수 변경 시 데이터 로드
+  const handleGradeChange = async (grade: number) => {
+    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
 
-        // 교과서 한자어 추출 (전체 한자 목록 사용)
-        const words = extractTextbookWords(hanzi, selectedGrade, allHanzi)
-        setTextbookWords(words)
-      } catch (error) {
-        console.error("데이터 로드 실패:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (!authLoading) {
-      loadData()
-    }
-  }, [authLoading, selectedGrade])
+    setSelectedGrade(grade)
+    await loadData(grade)
+  }
 
   // 교과서 한자어 추출 함수
   const extractTextbookWords = (
@@ -210,13 +209,19 @@ export default function TextbookWordsPage() {
 
   // 단어 클릭 핸들러
   const handleWordClick = (word: TextbookWord) => {
-    setSelectedItem({ type: "word", data: word })
+    setSelectedItem({
+      type: "word",
+      data: word,
+    })
     setShowModal(true)
   }
 
   // 한자 클릭 핸들러
   const handleHanziClick = (hanzi: any) => {
-    setSelectedItem({ type: "hanzi", data: hanzi })
+    setSelectedItem({
+      type: "hanzi",
+      data: hanzi,
+    })
     setShowModal(true)
   }
 
@@ -230,7 +235,7 @@ export default function TextbookWordsPage() {
   }
 
   // 데이터 로딩 중
-  if (loading) {
+  if (loading || isLoadingGrade) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='한자 데이터를 불러오는 중...' />
@@ -285,7 +290,7 @@ export default function TextbookWordsPage() {
               </label>
               <select
                 value={selectedGrade}
-                onChange={(e) => setSelectedGrade(Number(e.target.value))}
+                onChange={(e) => handleGradeChange(Number(e.target.value))}
                 className='px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-bold text-lg'
                 style={{
                   fontWeight: "bold",

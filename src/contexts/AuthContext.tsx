@@ -43,10 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userDoc.exists()) {
         // 새 사용자인 경우 Firestore에 저장
         const isAdmin = false // 새 사용자는 기본적으로 관리자가 아님
-        console.log("🔐 새 사용자 생성:", {
-          email: firebaseUser.email,
-          isAdmin: isAdmin,
-        })
 
         const newUser: User = {
           id: firebaseUser.uid,
@@ -66,10 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 기존 사용자인 경우 기존 데이터 반환
         const userData = userDoc.data() as User
 
-        console.log("🔐 기존 사용자 로드:", {
-          email: userData.email,
-          isAdmin: userData.isAdmin,
-        })
         return userData
       }
     } catch (error) {
@@ -133,11 +125,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log(
-        "Auth state changed:",
-        firebaseUser ? "User logged in" : "No user"
-      )
-
       // 이미 인증 완료된 상태에서 같은 사용자라면 빠른 처리
       if (
         hasInitialized &&

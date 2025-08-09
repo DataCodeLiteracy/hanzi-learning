@@ -1,53 +1,141 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
-import { useData } from "@/contexts/DataContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
-import {
-  ArrowLeft,
-  BookOpen,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-} from "lucide-react"
-import Link from "next/link"
-import { useState, useEffect, Suspense } from "react"
 import { ApiClient } from "@/lib/apiClient"
-import {
-  HanziStatisticsService,
-  HanziStatistics,
-} from "@/lib/services/hanziStatisticsService"
-import { useSearchParams } from "next/navigation"
+import LoadingSpinner from "@/components/LoadingSpinner"
+import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
+import Link from "next/link"
 
-function HanziStatisticsContent() {
-  const { user, loading: authLoading } = useAuth()
-  const { hanziList } = useData()
-  const searchParams = useSearchParams()
-  const [selectedGrade, setSelectedGrade] = useState<number>(() => {
-    const gradeParam = searchParams.get("grade")
-    return gradeParam ? Number(gradeParam) : 8
-  })
-  const [hanziStatistics, setHanziStatistics] = useState<HanziStatistics[]>([])
-  const [loading, setLoading] = useState<boolean>(false)
+interface HanziStatistics {
+  hanziId: string
+  character: string
+  meaning: string
+  sound: string
+  grade: number
+  totalAttempts: number
+  correctAttempts: number
+  accuracy: number
+  lastAttempted: string
+}
 
-  // 한자 통계 로드
+export default function HanziStatisticsPage() {
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+  } = useAuth()
+  const [selectedGrade, setSelectedGrade] = useState<number>(8)
+  const [hanziStats, setHanziStats] = useState<HanziStatistics[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false)
+
+  // 8급 데이터 기본 로딩
   useEffect(() => {
-    if (user && selectedGrade) {
-      const loadHanziStatistics = async () => {
-        try {
-          const stats = await HanziStatisticsService.getGradeHanziStatistics(
-            user.id,
-            selectedGrade
-          )
-          setHanziStatistics(stats)
-        } catch (error) {
-          console.error("한자 통계 로드 실패:", error)
-        }
+    const loadInitialData = async () => {
+      if (!user) return
+
+      setIsLoading(true)
+      try {
+        const grade8Data = await ApiClient.getHanziByGrade(8)
+        // 한자별 통계 데이터 가져오기
+        const statsPromises = grade8Data.map(async (hanzi) => {
+          try {
+            const stats = await ApiClient.getHanziStatistics(user.id, hanzi.id)
+            return {
+              hanziId: hanzi.id,
+              character: hanzi.character,
+              meaning: hanzi.meaning,
+              sound: hanzi.sound || hanzi.pinyin || "",
+              grade: hanzi.grade,
+              totalAttempts: stats?.totalStudied || 0,
+              correctAttempts: stats?.correctAnswers || 0,
+              accuracy:
+                stats?.totalStudied && stats.totalStudied > 0
+                  ? (stats.correctAnswers / stats.totalStudied) * 100
+                  : 0,
+              lastAttempted: stats?.lastStudied || "없음",
+            }
+          } catch (error) {
+            // 통계가 없는 경우 기본값 반환
+            return {
+              hanziId: hanzi.id,
+              character: hanzi.character,
+              meaning: hanzi.meaning,
+              sound: hanzi.sound || hanzi.pinyin || "",
+              grade: hanzi.grade,
+              totalAttempts: 0,
+              correctAttempts: 0,
+              accuracy: 0,
+              lastAttempted: "없음",
+            }
+          }
+        })
+
+        const allStats = await Promise.all(statsPromises)
+        setHanziStats(allStats)
+      } catch (error) {
+        console.error("초기 데이터 로드 실패:", error)
+      } finally {
+        setIsLoading(false)
       }
-      loadHanziStatistics()
     }
-  }, [user, selectedGrade])
+
+    loadInitialData()
+  }, [user])
+
+  // 급수 변경 시 데이터 업데이트
+  const handleGradeChange = async (grade: number) => {
+    if (grade === selectedGrade || !user) return
+
+    setSelectedGrade(grade)
+    setIsLoadingGrade(true)
+
+    try {
+      const gradeData = await ApiClient.getHanziByGrade(grade)
+
+      // 한자별 통계 데이터 가져오기
+      const statsPromises = gradeData.map(async (hanzi) => {
+        try {
+          const stats = await ApiClient.getHanziStatistics(user.id, hanzi.id)
+          return {
+            hanziId: hanzi.id,
+            character: hanzi.character,
+            meaning: hanzi.meaning,
+            sound: hanzi.sound || hanzi.pinyin || "",
+            grade: hanzi.grade,
+            totalAttempts: stats?.totalStudied || 0,
+            correctAttempts: stats?.correctAnswers || 0,
+            accuracy:
+              stats?.totalStudied && stats.totalStudied > 0
+                ? (stats.correctAnswers / stats.totalStudied) * 100
+                : 0,
+            lastAttempted: stats?.lastStudied || "없음",
+          }
+        } catch (error) {
+          return {
+            hanziId: hanzi.id,
+            character: hanzi.character,
+            meaning: hanzi.meaning,
+            sound: hanzi.sound || hanzi.pinyin || "",
+            grade: hanzi.grade,
+            totalAttempts: 0,
+            correctAttempts: 0,
+            accuracy: 0,
+            lastAttempted: "없음",
+          }
+        }
+      })
+
+      const allStats = await Promise.all(statsPromises)
+      setHanziStats(allStats)
+    } catch (error) {
+      console.error("급수 데이터 로드 실패:", error)
+    } finally {
+      setIsLoadingGrade(false)
+    }
+  }
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading) {
@@ -74,10 +162,10 @@ function HanziStatisticsContent() {
     )
   }
 
-  const totalHanzi = hanziStatistics.length
-  const studiedHanzi = hanziStatistics.filter((h) => h.totalStudied > 0).length
+  const totalHanzi = hanziStats.length
+  const studiedHanzi = hanziStats.filter((h) => h.totalAttempts > 0).length
   const notStudiedHanzi = totalHanzi - studiedHanzi
-  const studiedStats = hanziStatistics.filter((h) => h.totalStudied > 0)
+  const studiedStats = hanziStats.filter((h) => h.totalAttempts > 0)
   const averageAccuracy =
     studiedStats.length > 0
       ? Math.round(
@@ -111,16 +199,15 @@ function HanziStatisticsContent() {
           {/* 급수 선택 */}
           <div className='bg-white rounded-lg shadow-lg p-6'>
             <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
-              <BookOpen className='h-5 w-5' />
+              <TrendingUp className='h-5 w-5' />
               <span>급수 선택</span>
             </h3>
             <select
               value={selectedGrade}
-              onChange={(e) => setSelectedGrade(Number(e.target.value))}
+              onChange={(e) => handleGradeChange(Number(e.target.value))}
               className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
             >
               {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => {
-                const gradeData = hanziList.filter((h) => h.grade === grade)
                 return (
                   <option key={grade} value={grade} className='font-medium'>
                     {grade === 5.5
@@ -129,8 +216,7 @@ function HanziStatisticsContent() {
                       ? "준4급"
                       : grade === 3.5
                       ? "준3급"
-                      : `${grade}급`}{" "}
-                    ({gradeData.length}개)
+                      : `${grade}급`}
                   </option>
                 )
               })}
@@ -174,24 +260,24 @@ function HanziStatisticsContent() {
           {/* 한자별 상세 통계 */}
           <div className='bg-white rounded-lg shadow-lg p-6'>
             <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
-              <BookOpen className='h-5 w-5' />
+              <TrendingUp className='h-5 w-5' />
               <span>한자별 상세 통계</span>
             </h3>
-            {loading ? (
+            {isLoadingGrade ? (
               <div className='flex justify-center py-8'>
                 <LoadingSpinner message='통계를 불러오는 중...' />
               </div>
             ) : (
               <div className='space-y-4'>
-                {hanziStatistics.map((hanzi) => (
+                {hanziStats.map((hanzi) => (
                   <div
                     key={hanzi.hanziId}
                     className='relative bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors'
                   >
                     {/* 미학습 배지 */}
-                    {hanzi.totalStudied === 0 && (
+                    {hanzi.totalAttempts === 0 && (
                       <div className='absolute top-2 right-2 flex items-center space-x-1 bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-medium'>
-                        <AlertTriangle className='h-3 w-3' />
+                        <TrendingDown className='h-3 w-3' />
                         <span>미학습</span>
                       </div>
                     )}
@@ -206,8 +292,7 @@ function HanziStatisticsContent() {
                             ? "준4급"
                             : selectedGrade === 3.5
                             ? "준3급"
-                            : `${selectedGrade}급`}{" "}
-                          {hanzi.gradeNumber}번
+                            : `${selectedGrade}급`}
                         </div>
                       </div>
 
@@ -238,7 +323,7 @@ function HanziStatisticsContent() {
                             학습 횟수
                           </div>
                           <div className='text-lg font-semibold text-gray-900'>
-                            {hanzi.totalStudied}
+                            {hanzi.totalAttempts}
                           </div>
                         </div>
 
@@ -248,8 +333,8 @@ function HanziStatisticsContent() {
                             정답
                           </div>
                           <div className='text-lg font-semibold text-green-600 flex items-center justify-center'>
-                            <CheckCircle className='h-4 w-4 mr-1' />
-                            {hanzi.correctAnswers}
+                            <TrendingUp className='h-4 w-4 mr-1' />
+                            {hanzi.correctAttempts}
                           </div>
                         </div>
 
@@ -259,8 +344,8 @@ function HanziStatisticsContent() {
                             오답
                           </div>
                           <div className='text-lg font-semibold text-red-600 flex items-center justify-center'>
-                            <XCircle className='h-4 w-4 mr-1' />
-                            {hanzi.wrongAnswers}
+                            <TrendingDown className='h-4 w-4 mr-1' />
+                            {hanzi.totalAttempts - hanzi.correctAttempts}
                           </div>
                         </div>
 
@@ -291,15 +376,5 @@ function HanziStatisticsContent() {
         </div>
       </main>
     </div>
-  )
-}
-
-export default function HanziStatisticsPage() {
-  return (
-    <Suspense
-      fallback={<LoadingSpinner message='통계 데이터를 불러오는 중...' />}
-    >
-      <HanziStatisticsContent />
-    </Suspense>
   )
 }

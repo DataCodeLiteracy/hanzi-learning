@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
-import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
 import Link from "next/link"
@@ -20,7 +19,6 @@ interface PartialQuestion {
 }
 
 export default function PartialGame() {
-  const { hanziList, isLoading: dataLoading } = useData()
   const {
     user,
     loading: authLoading,
@@ -58,32 +56,7 @@ export default function PartialGame() {
     sound: string
   } | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [gradeDataStatus, setGradeDataStatus] = useState<{
-    [key: number]: boolean
-  }>({}) // 각 급수별 데이터 존재 여부
-
-  // 각 급수별 데이터 존재 여부 확인
-  const checkGradeDataStatus = async () => {
-    const status: { [key: number]: boolean } = {}
-    const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
-
-    for (const grade of grades) {
-      try {
-        const data = await ApiClient.getHanziByGrade(grade)
-        status[grade] = data.length > 0
-      } catch (error) {
-        console.error(`${grade}급 데이터 확인 실패:`, error)
-        status[grade] = false
-      }
-    }
-
-    setGradeDataStatus(status)
-  }
-
-  // 컴포넌트 마운트 시 데이터 상태 확인
-  useEffect(() => {
-    checkGradeDataStatus()
-  }, [])
+  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
 
   // 8급 데이터 기본 로딩
   useEffect(() => {
@@ -92,8 +65,6 @@ export default function PartialGame() {
       try {
         const grade8Data = await ApiClient.getHanziByGrade(8)
         setGradeHanzi(grade8Data)
-        // 초기 데이터 상태 확인 완료 후 checkGradeDataStatus 다시 실행
-        await checkGradeDataStatus()
       } catch (error) {
         console.error("초기 데이터 로드 실패:", error)
       } finally {
@@ -106,15 +77,15 @@ export default function PartialGame() {
 
   // 급수 변경 시 데이터 업데이트
   const handleGradeChange = async (grade: number) => {
+    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
+
     setSelectedGrade(grade)
-    setIsLoading(true)
+    setIsLoadingGrade(true)
 
     try {
-      // 직접 API 호출하여 해당 급수 데이터 가져오기
       const gradeData = await ApiClient.getHanziByGrade(grade)
       setGradeHanzi(gradeData)
 
-      // 데이터가 없으면 즉시 알림
       if (gradeData.length === 0) {
         setNoDataMessage(
           `선택한 급수(${
@@ -129,28 +100,15 @@ export default function PartialGame() {
         )
         setShowNoDataModal(true)
       } else {
-        // 데이터가 있으면 오류 메시지 제거
         setNoDataMessage("")
         setShowNoDataModal(false)
       }
-
-      // 데이터 상태 업데이트
-      setGradeDataStatus((prev) => ({
-        ...prev,
-        [grade]: gradeData.length > 0,
-      }))
     } catch (error) {
       console.error("급수 데이터 로드 실패:", error)
       setNoDataMessage("데이터 로드 중 오류가 발생했습니다.")
       setShowNoDataModal(true)
-
-      // 오류 시 데이터 상태 업데이트
-      setGradeDataStatus((prev) => ({
-        ...prev,
-        [grade]: false,
-      }))
     } finally {
-      setIsLoading(false)
+      setIsLoadingGrade(false)
     }
   }
 
@@ -314,7 +272,6 @@ export default function PartialGame() {
           correctAnswers: isCorrect ? 1 : 0,
           wrongAnswers: isCorrect ? 0 : 1,
         })
-        console.log(`문제 통계 업데이트: ${isCorrect ? "정답" : "오답"}`)
       } catch (error) {
         console.error("문제 통계 업데이트 실패:", error)
       }
@@ -332,9 +289,6 @@ export default function PartialGame() {
             correctAnswers: correctAnswers,
             wrongAnswers: questionCount - correctAnswers,
           })
-          console.log(
-            `부분 맞추기 완료! 정답: ${correctAnswers}/${questionCount}`
-          )
           // 경험치는 이미 각 문제마다 추가되었으므로 여기서는 추가하지 않음
           setHasUpdatedStats(true)
         } catch (error) {
@@ -403,7 +357,7 @@ export default function PartialGame() {
     )
   }
 
-  if (hanziList.length === 0) {
+  if (gradeHanzi.length === 0) {
     return <LoadingSpinner message='한자 데이터를 불러오는 중...' />
   }
 
@@ -442,7 +396,8 @@ export default function PartialGame() {
               <select
                 value={selectedGrade}
                 onChange={(e) => handleGradeChange(Number(e.target.value))}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
+                disabled={isLoadingGrade}
+                className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
               >
                 {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
                   <option key={grade} value={grade} className='font-medium'>
@@ -452,19 +407,30 @@ export default function PartialGame() {
                       ? "준4급"
                       : grade === 3.5
                       ? "준3급"
-                      : `${grade}급`}{" "}
-                    {gradeDataStatus[grade] === false ? "(데이터 없음)" : ""}
+                      : `${grade}급`}
                   </option>
                 ))}
               </select>
+
+              {isLoadingGrade && (
+                <div className='mt-2 flex items-center space-x-2'>
+                  <LoadingSpinner message='' />
+                  <span className='text-sm text-gray-600'>
+                    급수 데이터를 불러오는 중...
+                  </span>
+                </div>
+              )}
+
               {gradeHanzi.length > 0 ? (
                 <p className='mt-2 text-sm text-gray-600'>
                   해당 급수에 {gradeHanzi.length}개의 한자가 있습니다.
                 </p>
               ) : (
-                <p className='mt-2 text-sm text-red-600 font-medium'>
-                  해당 급수에 데이터가 없습니다.
-                </p>
+                !isLoadingGrade && (
+                  <p className='mt-2 text-sm text-red-600 font-medium'>
+                    해당 급수에 데이터가 없습니다.
+                  </p>
+                )
               )}
             </div>
 

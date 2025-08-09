@@ -51,7 +51,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined)
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
-  const [selectedGrade, setSelectedGrade] = useState<number>(8) // 기본 8급
+  const [selectedGrade, setSelectedGrade] = useState<number>(0) // 기본값을 0으로 변경 (자동 로드 방지)
   const [userStatistics, setUserStatistics] = useState<UserStatistics | null>(
     null
   )
@@ -61,7 +61,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
 
   const refreshHanziData = useCallback(async () => {
-    if (!selectedGrade) return
+    if (!selectedGrade || selectedGrade === 0) return // 0인 경우 로드하지 않음
 
     setIsLoading(true)
     try {
@@ -152,10 +152,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user, userStatistics]
   )
 
-  // 등급 변경 시 한자 데이터 새로고침
-  useEffect(() => {
-    refreshHanziData()
-  }, [refreshHanziData])
+  // 등급 변경 시 한자 데이터 새로고침 (수동 호출시에만)
+  // useEffect는 제거하고 수동으로만 refreshHanziData 호출
 
   // 사용자 로그인 시 데이터 로드
   useEffect(() => {

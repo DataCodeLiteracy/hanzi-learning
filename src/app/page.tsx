@@ -4,17 +4,13 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import {
-  ArrowRight,
-  Brain,
   BookOpen,
   PenTool,
-  Puzzle,
   Trophy,
   User,
   LogIn,
   Gamepad2,
   Eye,
-  ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -22,50 +18,19 @@ import {
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
-import { useState, useEffect } from "react"
-import { ApiClient } from "@/lib/apiClient"
+import { useState } from "react"
 
 export default function Home() {
-  const {
-    user,
-    loading: authLoading,
-    initialLoading,
-    isAuthenticated,
-    signIn,
-  } = useAuth()
+  const { user, initialLoading, signIn } = useAuth()
   const { userStatistics, isLoading: dataLoading } = useData()
   const [showWritingModal, setShowWritingModal] = useState(false)
   const [showGuideModal, setShowGuideModal] = useState(false)
-  const [gradeHanziCounts, setGradeHanziCounts] = useState<
-    Record<number, number>
-  >({})
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
   const currentExperience = user?.experience || 0
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
-
-  // 급수별 한자 개수 로드
-  useEffect(() => {
-    const loadGradeHanziCounts = async () => {
-      try {
-        const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
-        const counts: Record<number, number> = {}
-
-        for (const grade of grades) {
-          const hanziList = await ApiClient.getHanziByGrade(grade)
-          counts[grade] = hanziList.length
-        }
-
-        setGradeHanziCounts(counts)
-      } catch (error) {
-        console.error("급수별 한자 개수 로드 실패:", error)
-      }
-    }
-
-    loadGradeHanziCounts()
-  }, [])
 
   // 로딩 중일 때는 로딩 스피너만 표시 (진짜 초기 로딩만)
   if (initialLoading) {

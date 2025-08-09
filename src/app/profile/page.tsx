@@ -43,20 +43,6 @@ export default function ProfilePage() {
     GameStatistics
   > | null>(null)
 
-  // 사용자 정보 디버깅
-  useEffect(() => {
-    if (user) {
-      console.log("👤 사용자 정보:", {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        isAdmin: user.isAdmin,
-        level: user.level,
-        experience: user.experience,
-      })
-    }
-  }, [user])
-
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
   const currentExperience = user?.experience || 0
