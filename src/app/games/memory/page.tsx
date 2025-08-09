@@ -381,11 +381,18 @@ export default function MemoryGame() {
 
   // 게임 종료 처리
   useEffect(() => {
-    if (matchedPairs === (gridSize.cols * gridSize.rows) / 2 && !gameEnded) {
+    const totalPairs = (gridSize.cols * gridSize.rows) / 2
+
+    if (
+      gameStarted && // 게임이 시작되었고
+      !gameEnded && // 아직 끝나지 않았고
+      cards.length > 0 && // 카드가 존재하고
+      matchedPairs > 0 && // 실제로 매칭된 쌍이 있고
+      matchedPairs === totalPairs // 모든 쌍을 완성했을 때만
+    ) {
       setGameEnded(true)
 
       // 난이도와 카드 수에 따른 경험치 계산
-      const totalPairs = (gridSize.cols * gridSize.rows) / 2
       const experience = calculateMemoryGameExperience(difficulty, totalPairs)
 
       // 사용자 경험치 업데이트
@@ -412,6 +419,8 @@ export default function MemoryGame() {
   }, [
     matchedPairs,
     gameEnded,
+    gameStarted, // 추가
+    cards.length, // 추가
     gridSize,
     user,
     updateUserExperience,
