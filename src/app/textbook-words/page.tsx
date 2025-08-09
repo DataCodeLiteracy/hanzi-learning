@@ -184,22 +184,20 @@ export default function TextbookWordsPage() {
     return counts
   }
 
-  // 급수별 카운트 상태
-  const [gradeCounts, setGradeCounts] = useState<{ [grade: number]: number }>(
-    {}
-  )
+  // 급수별 카운트 상태 - 제거하고 하드코딩된 급수 사용
+  // const [gradeCounts, setGradeCounts] = useState<{ [grade: number]: number }>({})
 
-  // 급수별 카운트 로드
-  useEffect(() => {
-    const loadGradeCounts = async () => {
-      const counts = await getGradeCounts()
-      setGradeCounts(counts)
-    }
+  // 급수별 카운트 로드 - 제거 (불필요한 모든 급수 조회 방지)
+  // useEffect(() => {
+  //   const loadGradeCounts = async () => {
+  //     const counts = await getGradeCounts()
+  //     setGradeCounts(counts)
+  //   }
 
-    if (!authLoading) {
-      loadGradeCounts()
-    }
-  }, [authLoading])
+  //   if (!authLoading) {
+  //     loadGradeCounts()
+  //   }
+  // }, [authLoading])
 
   // 모달 닫기
   const closeModal = () => {
@@ -291,27 +289,51 @@ export default function TextbookWordsPage() {
               <select
                 value={selectedGrade}
                 onChange={(e) => handleGradeChange(Number(e.target.value))}
-                className='px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-bold text-lg'
+                disabled={isLoadingGrade}
+                className='px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-bold text-lg disabled:opacity-50'
                 style={{
                   fontWeight: "bold",
                   color: "#1f2937",
                 }}
               >
-                {Object.keys(gradeCounts)
-                  .map((grade) => parseFloat(grade)) // parseInt 대신 parseFloat 사용
-                  .sort((a, b) => b - a) // 내림차순 정렬 (8급부터)
-                  .map((grade) => (
-                    <option key={grade} value={grade} className='font-bold'>
-                      {grade === 5.5
-                        ? "준5급"
-                        : grade === 4.5
-                        ? "준4급"
-                        : grade === 3.5
-                        ? "준3급"
-                        : `${grade}급`}
-                    </option>
-                  ))}
+                {/* 하드코딩된 급수 목록 */}
+                <option value={8} className='font-bold'>
+                  8급
+                </option>
+                <option value={7} className='font-bold'>
+                  7급
+                </option>
+                <option value={6} className='font-bold'>
+                  6급
+                </option>
+                <option value={5.5} className='font-bold'>
+                  준5급
+                </option>
+                <option value={5} className='font-bold'>
+                  5급
+                </option>
+                <option value={4.5} className='font-bold'>
+                  준4급
+                </option>
+                <option value={4} className='font-bold'>
+                  4급
+                </option>
+                <option value={3.5} className='font-bold'>
+                  준3급
+                </option>
+                <option value={3} className='font-bold'>
+                  3급
+                </option>
               </select>
+
+              {isLoadingGrade && (
+                <div className='mt-2 flex items-center space-x-2'>
+                  <LoadingSpinner message='' />
+                  <span className='text-sm text-gray-600'>
+                    급수 데이터를 불러오는 중...
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* 결과 수 */}

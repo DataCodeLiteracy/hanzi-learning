@@ -21,26 +21,6 @@ export default function HanziListPage() {
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
   const [noDataMessage, setNoDataMessage] = useState<string>("")
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
-  const [gradeDataStatus, setGradeDataStatus] = useState<{
-    [key: number]: boolean
-  }>({}) // 각 급수별 데이터 존재 여부
-
-  // 급수별 데이터 상태 확인
-  const checkGradeDataStatus = async () => {
-    const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
-    const status: { [grade: number]: boolean } = {}
-
-    for (const grade of grades) {
-      try {
-        const data = await ApiClient.getHanziByGrade(grade)
-        status[grade] = data.length > 0
-      } catch (error) {
-        status[grade] = false
-      }
-    }
-
-    setGradeDataStatus(status)
-  }
 
   // 8급 데이터 기본 로딩
   const loadHanziData = async (grade: number) => {
@@ -86,32 +66,6 @@ export default function HanziListPage() {
     await loadHanziData(grade)
   }
 
-  // 컴포넌트 마운트 시 급수별 데이터 상태 확인
-  useEffect(() => {
-    const initializeData = async () => {
-      setLoading(true)
-      try {
-        await checkGradeDataStatus()
-        // 초기 8급 데이터 로드
-        const data = await ApiClient.getHanziByGrade(selectedGrade)
-        setHanziList(data)
-
-        if (data.length === 0) {
-          setNoDataMessage(`${selectedGrade}급 데이터가 없습니다.`)
-          setShowNoDataModal(true)
-        }
-      } catch (error) {
-        console.error("초기 데이터 로드 실패:", error)
-        setNoDataMessage(`${selectedGrade}급 데이터를 불러올 수 없습니다.`)
-        setShowNoDataModal(true)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    initializeData()
-  }, [])
-
   // 네이버 한자 사전으로 연결
   const openNaverDictionary = (character: string) => {
     const url = `https://hanja.dict.naver.com/search?query=${encodeURIComponent(
@@ -120,7 +74,7 @@ export default function HanziListPage() {
     window.open(url, "_blank")
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시 (초기 로딩만)
+  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
@@ -129,7 +83,7 @@ export default function HanziListPage() {
     )
   }
 
-  // 인증이 완료되었지만 사용자가 없을 때
+  // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
   if (!user) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
@@ -137,8 +91,8 @@ export default function HanziListPage() {
           <h1 className='text-2xl font-bold text-gray-900 mb-4'>
             로그인이 필요합니다
           </h1>
-          <Link href='/' className='text-blue-600 hover:text-blue-700'>
-            홈으로 돌아가기
+          <Link href='/login' className='text-blue-600 hover:text-blue-800'>
+            로그인하기
           </Link>
         </div>
       </div>

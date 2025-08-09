@@ -209,24 +209,36 @@ export default function QuizGame() {
       setCorrectAnswers((prev) => prev + 1)
       // 문제별로 경험치 추가 및 한자별 통계 업데이트
       addQuestionExperience()
+    } else {
+      // 틀렸을 때 한자별 통계 업데이트 (틀린 답)
+      updateHanziStats(false)
     }
 
-    // 문제별 통계 업데이트
-    updateQuestionStats(correct)
-
-    // 2초 후 다음 문제로
-    setTimeout(() => {
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex((prev) => prev + 1)
-        setSelectedAnswer(null)
-        setIsCorrect(null)
-      } else {
-        setGameEnded(true)
-      }
-    }, 2000)
+    // 틀렸을 때 정답 모달 2.5초간 표시, 맞았을 때는 바로 다음 문제
+    if (!correct) {
+      setTimeout(() => {
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex((prev) => prev + 1)
+          setSelectedAnswer(null)
+          setIsCorrect(null)
+        } else {
+          setGameEnded(true)
+        }
+      }, 2500) // 틀렸을 때 2.5초 대기
+    } else {
+      setTimeout(() => {
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex((prev) => prev + 1)
+          setSelectedAnswer(null)
+          setIsCorrect(null)
+        } else {
+          setGameEnded(true)
+        }
+      }, 1000) // 맞았을 때 1초 대기
+    }
   }
 
-  // 문제별 경험치 추가 및 한자별 통계 업데이트
+  // 문제별 경험치 추가 및 한자별 통계 업데이트 (정답시)
   const addQuestionExperience = async () => {
     if (!user) return
     try {
@@ -247,33 +259,36 @@ export default function QuizGame() {
     }
   }
 
-  // 문제별 통계 업데이트
-  const updateQuestionStats = async (isCorrect: boolean) => {
-    if (user) {
-      try {
-        await GameStatisticsService.updateGameStatistics(user.id, "quiz", {
-          totalPlayed: 1,
-          correctAnswers: isCorrect ? 1 : 0,
-          wrongAnswers: isCorrect ? 0 : 1,
-        })
-      } catch (error) {
-        console.error("문제 통계 업데이트 실패:", error)
+  // 한자별 통계 업데이트 (오답시)
+  const updateHanziStats = async (isCorrect: boolean) => {
+    if (!user) return
+    try {
+      const currentQuestion = questions[currentQuestionIndex]
+      if (currentQuestion && currentQuestion.hanziId) {
+        await HanziStatisticsService.updateHanziStatistics(
+          user.id,
+          currentQuestion.hanziId,
+          "quiz",
+          isCorrect
+        )
       }
+    } catch (error) {
+      console.error("한자 통계 업데이트 실패:", error)
     }
   }
 
-  // 게임 종료 시 최종 통계 업데이트
+  // 게임 종료 시 최종 통계 업데이트 (게임 전체 통계만)
   useEffect(() => {
     if (gameEnded && user && !hasUpdatedStats) {
       const updateFinalStats = async () => {
         try {
-          // 게임이 완료되면 최종 통계도 업데이트 (중간에 나가도 문제를 풀었다면 통계 반영)
+          // 게임이 완료되면 게임 통계만 업데이트 (세션 단위)
           await GameStatisticsService.updateGameStatistics(user.id, "quiz", {
-            totalPlayed: 1,
-            correctAnswers: correctAnswers,
-            wrongAnswers: questionCount - correctAnswers,
+            totalPlayed: 1, // 게임 세션 1회
+            correctAnswers: correctAnswers, // 이번 게임의 총 정답수
+            wrongAnswers: questionCount - correctAnswers, // 이번 게임의 총 오답수
           })
-          updateUserExperience(1) // 게임 종료 시 경험치 업데이트
+          updateUserExperience(1) // 게임 종료 시 추가 경험치
           setHasUpdatedStats(true)
         } catch (error) {
           console.error("게임 통계 업데이트 실패:", error)
@@ -652,6 +667,45 @@ export default function QuizGame() {
                 >
                   홈으로
                 </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 틀렸을 때 정답 모달 */}
+        {selectedAnswer !== null && !isCorrect && (
+          <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
+            <div className='bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center'>
+              <div className='mb-6'>
+                <XCircle className='h-16 w-16 text-red-500 mx-auto mb-4' />
+                <h3 className='text-2xl font-bold text-gray-900 mb-2'>
+                  틀렸습니다
+                </h3>
+                <p className='text-gray-600'>정답을 확인해보세요</p>
+              </div>
+
+              <div className='bg-gray-50 rounded-lg p-6 mb-6'>
+                <div className='text-6xl font-bold text-blue-600 mb-6'>
+                  {currentQuestion.hanzi}
+                </div>
+                <div className='space-y-3'>
+                  <div className='text-xl text-gray-700'>
+                    <span className='text-gray-500 font-medium'>뜻:</span>
+                    <span className='font-bold text-green-600 ml-2'>
+                      {currentQuestion.meaning}
+                    </span>
+                  </div>
+                  <div className='text-xl text-gray-700'>
+                    <span className='text-gray-500 font-medium'>음:</span>
+                    <span className='font-bold text-green-600 ml-2'>
+                      {currentQuestion.sound}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className='text-sm text-gray-500'>
+                잠시 후 다음 문제로 넘어갑니다...
               </div>
             </div>
           </div>

@@ -31,9 +31,7 @@ export default function AdminPage() {
   // 테스트용: 모든 한자 조회
   const testGetAllHanzi = async () => {
     try {
-      console.log("🧪 모든 한자 조회 테스트 시작...")
       const allHanzi = await ApiClient.getAllHanzi()
-      console.log("🧪 테스트 완료:", allHanzi.length, "개의 한자")
     } catch (error) {
       console.error("🧪 테스트 실패:", error)
     }
@@ -75,9 +73,7 @@ export default function AdminPage() {
   const loadHanziData = async () => {
     setIsLoading(true)
     try {
-      console.log(`Loading hanzi data for grade: ${selectedGrade}`)
       const data = await ApiClient.getHanziByGrade(selectedGrade)
-      console.log(`Loaded ${data.length} hanzi characters`)
 
       if (data.length === 0) {
         // 한자가 없는 경우 모달 표시
@@ -91,9 +87,6 @@ export default function AdminPage() {
       // 오류가 발생해도 빈 배열로 설정하여 UI가 깨지지 않도록 함
       setHanziData([])
       // 사용자에게는 조용히 처리하고 콘솔에만 로그 출력
-      console.log(
-        `${selectedGrade}급 한자 데이터를 불러오는 중 오류가 발생했습니다.`
-      )
     } finally {
       setIsLoading(false)
     }

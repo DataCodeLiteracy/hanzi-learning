@@ -28,73 +28,18 @@ export default function HanziStatisticsPage() {
   } = useAuth()
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziStats, setHanziStats] = useState<HanziStatistics[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false)
 
-  // 8급 데이터 기본 로딩
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (!user) return
+  // 급수별 한자 통계 로드
+  const loadHanziStats = async (grade: number) => {
+    if (!user) return
 
-      setIsLoading(true)
-      try {
-        const grade8Data = await ApiClient.getHanziByGrade(8)
-        // 한자별 통계 데이터 가져오기
-        const statsPromises = grade8Data.map(async (hanzi) => {
-          try {
-            const stats = await ApiClient.getHanziStatistics(user.id, hanzi.id)
-            return {
-              hanziId: hanzi.id,
-              character: hanzi.character,
-              meaning: hanzi.meaning,
-              sound: hanzi.sound || hanzi.pinyin || "",
-              grade: hanzi.grade,
-              totalAttempts: stats?.totalStudied || 0,
-              correctAttempts: stats?.correctAnswers || 0,
-              accuracy:
-                stats?.totalStudied && stats.totalStudied > 0
-                  ? (stats.correctAnswers / stats.totalStudied) * 100
-                  : 0,
-              lastAttempted: stats?.lastStudied || "없음",
-            }
-          } catch (error) {
-            // 통계가 없는 경우 기본값 반환
-            return {
-              hanziId: hanzi.id,
-              character: hanzi.character,
-              meaning: hanzi.meaning,
-              sound: hanzi.sound || hanzi.pinyin || "",
-              grade: hanzi.grade,
-              totalAttempts: 0,
-              correctAttempts: 0,
-              accuracy: 0,
-              lastAttempted: "없음",
-            }
-          }
-        })
-
-        const allStats = await Promise.all(statsPromises)
-        setHanziStats(allStats)
-      } catch (error) {
-        console.error("초기 데이터 로드 실패:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadInitialData()
-  }, [user])
-
-  // 급수 변경 시 데이터 업데이트
-  const handleGradeChange = async (grade: number) => {
-    if (grade === selectedGrade || !user) return
-
-    setSelectedGrade(grade)
-    setIsLoadingGrade(true)
+    if (grade === 8) setIsLoading(true)
+    else setIsLoadingGrade(true)
 
     try {
       const gradeData = await ApiClient.getHanziByGrade(grade)
-
       // 한자별 통계 데이터 가져오기
       const statsPromises = gradeData.map(async (hanzi) => {
         try {
@@ -114,6 +59,7 @@ export default function HanziStatisticsPage() {
             lastAttempted: stats?.lastStudied || "없음",
           }
         } catch (error) {
+          // 통계가 없는 경우 기본값 반환
           return {
             hanziId: hanzi.id,
             character: hanzi.character,
@@ -131,10 +77,26 @@ export default function HanziStatisticsPage() {
       const allStats = await Promise.all(statsPromises)
       setHanziStats(allStats)
     } catch (error) {
-      console.error("급수 데이터 로드 실패:", error)
+      console.error("한자 통계 로드 실패:", error)
     } finally {
-      setIsLoadingGrade(false)
+      if (grade === 8) setIsLoading(false)
+      else setIsLoadingGrade(false)
     }
+  }
+
+  // 8급 데이터 기본 로딩
+  useEffect(() => {
+    if (user) {
+      loadHanziStats(8)
+    }
+  }, [user])
+
+  // 급수 변경 시 데이터 로드
+  const handleGradeChange = async (grade: number) => {
+    if (grade === selectedGrade) return
+
+    setSelectedGrade(grade)
+    await loadHanziStats(grade)
   }
 
   // 로딩 중일 때는 로딩 스피너 표시
@@ -205,7 +167,8 @@ export default function HanziStatisticsPage() {
             <select
               value={selectedGrade}
               onChange={(e) => handleGradeChange(Number(e.target.value))}
-              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
+              disabled={isLoadingGrade}
+              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
             >
               {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => {
                 return (
@@ -221,6 +184,15 @@ export default function HanziStatisticsPage() {
                 )
               })}
             </select>
+
+            {isLoadingGrade && (
+              <div className='mt-2 flex items-center space-x-2'>
+                <LoadingSpinner message='' />
+                <span className='text-sm text-gray-600'>
+                  급수 데이터를 불러오는 중...
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 요약 통계 */}
