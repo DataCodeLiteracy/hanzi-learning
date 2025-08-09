@@ -21,7 +21,12 @@ import {
 } from "@/lib/services/gameStatisticsService"
 
 export default function GameStatisticsPage() {
-  const { user, loading: authLoading } = useAuth()
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+  } = useAuth()
   const { userStatistics } = useData()
   const [gameStatistics, setGameStatistics] = useState<{
     quiz?: GameStatistics
@@ -45,8 +50,8 @@ export default function GameStatisticsPage() {
     }
   }, [user])
 
-  // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading) {
+  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='인증 상태를 확인하는 중...' />
@@ -54,8 +59,8 @@ export default function GameStatisticsPage() {
     )
   }
 
-  // 인증이 완료되었지만 사용자가 없을 때
-  if (!user) {
+  // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
+  if (isAuthenticated && !user) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <div className='text-center'>

@@ -10,27 +10,94 @@ import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
 
 export default function HanziListPage() {
-  const { user, loading: authLoading } = useAuth()
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+  } = useAuth()
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
-  const [loading, setLoading] = useState<boolean>(false)
+  const [loading, setLoading] = useState(true)
+  const [noDataMessage, setNoDataMessage] = useState<string>("")
+  const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
+  const [gradeDataStatus, setGradeDataStatus] = useState<{
+    [key: number]: boolean
+  }>({}) // 각 급수별 데이터 존재 여부
 
-  // 한자 데이터 로드
+  // 급수별 데이터 상태 확인
+  const checkGradeDataStatus = async () => {
+    const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
+    const status: { [grade: number]: boolean } = {}
+
+    for (const grade of grades) {
+      try {
+        const data = await ApiClient.getHanziByGrade(grade)
+        status[grade] = data.length > 0
+      } catch (error) {
+        status[grade] = false
+      }
+    }
+
+    setGradeDataStatus(status)
+  }
+
+  // 한자 데이터 로드 (급수 변경 시에만)
   useEffect(() => {
-    const loadHanziData = async () => {
+    // 초기 로딩이 아닌 경우에만 실행
+    if (selectedGrade !== 8) {
+      const loadHanziData = async () => {
+        setLoading(true)
+        setNoDataMessage("")
+        setShowNoDataModal(false)
+
+        try {
+          const data = await ApiClient.getHanziByGrade(selectedGrade)
+          setHanziList(data)
+
+          // 데이터가 없으면 메시지 표시
+          if (data.length === 0) {
+            setNoDataMessage(`${selectedGrade}급 데이터가 없습니다.`)
+            setShowNoDataModal(true)
+          }
+        } catch (error) {
+          console.error("한자 데이터 로드 실패:", error)
+          setNoDataMessage(`${selectedGrade}급 데이터를 불러올 수 없습니다.`)
+          setShowNoDataModal(true)
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      loadHanziData()
+    }
+  }, [selectedGrade])
+
+  // 컴포넌트 마운트 시 급수별 데이터 상태 확인
+  useEffect(() => {
+    const initializeData = async () => {
       setLoading(true)
       try {
+        await checkGradeDataStatus()
+        // 초기 8급 데이터 로드
         const data = await ApiClient.getHanziByGrade(selectedGrade)
         setHanziList(data)
+
+        if (data.length === 0) {
+          setNoDataMessage(`${selectedGrade}급 데이터가 없습니다.`)
+          setShowNoDataModal(true)
+        }
       } catch (error) {
-        console.error("한자 데이터 로드 실패:", error)
+        console.error("초기 데이터 로드 실패:", error)
+        setNoDataMessage(`${selectedGrade}급 데이터를 불러올 수 없습니다.`)
+        setShowNoDataModal(true)
       } finally {
         setLoading(false)
       }
     }
 
-    loadHanziData()
-  }, [selectedGrade])
+    initializeData()
+  }, [])
 
   // 네이버 한자 사전으로 연결
   const openNaverDictionary = (character: string) => {
@@ -40,8 +107,8 @@ export default function HanziListPage() {
     window.open(url, "_blank")
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading) {
+  // 로딩 중일 때는 로딩 스피너 표시 (초기 로딩만)
+  if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='인증 상태를 확인하는 중...' />
@@ -61,6 +128,15 @@ export default function HanziListPage() {
             홈으로 돌아가기
           </Link>
         </div>
+      </div>
+    )
+  }
+
+  // 데이터 로딩 중
+  if (loading) {
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
+        <LoadingSpinner message='한자 데이터를 불러오는 중...' />
       </div>
     )
   }
@@ -113,9 +189,12 @@ export default function HanziListPage() {
                     : grade === 3.5
                     ? "준3급"
                     : `${grade}급`
+
+                const hasData = gradeDataStatus[grade]
+
                 return (
                   <option key={grade} value={grade} className='font-medium'>
-                    {gradeName}
+                    {gradeName} {!hasData && "(데이터 없음)"}
                   </option>
                 )
               })}
@@ -208,6 +287,27 @@ export default function HanziListPage() {
           </div>
         </div>
       </main>
+
+      {/* 데이터 없음 모달 */}
+      {showNoDataModal && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='bg-white rounded-lg p-6 max-w-md w-full mx-4'>
+            <div className='text-center'>
+              <Info className='h-12 w-12 text-gray-400 mx-auto mb-4' />
+              <h3 className='text-lg font-medium text-gray-900 mb-2'>
+                데이터 없음
+              </h3>
+              <p className='text-gray-600 mb-4'>{noDataMessage}</p>
+              <button
+                onClick={() => setShowNoDataModal(false)}
+                className='w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

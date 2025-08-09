@@ -1,4 +1,6 @@
 import { ApiClient } from "@/lib/apiClient"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 export interface HanziStatistics {
   hanziId: string
@@ -34,7 +36,20 @@ export class HanziStatisticsService {
   /**
    * 사용자의 모든 한자 통계 조회
    */
-  static async getHanziStatistics(userId: string): Promise<any[]> {
+  static async getHanziStatistics(userId: string): Promise<
+    {
+      hanziId: string
+      character: string
+      meaning: string
+      sound: string
+      gradeNumber: number
+      totalStudied: number
+      correctAnswers: number
+      wrongAnswers: number
+      accuracy: number
+      lastStudied: string | null
+    }[]
+  > {
     return ApiClient.getHanziStatisticsNew(userId)
   }
 
@@ -76,24 +91,46 @@ export class HanziStatisticsService {
     userId: string,
     grade: number
   ): Promise<HanziStatistics[]> {
-    const stats = await ApiClient.getGradeHanziStatistics(userId, grade)
+    try {
+      const hanziStatsRef = collection(db, "hanziStatistics")
+      const q = query(
+        hanziStatsRef,
+        where("userId", "==", userId),
+        where("grade", "==", grade)
+      )
+      const snapshot = await getDocs(q)
 
-    // 각 한자별로 정확도 계산
-    return stats.map((hanzi) => ({
-      hanziId: hanzi.hanziId,
-      character: hanzi.character || "",
-      meaning: hanzi.meaning || "",
-      sound: hanzi.sound || "",
-      gradeNumber: hanzi.gradeNumber || 0,
-      totalStudied: hanzi.totalStudied || 0,
-      correctAnswers: hanzi.correctAnswers || 0,
-      wrongAnswers: hanzi.wrongAnswers || 0,
-      accuracy: this.calculateAccuracy(
-        hanzi.correctAnswers || 0,
-        hanzi.wrongAnswers || 0
-      ),
-      lastStudied: hanzi.lastStudied || null,
-    }))
+      return snapshot.docs.map((doc) => {
+        const data = doc.data() as {
+          hanziId: string
+          character: string
+          meaning: string
+          sound: string
+          gradeNumber: number
+          totalStudied: number
+          correctAnswers: number
+          wrongAnswers: number
+          accuracy: number
+          lastStudied: string | null
+          grade: number
+        }
+        return {
+          hanziId: data.hanziId,
+          character: data.character,
+          meaning: data.meaning,
+          sound: data.sound,
+          gradeNumber: data.gradeNumber,
+          totalStudied: data.totalStudied,
+          correctAnswers: data.correctAnswers,
+          wrongAnswers: data.wrongAnswers,
+          accuracy: data.accuracy,
+          lastStudied: data.lastStudied,
+        }
+      })
+    } catch (error) {
+      console.error("급수별 한자 통계 가져오기 실패:", error)
+      return []
+    }
   }
 
   /**
@@ -114,7 +151,33 @@ export class HanziStatisticsService {
     userId: string,
     grade: number,
     count: number
-  ): Promise<any[]> {
+  ): Promise<
+    {
+      id: string
+      character: string
+      meaning: string
+      sound: string
+      pinyin?: string
+      grade: number
+      gradeNumber?: number
+      strokes?: number
+      radicals?: string[]
+      relatedWords?: Array<{
+        hanzi: string
+        korean: string
+        isTextBook?: boolean
+      }>
+      strokeOrder?: string[]
+      difficulty?: string
+      frequency?: number
+      notes?: string
+      totalStudied?: number
+      correctAnswers?: number
+      wrongAnswers?: number
+      accuracy?: number
+      lastStudied?: string | null
+    }[]
+  > {
     return ApiClient.getPrioritizedHanzi(userId, grade, count)
   }
 

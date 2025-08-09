@@ -2061,7 +2061,6 @@
     "strokes": 15,
     "radicals": ["門"],
     "relatedWords": [
-      { "hanzi": "閱", "korean": "열", "isTextBook": true },
       { "hanzi": "閱覽", "korean": "열람", "isTextBook": false }
     ],
     "strokeOrder": [],

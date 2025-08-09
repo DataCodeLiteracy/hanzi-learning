@@ -6,19 +6,18 @@ import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import ConfirmModal from "@/components/ConfirmModal"
 import { ensureStrokeOrder } from "@/lib/hanziWriter"
 import { Edit, Trash2, Save, Upload, Download } from "lucide-react"
 import { migrateAllUsers, migrateUserData } from "@/lib/migration"
 
 export default function AdminPage() {
-  const { user, loading: authLoading } = useAuth()
-  const [hanziList, setHanziList] = useState<Hanzi[]>([])
+  const { user, loading: authLoading, initialLoading } = useAuth()
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
-  const [isLoading, setIsLoading] = useState(false)
+  const [hanziData, setHanziData] = useState<Hanzi[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [editingHanzi, setEditingHanzi] = useState<Hanzi | null>(null)
   const [deletingHanzi, setDeletingHanzi] = useState<Hanzi | null>(null)
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [migrationStatus, setMigrationStatus] = useState<string>("")
   const [isMigrating, setIsMigrating] = useState(false)
   const [showDeleteGradeModal, setShowDeleteGradeModal] = useState(false)
@@ -26,6 +25,8 @@ export default function AdminPage() {
   const [isDeletingGrade, setIsDeletingGrade] = useState(false)
   const [showEmptyGradeModal, setShowEmptyGradeModal] = useState(false)
   const [emptyGrade, setEmptyGrade] = useState<number>(8)
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   // 테스트용: 모든 한자 조회
   const testGetAllHanzi = async () => {
@@ -45,8 +46,8 @@ export default function AdminPage() {
     }
   }, [user, selectedGrade])
 
-  // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading) {
+  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='인증 상태를 확인하는 중...' />
@@ -54,8 +55,8 @@ export default function AdminPage() {
     )
   }
 
-  // 인증이 완료되었지만 관리자가 아닐 때
-  if (!user || !user.isAdmin) {
+  // 인증이 완료되었지만 관리자가 아닐 때 (즉시 표시, 로딩 없음)
+  if (user && !user.isAdmin) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <div className='text-center'>
@@ -84,11 +85,11 @@ export default function AdminPage() {
         setShowEmptyGradeModal(true)
       }
 
-      setHanziList(data)
+      setHanziData(data)
     } catch (error) {
       console.error("한자 데이터 로드 에러:", error)
       // 오류가 발생해도 빈 배열로 설정하여 UI가 깨지지 않도록 함
-      setHanziList([])
+      setHanziData([])
       // 사용자에게는 조용히 처리하고 콘솔에만 로그 출력
       console.log(
         `${selectedGrade}급 한자 데이터를 불러오는 중 오류가 발생했습니다.`
@@ -114,7 +115,25 @@ export default function AdminPage() {
 
     try {
       const text = await uploadedFile.text()
-      const data = JSON.parse(text)
+      const data = JSON.parse(text) as Array<{
+        character: string
+        meaning: string
+        sound: string
+        pinyin?: string
+        grade: number
+        strokes?: number
+        radicals?: string[]
+        relatedWords?: Array<{
+          hanzi: string
+          korean: string
+          isTextBook?: boolean
+        }>
+        strokeOrder?: string[]
+        difficulty?: string
+        frequency?: number
+        notes?: string
+        gradeNumber?: number
+      }>
 
       if (Array.isArray(data)) {
         // JSON 파일의 첫 번째 항목에서 grade 확인
@@ -161,11 +180,17 @@ export default function AdminPage() {
                 strokes: hanziData.strokes || 0,
                 radicals: hanziData.radicals || [],
                 relatedWords:
-                  hanziData.relatedWords?.map((word: any) => ({
-                    hanzi: word.hanzi,
-                    korean: word.korean,
-                    isTextBook: word.isTextBook || false,
-                  })) || [],
+                  hanziData.relatedWords?.map(
+                    (word: {
+                      hanzi: string
+                      korean: string
+                      isTextBook?: boolean
+                    }) => ({
+                      hanzi: word.hanzi,
+                      korean: word.korean,
+                      isTextBook: word.isTextBook || false,
+                    })
+                  ) || [],
                 strokeOrder: hanziData.strokeOrder || [],
                 difficulty: hanziData.difficulty || "medium",
                 frequency: hanziData.frequency || 0,
@@ -233,10 +258,6 @@ export default function AdminPage() {
 
   // 특정 사용자 마이그레이션
   const handleMigrateUser = async (userId: string) => {
-    if (!confirm(`사용자 ${userId}의 데이터를 마이그레이션하시겠습니까?`)) {
-      return
-    }
-
     setIsMigrating(true)
     setMigrationStatus(`${userId} 사용자 마이그레이션 중...`)
 
@@ -263,44 +284,93 @@ export default function AdminPage() {
     if (!editingHanzi) return
 
     try {
-      await ApiClient.updateDocument("hanzi", editingHanzi.id, {
-        character: editingHanzi.character,
-        meaning: editingHanzi.meaning,
-        sound: editingHanzi.sound,
-        pinyin: editingHanzi.pinyin,
-        grade: editingHanzi.grade,
-        strokes: editingHanzi.strokes,
-        radicals: editingHanzi.radicals.filter((r) => r.trim() !== ""),
-        relatedWords:
-          editingHanzi.relatedWords?.filter(
-            (w) => w.hanzi.trim() !== "" && w.korean.trim() !== ""
-          ) || [],
-        strokeOrder: editingHanzi.strokeOrder || [],
-        difficulty: editingHanzi.difficulty || "easy",
-        frequency: editingHanzi.frequency || 1,
-        notes: editingHanzi.notes || "",
-      })
+      const updatedHanzi = {
+        ...editingHanzi,
+        updatedAt: new Date().toISOString(),
+      }
 
+      await ApiClient.updateDocument("hanzi", editingHanzi.id, updatedHanzi)
+
+      alert("한자가 성공적으로 수정되었습니다!")
+      setShowEditModal(false)
       setEditingHanzi(null)
       loadHanziData()
     } catch (error) {
-      console.error("한자 수정 에러:", error)
-      alert("한자 수정에 실패했습니다.")
+      console.error("한자 수정 실패:", error)
+      alert("한자 수정 중 오류가 발생했습니다.")
     }
   }
 
-  // 한자 삭제
-  const deleteHanzi = async () => {
+  // 삭제 확인 모달 열기
+  const handleDeleteClick = (hanzi: Hanzi) => {
+    setDeletingHanzi(hanzi)
+    setShowDeleteConfirmModal(true)
+  }
+
+  // 한자 삭제 실행
+  const confirmDeleteHanzi = async () => {
     if (!deletingHanzi) return
 
     try {
       await ApiClient.deleteDocument("hanzi", deletingHanzi.id)
+      alert("한자가 성공적으로 삭제되었습니다!")
+      setShowDeleteConfirmModal(false)
       setDeletingHanzi(null)
       loadHanziData()
     } catch (error) {
-      console.error("한자 삭제 에러:", error)
-      alert("한자 삭제에 실패했습니다.")
+      console.error("한자 삭제 실패:", error)
+      alert("한자 삭제 중 오류가 발생했습니다.")
     }
+  }
+
+  // 수정 모달 열기
+  const handleEditClick = (hanzi: Hanzi) => {
+    setEditingHanzi({ ...hanzi })
+    setShowEditModal(true)
+  }
+
+  // RelatedWord 추가
+  const addRelatedWord = () => {
+    if (!editingHanzi) return
+
+    const newRelatedWords = [
+      ...(editingHanzi.relatedWords || []),
+      { hanzi: "", korean: "", isTextBook: false },
+    ]
+
+    setEditingHanzi({
+      ...editingHanzi,
+      relatedWords: newRelatedWords,
+    })
+  }
+
+  // RelatedWord 제거
+  const removeRelatedWord = (index: number) => {
+    if (!editingHanzi) return
+
+    const newRelatedWords =
+      editingHanzi.relatedWords?.filter((_, i) => i !== index) || []
+
+    setEditingHanzi({
+      ...editingHanzi,
+      relatedWords: newRelatedWords,
+    })
+  }
+
+  // RelatedWord 업데이트
+  const updateRelatedWord = (index: number, field: string, value: any) => {
+    if (!editingHanzi) return
+
+    const newRelatedWords = [...(editingHanzi.relatedWords || [])]
+    newRelatedWords[index] = {
+      ...newRelatedWords[index],
+      [field]: value,
+    }
+
+    setEditingHanzi({
+      ...editingHanzi,
+      relatedWords: newRelatedWords,
+    })
   }
 
   // 특정 급수 삭제
@@ -349,7 +419,7 @@ export default function AdminPage() {
 
   // 현재 등급의 모든 한자에 stroke order 생성
   const generateStrokeOrdersForGrade = async () => {
-    if (!hanziList.length) {
+    if (!hanziData.length) {
       alert("생성할 한자가 없습니다.")
       return
     }
@@ -359,7 +429,7 @@ export default function AdminPage() {
     let errorCount = 0
 
     try {
-      for (const hanzi of hanziList) {
+      for (const hanzi of hanziData) {
         try {
           await ensureStrokeOrder(hanzi)
           successCount++
@@ -407,7 +477,7 @@ export default function AdminPage() {
               <div className='flex space-x-2'>
                 <button
                   onClick={generateStrokeOrdersForGrade}
-                  disabled={isLoading || hanziList.length === 0}
+                  disabled={isLoading || hanziData.length === 0}
                   className='flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
                 >
                   <Download className='h-4 w-4' />
@@ -612,7 +682,7 @@ export default function AdminPage() {
           <div className='bg-white rounded-lg shadow-sm'>
             <div className='px-6 py-4 border-b'>
               <h2 className='text-lg font-semibold text-gray-900'>
-                {selectedGrade}급 한자 목록 ({hanziList.length}개)
+                {selectedGrade}급 한자 목록 ({hanziData.length}개)
               </h2>
             </div>
 
@@ -652,7 +722,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className='bg-white divide-y divide-gray-200'>
-                    {hanziList.map((hanzi) => (
+                    {hanziData.map((hanzi) => (
                       <tr key={hanzi.id}>
                         <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
                           {hanzi.gradeNumber || "미설정"}
@@ -700,13 +770,13 @@ export default function AdminPage() {
                         <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                           <div className='flex space-x-2'>
                             <button
-                              onClick={() => setEditingHanzi(hanzi)}
+                              onClick={() => handleEditClick(hanzi)}
                               className='text-blue-600 hover:text-blue-900'
                             >
                               <Edit className='h-4 w-4' />
                             </button>
                             <button
-                              onClick={() => setDeletingHanzi(hanzi)}
+                              onClick={() => handleDeleteClick(hanzi)}
                               className='text-red-600 hover:text-red-900'
                             >
                               <Trash2 className='h-4 w-4' />
@@ -723,142 +793,44 @@ export default function AdminPage() {
         </div>
       </main>
 
-      {/* 수정 모달 */}
-      {editingHanzi && (
+      {/* 삭제 확인 모달 */}
+      {deletingHanzi && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <div
             className='absolute inset-0 bg-black bg-opacity-50'
-            onClick={() => setEditingHanzi(null)}
+            onClick={() => setDeletingHanzi(null)}
           />
-          <div className='relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto'>
-            <h3 className='text-lg font-semibold text-gray-900 mb-4'>
-              한자 수정
-            </h3>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              <input
-                type='text'
-                placeholder='한자'
-                value={editingHanzi.character}
-                onChange={(e) =>
-                  setEditingHanzi({
-                    ...editingHanzi,
-                    character: e.target.value,
-                  })
-                }
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              />
-              <input
-                type='text'
-                placeholder='음'
-                value={editingHanzi.sound}
-                onChange={(e) =>
-                  setEditingHanzi({ ...editingHanzi, sound: e.target.value })
-                }
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              />
-              <input
-                type='text'
-                placeholder='의미'
-                value={editingHanzi.meaning}
-                onChange={(e) =>
-                  setEditingHanzi({ ...editingHanzi, meaning: e.target.value })
-                }
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              />
-              <input
-                type='number'
-                placeholder='획수'
-                value={editingHanzi.strokes}
-                onChange={(e) =>
-                  setEditingHanzi({
-                    ...editingHanzi,
-                    strokes: parseInt(e.target.value) || 0,
-                  })
-                }
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              />
-              <input
-                type='number'
-                placeholder='등급'
-                value={editingHanzi.grade}
-                onChange={(e) =>
-                  setEditingHanzi({
-                    ...editingHanzi,
-                    grade: parseInt(e.target.value) || 8,
-                  })
-                }
-                min='3'
-                max='8'
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              />
-              <select
-                value={editingHanzi.difficulty || "easy"}
-                onChange={(e) =>
-                  setEditingHanzi({
-                    ...editingHanzi,
-                    difficulty: e.target.value as "easy" | "medium" | "hard",
-                  })
-                }
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              >
-                <option value='easy'>쉬움</option>
-                <option value='medium'>보통</option>
-                <option value='hard'>어려움</option>
-              </select>
-              <input
-                type='number'
-                placeholder='빈도'
-                value={editingHanzi.frequency || 1}
-                onChange={(e) =>
-                  setEditingHanzi({
-                    ...editingHanzi,
-                    frequency: parseInt(e.target.value) || 1,
-                  })
-                }
-                min='1'
-                max='5'
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              />
-              <input
-                type='text'
-                placeholder='메모'
-                value={editingHanzi.notes || ""}
-                onChange={(e) =>
-                  setEditingHanzi({ ...editingHanzi, notes: e.target.value })
-                }
-                className='w-full px-3 py-2 border border-gray-300 rounded-md'
-              />
-            </div>
-            <div className='flex justify-end space-x-3 mt-6'>
-              <button
-                onClick={() => setEditingHanzi(null)}
-                className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md'
-              >
-                취소
-              </button>
-              <button
-                onClick={updateHanzi}
-                className='flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700'
-              >
-                <Save className='h-4 w-4' />
-                <span>저장</span>
-              </button>
+          <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
+            <div className='text-center'>
+              <div className='text-red-500 text-4xl mb-4'>⚠️</div>
+              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+                한자 삭제
+              </h3>
+              <p className='text-gray-700 mb-4'>
+                "{deletingHanzi.character}" ({deletingHanzi.meaning}) 한자를
+                정말로 삭제하시겠습니까?
+              </p>
+              <p className='text-sm text-red-600 mb-6'>
+                이 작업은 되돌릴 수 없습니다.
+              </p>
+              <div className='flex space-x-3'>
+                <button
+                  onClick={() => setDeletingHanzi(null)}
+                  className='flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md'
+                >
+                  취소
+                </button>
+                <button
+                  onClick={confirmDeleteHanzi}
+                  className='flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700'
+                >
+                  삭제
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* 삭제 확인 모달 */}
-      <ConfirmModal
-        isOpen={!!deletingHanzi}
-        onClose={() => setDeletingHanzi(null)}
-        onConfirm={deleteHanzi}
-        title='한자 삭제'
-        message={`"${deletingHanzi?.character}" 한자를 삭제하시겠습니까?`}
-        confirmText='삭제'
-        cancelText='취소'
-        type='warning'
-      />
 
       {/* 급수 삭제 모달 */}
       {showDeleteGradeModal && (
@@ -949,27 +921,356 @@ export default function AdminPage() {
                 JSON 파일을 업로드하여 한자를 등록하거나, 다른 급수를
                 선택해보세요.
               </p>
+              <button
+                onClick={() => setShowEmptyGradeModal(false)}
+                className='w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-              <div className='flex justify-center space-x-3'>
+      {/* 한자 수정 모달 */}
+      {showEditModal && editingHanzi && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+          <div
+            className='absolute inset-0 bg-black bg-opacity-50'
+            onClick={() => setShowEditModal(false)}
+          />
+          <div className='relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto'>
+            <div className='p-6'>
+              <div className='flex justify-between items-center mb-6'>
+                <h3 className='text-xl font-semibold text-gray-900'>
+                  한자 수정: {editingHanzi.character}
+                </h3>
                 <button
-                  onClick={() => setShowEmptyGradeModal(false)}
-                  className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md'
+                  onClick={() => setShowEditModal(false)}
+                  className='text-gray-500 hover:text-gray-700 text-2xl font-bold'
                 >
-                  확인
+                  ×
+                </button>
+              </div>
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                {/* 기본 정보 */}
+                <div className='space-y-4'>
+                  <h4 className='text-lg font-semibold text-gray-800'>
+                    기본 정보
+                  </h4>
+
+                  <div>
+                    <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                      한자
+                    </label>
+                    <input
+                      type='text'
+                      value={editingHanzi.character}
+                      onChange={(e) =>
+                        setEditingHanzi({
+                          ...editingHanzi,
+                          character: e.target.value,
+                        })
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                      뜻
+                    </label>
+                    <input
+                      type='text'
+                      value={editingHanzi.meaning}
+                      onChange={(e) =>
+                        setEditingHanzi({
+                          ...editingHanzi,
+                          meaning: e.target.value,
+                        })
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                      음
+                    </label>
+                    <input
+                      type='text'
+                      value={editingHanzi.sound}
+                      onChange={(e) =>
+                        setEditingHanzi({
+                          ...editingHanzi,
+                          sound: e.target.value,
+                        })
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                      병음 (선택사항)
+                    </label>
+                    <input
+                      type='text'
+                      value={editingHanzi.pinyin || ""}
+                      onChange={(e) =>
+                        setEditingHanzi({
+                          ...editingHanzi,
+                          pinyin: e.target.value,
+                        })
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                    />
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-4'>
+                    <div>
+                      <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                        급수
+                      </label>
+                      <select
+                        value={editingHanzi.grade}
+                        onChange={(e) =>
+                          setEditingHanzi({
+                            ...editingHanzi,
+                            grade: Number(e.target.value),
+                          })
+                        }
+                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                      >
+                        {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
+                          <option key={grade} value={grade}>
+                            {grade === 5.5
+                              ? "준5급"
+                              : grade === 4.5
+                              ? "준4급"
+                              : grade === 3.5
+                              ? "준3급"
+                              : `${grade}급`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                        급수 내 번호
+                      </label>
+                      <input
+                        type='number'
+                        value={editingHanzi.gradeNumber}
+                        onChange={(e) =>
+                          setEditingHanzi({
+                            ...editingHanzi,
+                            gradeNumber: Number(e.target.value),
+                          })
+                        }
+                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                      />
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-4'>
+                    <div>
+                      <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                        획수
+                      </label>
+                      <input
+                        type='number'
+                        value={editingHanzi.strokes}
+                        onChange={(e) =>
+                          setEditingHanzi({
+                            ...editingHanzi,
+                            strokes: Number(e.target.value),
+                          })
+                        }
+                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                      />
+                    </div>
+
+                    <div>
+                      <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                        빈도
+                      </label>
+                      <input
+                        type='number'
+                        value={editingHanzi.frequency || 1}
+                        onChange={(e) =>
+                          setEditingHanzi({
+                            ...editingHanzi,
+                            frequency: Number(e.target.value),
+                          })
+                        }
+                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                      난이도
+                    </label>
+                    <select
+                      value={editingHanzi.difficulty || "easy"}
+                      onChange={(e) =>
+                        setEditingHanzi({
+                          ...editingHanzi,
+                          difficulty: e.target.value as
+                            | "easy"
+                            | "medium"
+                            | "hard",
+                        })
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                    >
+                      <option value='easy'>쉬움</option>
+                      <option value='medium'>보통</option>
+                      <option value='hard'>어려움</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                      부수 (쉼표로 구분)
+                    </label>
+                    <input
+                      type='text'
+                      value={editingHanzi.radicals.join(", ")}
+                      onChange={(e) =>
+                        setEditingHanzi({
+                          ...editingHanzi,
+                          radicals: e.target.value
+                            .split(",")
+                            .map((r) => r.trim()),
+                        })
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                      placeholder='예: 火, 木'
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-semibold text-gray-800 mb-1'>
+                      비고
+                    </label>
+                    <textarea
+                      value={editingHanzi.notes || ""}
+                      onChange={(e) =>
+                        setEditingHanzi({
+                          ...editingHanzi,
+                          notes: e.target.value,
+                        })
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                {/* 관련 단어 */}
+                <div className='space-y-4'>
+                  <div className='flex justify-between items-center'>
+                    <h4 className='text-lg font-semibold text-gray-800'>
+                      관련 단어
+                    </h4>
+                    <button
+                      onClick={addRelatedWord}
+                      className='px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium'
+                    >
+                      + 추가
+                    </button>
+                  </div>
+
+                  <div className='space-y-3 max-h-96 overflow-y-auto'>
+                    {editingHanzi.relatedWords?.map((word, index) => (
+                      <div
+                        key={index}
+                        className='border border-gray-200 rounded-md p-3'
+                      >
+                        <div className='grid grid-cols-2 gap-2 mb-2'>
+                          <div>
+                            <label className='block text-xs font-semibold text-gray-800 mb-1'>
+                              한자어
+                            </label>
+                            <input
+                              type='text'
+                              value={word.hanzi}
+                              onChange={(e) =>
+                                updateRelatedWord(
+                                  index,
+                                  "hanzi",
+                                  e.target.value
+                                )
+                              }
+                              className='w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800'
+                            />
+                          </div>
+                          <div>
+                            <label className='block text-xs font-semibold text-gray-800 mb-1'>
+                              한국어
+                            </label>
+                            <input
+                              type='text'
+                              value={word.korean}
+                              onChange={(e) =>
+                                updateRelatedWord(
+                                  index,
+                                  "korean",
+                                  e.target.value
+                                )
+                              }
+                              className='w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800'
+                            />
+                          </div>
+                        </div>
+                        <div className='flex justify-between items-center'>
+                          <label className='flex items-center'>
+                            <input
+                              type='checkbox'
+                              checked={word.isTextBook}
+                              onChange={(e) =>
+                                updateRelatedWord(
+                                  index,
+                                  "isTextBook",
+                                  e.target.checked
+                                )
+                              }
+                              className='mr-2'
+                            />
+                            <span className='text-xs font-medium text-gray-800'>
+                              교과서 한자어
+                            </span>
+                          </label>
+                          <button
+                            onClick={() => removeRelatedWord(index)}
+                            className='text-red-600 hover:text-red-800 text-xs font-medium'
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className='flex justify-end space-x-3 mt-6 pt-6 border-t'>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md font-medium'
+                >
+                  취소
                 </button>
                 <button
-                  onClick={() => {
-                    setShowEmptyGradeModal(false)
-                    // JSON 업로드 섹션으로 스크롤
-                    document
-                      .getElementById("json-upload-section")
-                      ?.scrollIntoView({
-                        behavior: "smooth",
-                      })
-                  }}
-                  className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700'
+                  onClick={updateHanzi}
+                  className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium'
                 >
-                  한자 등록하기
+                  저장
                 </button>
               </div>
             </div>

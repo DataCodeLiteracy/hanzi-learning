@@ -28,7 +28,13 @@ import {
 } from "@/lib/services/gameStatisticsService"
 
 export default function ProfilePage() {
-  const { user, loading: authLoading, signOutUser } = useAuth()
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+    signOutUser,
+  } = useAuth()
   const { userStatistics, learningSessions } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -90,8 +96,8 @@ export default function ProfilePage() {
     }
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading) {
+  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='인증 상태를 확인하는 중...' />
@@ -99,8 +105,8 @@ export default function ProfilePage() {
     )
   }
 
-  // 인증이 완료되었지만 사용자가 없을 때
-  if (!user) {
+  // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
+  if (isAuthenticated && !user) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <div className='text-center'>
@@ -137,10 +143,10 @@ export default function ProfilePage() {
           {/* 사용자 정보 카드 */}
           <div className='bg-white rounded-lg shadow-lg p-6'>
             <div className='flex items-center space-x-4 mb-6'>
-              {user.photoURL ? (
+              {user?.photoURL ? (
                 <img
                   src={user.photoURL}
-                  alt={user.displayName}
+                  alt={user.displayName || ""}
                   className='w-16 h-16 rounded-full'
                 />
               ) : (
@@ -150,10 +156,10 @@ export default function ProfilePage() {
               )}
               <div>
                 <h2 className='text-2xl font-bold text-gray-900'>
-                  {user.displayName}
+                  {user?.displayName || ""}
                 </h2>
-                <p className='text-gray-600'>{user.email}</p>
-                {user.isAdmin && (
+                <p className='text-gray-600'>{user?.email || ""}</p>
+                {user?.isAdmin && (
                   <div className='flex items-center space-x-1 mt-1'>
                     <Crown className='h-4 w-4 text-yellow-500' />
                     <span className='text-sm text-yellow-600 font-semibold'>
@@ -220,7 +226,7 @@ export default function ProfilePage() {
             </div>
 
             {/* 관리자 버튼 */}
-            {user.isAdmin && (
+            {user?.isAdmin && (
               <div className='mb-6'>
                 <Link
                   href='/admin'

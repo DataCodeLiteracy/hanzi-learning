@@ -23,7 +23,13 @@ interface Question {
 
 export default function QuizGame() {
   const { hanziList, isLoading: dataLoading } = useData()
-  const { user, loading: authLoading, updateUserExperience } = useAuth()
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+    updateUserExperience,
+  } = useAuth()
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
   const [correctAnswers, setCorrectAnswers] = useState<number>(0)
@@ -82,6 +88,8 @@ export default function QuizGame() {
       try {
         const grade8Data = await ApiClient.getHanziByGrade(8)
         setGradeHanzi(grade8Data)
+        // 초기 데이터 상태 확인 완료 후 checkGradeDataStatus 다시 실행
+        await checkGradeDataStatus()
       } catch (error) {
         console.error("초기 데이터 로드 실패:", error)
       } finally {
@@ -326,17 +334,26 @@ export default function QuizGame() {
       : `"${question.hanzi}"의 음은 무엇일까요?`
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading || dataLoading || isLoading) {
+  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='게임을 준비하는 중...' />
+        <LoadingSpinner message='인증 상태를 확인하는 중...' />
       </div>
     )
   }
 
-  // 인증이 완료되었지만 사용자가 없을 때
-  if (!user) {
+  // 초기 데이터 로딩 중
+  if (isLoading) {
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
+        <LoadingSpinner message='한자 데이터를 불러오는 중...' />
+      </div>
+    )
+  }
+
+  // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
+  if (isAuthenticated && !user) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <div className='text-center'>

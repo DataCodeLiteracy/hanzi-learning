@@ -22,22 +22,36 @@ interface TextbookWord {
 }
 
 export default function TextbookWordsPage() {
-  const { user, loading: authLoading } = useAuth()
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+  } = useAuth()
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
   const [textbookWords, setTextbookWords] = useState<TextbookWord[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
+  const [selectedItem, setSelectedItem] = useState<{
+    type: "word" | "hanzi"
+    data: any
+  } | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   // 데이터 로드
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true)
-        const hanzi = await ApiClient.getAllHanzi()
+        // 선택한 급수의 한자 데이터만 로드
+        const hanzi = await ApiClient.getHanziByGrade(selectedGrade)
         setHanziList(hanzi)
 
-        // 교과서 한자어 추출
-        const words = extractTextbookWords(hanzi, selectedGrade)
+        // 전체 한자 데이터를 로드하여 단어 구성 한자 찾기에 사용
+        const allHanzi = await ApiClient.getAllHanzi()
+
+        // 교과서 한자어 추출 (전체 한자 목록 사용)
+        const words = extractTextbookWords(hanzi, selectedGrade, allHanzi)
         setTextbookWords(words)
       } catch (error) {
         console.error("데이터 로드 실패:", error)
@@ -54,20 +68,25 @@ export default function TextbookWordsPage() {
   // 교과서 한자어 추출 함수
   const extractTextbookWords = (
     hanziList: Hanzi[],
-    grade: number
+    grade: number,
+    allHanziList: Hanzi[]
   ): TextbookWord[] => {
     const wordMap = new Map<string, TextbookWord>()
 
-    hanziList.forEach((hanzi) => {
+    // 선택한 급수의 한자만 필터링
+    const gradeHanzi = hanziList.filter((hanzi) => hanzi.grade === grade)
+
+    gradeHanzi.forEach((hanzi) => {
       if (hanzi.relatedWords) {
         hanzi.relatedWords.forEach((relatedWord) => {
           if (relatedWord.isTextBook) {
             // 이미 존재하는 단어인지 확인
             if (!wordMap.has(relatedWord.hanzi)) {
-              // 해당 단어를 구성하는 한자들 찾기
+              // 해당 단어를 구성하는 한자들 찾기 (전체 한자 목록에서 찾기)
               const includedHanzi = findIncludedHanzi(
                 relatedWord.hanzi,
-                hanziList
+                allHanziList,
+                selectedGrade
               )
 
               wordMap.set(relatedWord.hanzi, {
@@ -86,7 +105,11 @@ export default function TextbookWordsPage() {
   }
 
   // 단어를 구성하는 한자들 찾기
-  const findIncludedHanzi = (word: string, hanziList: Hanzi[]) => {
+  const findIncludedHanzi = (
+    word: string,
+    hanziList: Hanzi[],
+    selectedGrade: number
+  ) => {
     const includedHanzi: Array<{
       character: string
       meaning: string
@@ -98,7 +121,17 @@ export default function TextbookWordsPage() {
     // 단어의 각 글자가 한자 목록에 있는지 확인
     for (let i = 0; i < word.length; i++) {
       const char = word[i]
-      const hanzi = hanziList.find((h) => h.character === char)
+
+      // 먼저 선택한 급수에서 찾기
+      let hanzi = hanziList.find(
+        (h) => h.character === char && h.grade === selectedGrade
+      )
+
+      // 선택한 급수에서 못 찾으면 다른 급수에서 찾기
+      if (!hanzi) {
+        hanzi = hanziList.find((h) => h.character === char)
+      }
+
       if (hanzi) {
         includedHanzi.push({
           character: hanzi.character,
@@ -114,22 +147,93 @@ export default function TextbookWordsPage() {
   }
 
   // 급수별 한자 수 계산
-  const getGradeCounts = () => {
+  const getGradeCounts = async () => {
     const counts: { [grade: number]: number } = {}
-    hanziList.forEach((hanzi) => {
-      if (hanzi.relatedWords?.some((rw) => rw.isTextBook)) {
-        counts[hanzi.grade] = (counts[hanzi.grade] || 0) + 1
+
+    // 각 급수별로 교과서 한자어 단어 개수 카운트
+    const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
+
+    for (const grade of grades) {
+      try {
+        // 해당 급수의 한자 데이터 로드
+        const gradeHanzi = await ApiClient.getHanziByGrade(grade)
+
+        // 교과서 한자어 단어들을 Set으로 중복 제거
+        const textbookWords = new Set<string>()
+
+        gradeHanzi.forEach((hanzi) => {
+          if (hanzi.relatedWords) {
+            hanzi.relatedWords.forEach((relatedWord) => {
+              if (relatedWord.isTextBook) {
+                textbookWords.add(relatedWord.hanzi)
+              }
+            })
+          }
+        })
+
+        const wordCount = textbookWords.size
+
+        // 데이터가 있는 경우에만 카운트 추가
+        if (wordCount > 0) {
+          counts[grade] = wordCount
+        }
+      } catch (error) {
+        console.error(`${grade}급 데이터 로드 실패:`, error)
       }
-    })
+    }
+
     return counts
   }
 
-  const gradeCounts = getGradeCounts()
+  // 급수별 카운트 상태
+  const [gradeCounts, setGradeCounts] = useState<{ [grade: number]: number }>(
+    {}
+  )
 
-  if (authLoading || loading) {
+  // 급수별 카운트 로드
+  useEffect(() => {
+    const loadGradeCounts = async () => {
+      const counts = await getGradeCounts()
+      setGradeCounts(counts)
+    }
+
+    if (!authLoading) {
+      loadGradeCounts()
+    }
+  }, [authLoading])
+
+  // 모달 닫기
+  const closeModal = () => {
+    setShowModal(false)
+    setSelectedItem(null)
+  }
+
+  // 단어 클릭 핸들러
+  const handleWordClick = (word: TextbookWord) => {
+    setSelectedItem({ type: "word", data: word })
+    setShowModal(true)
+  }
+
+  // 한자 클릭 핸들러
+  const handleHanziClick = (hanzi: any) => {
+    setSelectedItem({ type: "hanzi", data: hanzi })
+    setShowModal(true)
+  }
+
+  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  if (initialLoading) {
     return (
-      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-        <LoadingSpinner />
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
+        <LoadingSpinner message='인증 상태를 확인하는 중...' />
+      </div>
+    )
+  }
+
+  // 데이터 로딩 중
+  if (loading) {
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
+        <LoadingSpinner message='한자 데이터를 불러오는 중...' />
       </div>
     )
   }
@@ -188,17 +292,20 @@ export default function TextbookWordsPage() {
                   color: "#1f2937",
                 }}
               >
-                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
-                  <option key={grade} value={grade} className='font-bold'>
-                    {grade === 5.5
-                      ? "준5급"
-                      : grade === 4.5
-                      ? "준4급"
-                      : grade === 3.5
-                      ? "준3급"
-                      : `${grade}급`}
-                  </option>
-                ))}
+                {Object.keys(gradeCounts)
+                  .map((grade) => parseFloat(grade)) // parseInt 대신 parseFloat 사용
+                  .sort((a, b) => b - a) // 내림차순 정렬 (8급부터)
+                  .map((grade) => (
+                    <option key={grade} value={grade} className='font-bold'>
+                      {grade === 5.5
+                        ? "준5급"
+                        : grade === 4.5
+                        ? "준4급"
+                        : grade === 3.5
+                        ? "준3급"
+                        : `${grade}급`}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -215,22 +322,20 @@ export default function TextbookWordsPage() {
             <table className='w-full'>
               <thead className='bg-gray-50'>
                 <tr>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    번호
-                  </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'></th>
+                  <th className='px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     단어
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     한자1
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     한자2
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     한자3
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     한자4
                   </th>
                 </tr>
@@ -238,13 +343,16 @@ export default function TextbookWordsPage() {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {textbookWords.map((word, index) => (
                   <tr key={word.word} className='hover:bg-gray-50'>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
+                    <td className='px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center'>
                       {index + 1}
                     </td>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
-                      <div>
-                        <div className='font-semibold'>{word.korean}</div>
-                        <div className='text-gray-500'>({word.hanzi})</div>
+                    <td
+                      className='px-3 py-4 whitespace-nowrap text-sm text-gray-900 cursor-pointer hover:bg-blue-50 text-center'
+                      onClick={() => handleWordClick(word)}
+                    >
+                      <div className='flex items-center justify-center space-x-2'>
+                        <span className='font-semibold'>{word.korean}</span>
+                        <span className='text-gray-500'>({word.hanzi})</span>
                       </div>
                     </td>
                     {[0, 1, 2, 3].map((i) => {
@@ -252,14 +360,19 @@ export default function TextbookWordsPage() {
                       return (
                         <td
                           key={i}
-                          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center ${
+                            hanzi ? "cursor-pointer hover:bg-blue-50" : ""
+                          }`}
+                          onClick={
+                            hanzi ? () => handleHanziClick(hanzi) : undefined
+                          }
                         >
                           {hanzi ? (
-                            <div>
-                              <div className='font-semibold'>
+                            <div className='text-center'>
+                              <div className='font-semibold text-gray-600'>
                                 {hanzi.meaning}
                               </div>
-                              <div className='text-gray-500'>
+                              <div className='text-gray-900 font-bold'>
                                 {hanzi.sound}({hanzi.character})
                               </div>
                               <div className='text-xs text-gray-400'>
@@ -290,6 +403,82 @@ export default function TextbookWordsPage() {
           </div>
         )}
       </main>
+
+      {/* 모달 */}
+      {showModal && selectedItem && (
+        <div
+          className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+          onClick={closeModal}
+        >
+          <div
+            className='bg-white rounded-lg p-8 max-w-2xl w-full mx-4 relative'
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* X 버튼 */}
+            <button
+              onClick={closeModal}
+              className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold'
+            >
+              ×
+            </button>
+
+            {/* 모달 내용 */}
+            <div className='text-center'>
+              {selectedItem.type === "word" ? (
+                <div>
+                  <div className='text-6xl font-bold text-gray-900 mb-4'>
+                    {selectedItem.data.hanzi}
+                  </div>
+                  <div className='text-2xl font-semibold text-gray-700 mb-2'>
+                    {selectedItem.data.korean}
+                  </div>
+                  <div className='text-lg text-gray-600 mb-6'>
+                    교과서 한자어
+                  </div>
+
+                  {/* 구성 한자들 */}
+                  <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mt-6'>
+                    {selectedItem.data.includedHanzi.map(
+                      (hanzi: any, index: number) => (
+                        <div key={index} className='bg-gray-50 rounded-lg p-4'>
+                          <div className='text-3xl font-bold text-gray-900 mb-2'>
+                            {hanzi.character}
+                          </div>
+                          <div className='text-sm font-semibold text-gray-700'>
+                            {hanzi.meaning}
+                          </div>
+                          <div className='text-xs text-gray-500'>
+                            {hanzi.sound}
+                          </div>
+                          <div className='text-xs text-gray-400'>
+                            {hanzi.grade}급 {hanzi.gradeNumber}번
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className='text-8xl font-bold text-gray-900 mb-6'>
+                    {selectedItem.data.character}
+                  </div>
+                  <div className='text-3xl font-semibold text-gray-700 mb-4'>
+                    {selectedItem.data.meaning}
+                  </div>
+                  <div className='text-xl text-gray-600 mb-2'>
+                    {selectedItem.data.sound}
+                  </div>
+                  <div className='text-lg text-gray-500'>
+                    {selectedItem.data.grade}급 {selectedItem.data.gradeNumber}
+                    번
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

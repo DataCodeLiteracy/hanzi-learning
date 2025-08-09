@@ -24,7 +24,13 @@ interface Card {
 
 export default function MemoryGame() {
   const { hanziList, isLoading: dataLoading } = useData()
-  const { user, loading: authLoading, updateUserExperience } = useAuth()
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+    updateUserExperience,
+  } = useAuth()
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
   const [matchedPairs, setMatchedPairs] = useState<number>(0)
@@ -83,6 +89,52 @@ export default function MemoryGame() {
   useEffect(() => {
     checkGradeDataStatus()
   }, [])
+
+  // 급수 변경 핸들러 추가
+  const handleGradeChange = async (grade: number) => {
+    setCurrentGrade(grade)
+
+    try {
+      // 직접 API 호출하여 해당 급수 데이터 가져오기
+      const gradeData = await ApiClient.getHanziByGrade(grade)
+
+      // 데이터가 없으면 즉시 알림
+      if (gradeData.length === 0) {
+        setGradeError(
+          `선택한 급수(${
+            grade === 5.5
+              ? "준5급"
+              : grade === 4.5
+              ? "준4급"
+              : grade === 3.5
+              ? "준3급"
+              : `${grade}급`
+          })에 데이터가 없습니다.`
+        )
+        setShowErrorModal(true)
+      } else {
+        // 데이터가 있으면 오류 메시지 제거
+        setGradeError("")
+        setShowErrorModal(false)
+      }
+
+      // 데이터 상태 업데이트
+      setGradeDataStatus((prev) => ({
+        ...prev,
+        [grade]: gradeData.length > 0,
+      }))
+    } catch (error) {
+      console.error("급수 데이터 로드 실패:", error)
+      setGradeError("데이터 로드 중 오류가 발생했습니다.")
+      setShowErrorModal(true)
+
+      // 오류 시 데이터 상태 업데이트
+      setGradeDataStatus((prev) => ({
+        ...prev,
+        [grade]: false,
+      }))
+    }
+  }
 
   // 난이도 정보 가져오기 함수
   const getDifficultyInfo = (level: "easy" | "medium" | "hard") => {
@@ -402,40 +454,6 @@ export default function MemoryGame() {
     setIsProcessing(false) // 처리 중 상태 리셋
   }
 
-  // 급수 변경 처리
-  const handleGradeChange = async (grade: number) => {
-    setCurrentGrade(grade)
-    setGradeError("")
-
-    try {
-      // 해당 급수의 한자 데이터 확인
-      const gradeData = await ApiClient.getHanziByGrade(grade)
-
-      if (gradeData.length === 0) {
-        setGradeError(
-          `선택한 급수(${
-            grade === 5.5
-              ? "준5급"
-              : grade === 4.5
-              ? "준4급"
-              : grade === 3.5
-              ? "준3급"
-              : `${grade}급`
-          })에 데이터가 없습니다.`
-        )
-        setShowErrorModal(true)
-      } else {
-        // 데이터가 있으면 오류 메시지 제거
-        setGradeError("")
-        setShowErrorModal(false)
-      }
-    } catch (error) {
-      console.error("급수 데이터 확인 실패:", error)
-      setGradeError("데이터 확인 중 오류가 발생했습니다.")
-      setShowErrorModal(true)
-    }
-  }
-
   // 프리뷰 시간 계산 함수
   const getPreviewTime = () => {
     const totalPairs = (gridSize.cols * gridSize.rows) / 2
@@ -488,17 +506,17 @@ export default function MemoryGame() {
     }
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading || dataLoading) {
+  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='게임을 준비하는 중...' />
+        <LoadingSpinner message='인증 상태를 확인하는 중...' />
       </div>
     )
   }
 
-  // 인증이 완료되었지만 사용자가 없을 때
-  if (!user) {
+  // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
+  if (isAuthenticated && !user) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <div className='text-center'>

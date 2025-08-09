@@ -26,7 +26,13 @@ import { useState, useEffect } from "react"
 import { ApiClient } from "@/lib/apiClient"
 
 export default function Home() {
-  const { user, loading: authLoading, signIn } = useAuth()
+  const {
+    user,
+    loading: authLoading,
+    initialLoading,
+    isAuthenticated,
+    signIn,
+  } = useAuth()
   const { userStatistics, isLoading: dataLoading } = useData()
   const [showWritingModal, setShowWritingModal] = useState(false)
   const [showGuideModal, setShowGuideModal] = useState(false)
@@ -61,8 +67,8 @@ export default function Home() {
     loadGradeHanziCounts()
   }, [])
 
-  // 로딩 중일 때는 로딩 스피너만 표시
-  if (authLoading) {
+  // 로딩 중일 때는 로딩 스피너만 표시 (진짜 초기 로딩만)
+  if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='인증 상태를 확인하는 중...' />

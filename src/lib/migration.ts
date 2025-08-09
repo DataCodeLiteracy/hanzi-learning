@@ -12,35 +12,111 @@ import {
 interface MigrationResult {
   success: boolean
   message: string
-  migratedData?: any
+  migratedData?: {
+    gameStatistics: number
+    hanziStatistics: number
+  }
 }
 
 /**
  * 기존 사용자 데이터를 새로운 구조로 마이그레이션
  */
-export const migrateUserData = async (
+export async function migrateUserData(
   userId: string
-): Promise<MigrationResult> => {
+): Promise<MigrationResult> {
   try {
-    // 1. 기존 사용자 데이터 가져오기
+    console.log(`🔄 사용자 ${userId} 데이터 마이그레이션 시작...`)
+
+    // 기존 사용자 데이터 가져오기
     const userRef = doc(db, "users", userId)
     const userDoc = await getDoc(userRef)
 
     if (!userDoc.exists()) {
+      console.log(`❌ 사용자 ${userId}를 찾을 수 없습니다.`)
       return {
         success: false,
         message: "사용자를 찾을 수 없습니다.",
       }
     }
 
-    const userData = userDoc.data()
+    const userData = userDoc.data() as {
+      id: string
+      email: string
+      displayName: string
+      photoURL: string
+      level: number
+      experience: number
+      isAdmin: boolean
+      createdAt: string
+      updatedAt: string
+      statistics?: {
+        totalExperience: number
+        totalSessions: number
+        quizStats?: {
+          totalPlayed: number
+          correctAnswers: number
+          wrongAnswers: number
+          completedSessions: number
+          totalSessions: number
+          accuracy: number
+        }
+        writingStats?: {
+          totalPlayed: number
+          correctAnswers: number
+          wrongAnswers: number
+          completedSessions: number
+          totalSessions: number
+          accuracy: number
+        }
+        partialStats?: {
+          totalPlayed: number
+          correctAnswers: number
+          wrongAnswers: number
+          completedSessions: number
+          totalSessions: number
+          accuracy: number
+        }
+        memoryStats?: {
+          totalPlayed: number
+          correctAnswers: number
+          wrongAnswers: number
+          completedSessions: number
+          totalSessions: number
+          accuracy: number
+        }
+      }
+      // 기존 구조의 통계 데이터 (마이그레이션 대상)
+      gameStatistics?: {
+        [gameType: string]: {
+          totalPlayed: number
+          correctAnswers: number
+          wrongAnswers: number
+          completedSessions: number
+          totalSessions: number
+          accuracy: number
+        }
+      }
+      hanziStatistics?: {
+        [hanziId: string]: {
+          character: string
+          meaning: string
+          sound: string
+          gradeNumber: number
+          totalStudied: number
+          correctAnswers: number
+          wrongAnswers: number
+          accuracy: number
+          lastStudied: string | null
+        }
+      }
+    }
 
     // 2. 기존 gameStatistics와 hanziStatistics 추출
     const existingGameStats = userData.gameStatistics || {}
     const existingHanziStats = userData.hanziStatistics || {}
 
     // 3. 새로운 컬렉션에 데이터 마이그레이션
-    const migrationPromises: Promise<any>[] = []
+    const migrationPromises: Promise<void>[] = []
 
     // gameStatistics 마이그레이션
     for (const [gameType, stats] of Object.entries(existingGameStats)) {
@@ -85,12 +161,17 @@ export const migrateUserData = async (
       updatedAt: new Date().toISOString(),
     })
 
+    // 마이그레이션된 데이터 수 계산
+    const migratedGameStats = Object.keys(existingGameStats).length
+    const migratedHanziStats = Object.keys(existingHanziStats).length
+
+    console.log(`✅ 사용자 ${userId} 데이터 마이그레이션 완료.`)
     return {
       success: true,
-      message: "데이터 마이그레이션이 완료되었습니다.",
+      message: `사용자 ${userId} 데이터 마이그레이션이 완료되었습니다.`,
       migratedData: {
-        gameStatistics: Object.keys(existingGameStats).length,
-        hanziStatistics: Object.keys(existingHanziStats).length,
+        gameStatistics: migratedGameStats,
+        hanziStatistics: migratedHanziStats,
       },
     }
   } catch (error) {
@@ -111,7 +192,13 @@ export const migrateAllUsers = async (): Promise<MigrationResult> => {
     const usersRef = collection(db, "users")
     const usersSnapshot = await getDocs(usersRef)
 
-    const migrationResults = []
+    const migrationResults: Array<{
+      userId: string
+      success: boolean
+      message: string
+      gameStatistics?: number
+      hanziStatistics?: number
+    }> = []
 
     for (const userDoc of usersSnapshot.docs) {
       const userId = userDoc.id
@@ -122,10 +209,23 @@ export const migrateAllUsers = async (): Promise<MigrationResult> => {
     const successCount = migrationResults.filter((r) => r.success).length
     const totalCount = migrationResults.length
 
+    // 마이그레이션된 데이터 수 계산
+    const totalGameStats = migrationResults.reduce(
+      (sum, r) => sum + (r.gameStatistics || 0),
+      0
+    )
+    const totalHanziStats = migrationResults.reduce(
+      (sum, r) => sum + (r.hanziStatistics || 0),
+      0
+    )
+
     return {
       success: true,
       message: `${totalCount}명 중 ${successCount}명의 데이터 마이그레이션이 완료되었습니다.`,
-      migratedData: migrationResults,
+      migratedData: {
+        gameStatistics: totalGameStats,
+        hanziStatistics: totalHanziStats,
+      },
     }
   } catch (error) {
     console.error("전체 마이그레이션 실패:", error)

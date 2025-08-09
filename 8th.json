@@ -370,7 +370,8 @@
     "radicals": ["人"],
     "relatedWords": [
       { "hanzi": "人間", "korean": "인간", "isTextBook": false },
-      { "hanzi": "人口", "korean": "인구", "isTextBook": false }
+      { "hanzi": "人口", "korean": "인구", "isTextBook": false },
+      { "hanzi": "人物", "korean": "인물", "isTextBook": true }
     ],
     "strokeOrder": [],
     "difficulty": "easy",

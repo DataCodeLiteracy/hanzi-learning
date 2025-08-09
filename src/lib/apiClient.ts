@@ -110,15 +110,23 @@ export class ApiClient {
 
   // 사용자별 데이터 조회
   static async getUserData<T>(
-    collectionName: string,
-    userId: string,
-    constraints: QueryConstraint[] = []
+    collection: string,
+    userId: string
   ): Promise<T[]> {
-    const userConstraint = where("userId", "==", userId)
-    return this.queryDocuments<T>(collectionName, [
-      userConstraint,
-      ...constraints,
-    ])
+    try {
+      const userRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userRef)
+
+      if (!userDoc.exists()) {
+        return []
+      }
+
+      const userData = userDoc.data()
+      return (userData[collection] as T[]) || []
+    } catch (error) {
+      console.error(`사용자 ${collection} 데이터 로드 실패:`, error)
+      return []
+    }
   }
 
   // 등급별 한자 조회
@@ -581,13 +589,31 @@ export class ApiClient {
   /**
    * 사용자의 게임 통계 가져오기 (새로운 구조)
    */
-  static async getGameStatisticsNew(userId: string): Promise<any> {
+  static async getGameStatisticsNew(userId: string): Promise<{
+    [gameType: string]: {
+      totalPlayed: number
+      correctAnswers: number
+      wrongAnswers: number
+      completedSessions: number
+      totalSessions: number
+      accuracy: number
+    }
+  }> {
     try {
       const gameStatsRef = collection(db, "gameStatistics")
       const q = query(gameStatsRef, where("userId", "==", userId))
       const snapshot = await getDocs(q)
 
-      const gameStats: any = {}
+      const gameStats: {
+        [gameType: string]: {
+          totalPlayed: number
+          correctAnswers: number
+          wrongAnswers: number
+          completedSessions: number
+          totalSessions: number
+          accuracy: number
+        }
+      } = {}
       snapshot.docs.forEach((doc) => {
         const data = doc.data()
         gameStats[data.gameType] = {
@@ -610,13 +636,40 @@ export class ApiClient {
   /**
    * 사용자의 한자 통계 가져오기 (새로운 구조)
    */
-  static async getHanziStatisticsNew(userId: string): Promise<any[]> {
+  static async getHanziStatisticsNew(userId: string): Promise<
+    {
+      hanziId: string
+      character: string
+      meaning: string
+      sound: string
+      gradeNumber: number
+      totalStudied: number
+      correctAnswers: number
+      wrongAnswers: number
+      accuracy: number
+      lastStudied: string | null
+    }[]
+  > {
     try {
       const hanziStatsRef = collection(db, "hanziStatistics")
       const q = query(hanziStatsRef, where("userId", "==", userId))
       const snapshot = await getDocs(q)
 
-      return snapshot.docs.map((doc) => doc.data())
+      return snapshot.docs.map(
+        (doc) =>
+          doc.data() as {
+            hanziId: string
+            character: string
+            meaning: string
+            sound: string
+            gradeNumber: number
+            totalStudied: number
+            correctAnswers: number
+            wrongAnswers: number
+            accuracy: number
+            lastStudied: string | null
+          }
+      )
     } catch (error) {
       console.error("한자 통계 가져오기 실패:", error)
       throw error

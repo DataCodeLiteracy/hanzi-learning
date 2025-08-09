@@ -35,7 +35,15 @@ interface DataContextType {
   updateUserStatistics: (session: LearningSession) => Promise<void>
 
   // 실시간 통계 업데이트 (새로고침 없이)
-  updateStatisticsRealTime: (gameType: string, stats: any) => Promise<void>
+  updateStatisticsRealTime: (
+    gameType: string,
+    stats: {
+      experience?: number
+      totalPlayed?: number
+      correctAnswers?: number
+      wrongAnswers?: number
+    }
+  ) => Promise<void>
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
@@ -118,7 +126,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // 실시간 통계 업데이트 (새로고침 없이)
   const updateStatisticsRealTime = useCallback(
-    async (gameType: string, stats: any) => {
+    async (
+      gameType: string,
+      stats: {
+        experience?: number
+        totalPlayed?: number
+        correctAnswers?: number
+        wrongAnswers?: number
+      }
+    ) => {
       if (!user) return
 
       try {
