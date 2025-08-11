@@ -918,40 +918,48 @@ export default function MemoryGame() {
                     onClick={() => handleCardClick(index)}
                     disabled={card.isMatched}
                     className={`
-                    aspect-square rounded-lg shadow-md transform
+                    aspect-square rounded-lg shadow-md transition-all duration-300 transform
+                    card-hover perspective-1000
                     ${
                       card.isMatched
-                        ? "bg-green-100 border-2 border-green-500"
+                        ? "border-green-500 bg-green-100"
                         : card.isFlipped
-                        ? "bg-white border-2 border-blue-500"
-                        : "bg-blue-500 border-2 border-blue-600 hover:bg-blue-600"
+                        ? "border-blue-500 bg-white"
+                        : "border-blue-600 bg-blue-500 hover:bg-blue-600"
                     }
                     ${card.isMatched ? "cursor-default" : "cursor-pointer"}
-                    ${!card.isMatched ? "hover:scale-105" : ""}
-                    transition-transform duration-200
+                    ${card.isFlipped ? "animate-flip" : ""}
                   `}
                   >
-                    <div className='relative w-full h-full'>
+                    <div className='relative w-full h-full transform-style-preserve-3d'>
                       {/* 카드 뒷면 (물음표) */}
-                      {!card.isFlipped && (
-                        <div className='absolute inset-0 flex items-center justify-center'>
-                          <div className='text-lg sm:text-xl md:text-2xl text-white font-bold'>
-                            ?
-                          </div>
+                      <div
+                        className={`
+                        absolute inset-0 flex items-center justify-center
+                        ${card.isFlipped ? "opacity-0" : "opacity-100"}
+                        transition-opacity duration-300
+                      `}
+                      >
+                        <div className='text-lg sm:text-xl md:text-2xl text-white font-bold'>
+                          ?
                         </div>
-                      )}
+                      </div>
 
                       {/* 카드 앞면 (한자 정보) */}
-                      {card.isFlipped && (
-                        <div className='absolute inset-0 flex flex-col items-center justify-center p-2 sm:p-3'>
-                          <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
-                            {card.hanzi}
-                          </div>
-                          <div className='text-xs sm:text-sm text-gray-600 text-center'>
-                            {card.meaning} {card.sound}
-                          </div>
+                      <div
+                        className={`
+                        absolute inset-0 flex flex-col items-center justify-center p-2 sm:p-3
+                        ${card.isFlipped ? "opacity-100" : "opacity-0"}
+                        transition-opacity duration-300
+                      `}
+                      >
+                        <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
+                          {card.hanzi}
                         </div>
-                      )}
+                        <div className='text-xs sm:text-sm text-gray-600 text-center'>
+                          {card.meaning} {card.sound}
+                        </div>
+                      </div>
                     </div>
                   </button>
                 ))}
