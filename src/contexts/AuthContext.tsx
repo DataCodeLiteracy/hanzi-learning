@@ -52,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           level: 1,
           experience: 0,
           isAdmin: isAdmin,
+          preferredGrade: 8, // 기본값: 8급
           createdAt:
             firebaseUser.metadata.creationTime || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -170,6 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           level: 1,
           experience: 0,
           isAdmin: false, // 기본적으로 관리자가 아님
+          preferredGrade: 8, // 기본값: 8급
           createdAt:
             firebaseUser.metadata.creationTime || new Date().toISOString(),
           updatedAt: new Date().toISOString(),

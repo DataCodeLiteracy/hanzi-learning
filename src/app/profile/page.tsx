@@ -211,9 +211,54 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* 선호 급수 설정 */}
+            <div className='mb-6'>
+              <h3 className='text-lg font-semibold text-gray-900 mb-3'>
+                선호하는 급수
+              </h3>
+              <p className='text-sm text-gray-600 mb-3'>
+                설정한 급수가 다른 페이지의 급수 선택에서 기본값으로 사용됩니다.
+              </p>
+              <div className='flex items-center space-x-3'>
+                <select
+                  value={user?.preferredGrade || 8}
+                  onChange={async (e) => {
+                    if (user) {
+                      try {
+                        await ApiClient.updateUserPreferredGrade(
+                          user.id,
+                          Number(e.target.value)
+                        )
+                        // 사용자 정보 새로고침
+                        window.location.reload()
+                      } catch (error) {
+                        console.error("선호 급수 업데이트 실패:", error)
+                      }
+                    }
+                  }}
+                  className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
+                >
+                  {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
+                    <option key={grade} value={grade} className='font-medium'>
+                      {grade === 5.5
+                        ? "준5급"
+                        : grade === 4.5
+                        ? "준4급"
+                        : grade === 3.5
+                        ? "준3급"
+                        : `${grade}급`}
+                    </option>
+                  ))}
+                </select>
+                <span className='text-sm text-gray-500'>
+                  현재: {user?.preferredGrade || 8}급
+                </span>
+              </div>
+            </div>
+
             {/* 관리자 버튼 */}
             {user?.isAdmin && (
-              <div className='mb-6'>
+              <div className='mb-6 space-y-3'>
                 <Link
                   href='/admin'
                   className='inline-flex items-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors'
@@ -221,6 +266,24 @@ export default function ProfilePage() {
                   <Settings className='h-4 w-4' />
                   <span>관리자 페이지</span>
                 </Link>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      await ApiClient.ensureAllUsersHavePreferredGrade()
+                      alert(
+                        "모든 사용자에게 기본 선호 급수(8급) 설정이 완료되었습니다."
+                      )
+                    } catch (error) {
+                      console.error("마이그레이션 실패:", error)
+                      alert("마이그레이션에 실패했습니다.")
+                    }
+                  }}
+                  className='inline-flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors'
+                >
+                  <Settings className='h-4 w-4' />
+                  <span>사용자 선호 급수 마이그레이션</span>
+                </button>
               </div>
             )}
 

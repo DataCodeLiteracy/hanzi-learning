@@ -7,6 +7,7 @@ export interface User {
   isAdmin: boolean
   experience: number // 경험치 필드 추가
   level: number // 레벨 필드 추가
+  preferredGrade?: number // 선호하는 급수 (기본값: 8)
   createdAt: string
   updatedAt: string
 }

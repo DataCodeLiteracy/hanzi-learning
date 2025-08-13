@@ -238,6 +238,61 @@ export class ApiClient {
     }
   }
 
+  // 사용자 선호 급수 업데이트
+  static async updateUserPreferredGrade(
+    userId: string,
+    preferredGrade: number
+  ): Promise<void> {
+    try {
+      const userRef = doc(db, "users", userId)
+      await updateDoc(userRef, {
+        preferredGrade: preferredGrade,
+        updatedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error("Error updating user preferred grade:", error)
+      throw new Error("선호 급수 업데이트에 실패했습니다.")
+    }
+  }
+
+  // 모든 사용자에게 기본 선호 급수 설정 (마이그레이션용)
+  static async ensureAllUsersHavePreferredGrade(): Promise<void> {
+    try {
+      const usersRef = collection(db, "users")
+      const usersSnapshot = await getDocs(usersRef)
+
+      const updatePromises: Promise<void>[] = []
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data()
+
+        // preferredGrade 필드가 없거나 undefined인 경우 8로 설정
+        if (
+          !userData.hasOwnProperty("preferredGrade") ||
+          userData.preferredGrade === undefined
+        ) {
+          const updatePromise = updateDoc(userDoc.ref, {
+            preferredGrade: 8,
+            updatedAt: new Date().toISOString(),
+          })
+          updatePromises.push(updatePromise)
+        }
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises)
+        console.log(
+          `${updatePromises.length}명의 사용자에게 기본 선호 급수(8급) 설정 완료`
+        )
+      } else {
+        console.log("모든 사용자가 이미 preferredGrade 필드를 가지고 있습니다.")
+      }
+    } catch (error) {
+      console.error("사용자 선호 급수 마이그레이션 실패:", error)
+      throw error
+    }
+  }
+
   // 게임별 통계 업데이트 (기존 구조 - 제거 예정)
   static async updateGameStatistics(
     userId: string,
@@ -411,14 +466,22 @@ export class ApiClient {
           wrongAnswers: stats?.wrongAnswers || 0,
           accuracy: stats?.accuracy || 0,
           lastStudied: stats?.lastStudied || null,
+          isKnown: stats?.isKnown || false, // 학습 완료 상태 추가
         }
       })
 
       // 우선순위 정렬:
-      // 1. 오답률이 높은 한자 우선 (accuracy가 낮은 순)
-      // 2. 학습이 부족한 한자 우선 (totalStudied가 적은 순)
-      // 3. 최근에 학습하지 않은 한자 우선 (lastStudied가 null이거나 오래된 순)
-      const sortedHanzi = hanziWithStats.sort((a, b) => {
+      // 1. 학습 완료된 한자는 15% 빈도로 줄이기 (가중치 적용)
+      // 2. 오답률이 높은 한자 우선 (accuracy가 낮은 순)
+      // 3. 학습이 부족한 한자 우선 (totalStudied가 적은 순)
+      // 4. 최근에 학습하지 않은 한자 우선 (lastStudied가 null이거나 오래된 순)
+
+      // 학습 완료된 한자와 미완료 한자 분리
+      const completedHanzi = hanziWithStats.filter((hanzi) => hanzi.isKnown)
+      const incompleteHanzi = hanziWithStats.filter((hanzi) => !hanzi.isKnown)
+
+      // 미완료 한자들을 우선순위에 따라 정렬
+      const sortedIncomplete = incompleteHanzi.sort((a, b) => {
         // 1순위: 오답률이 높은 한자 우선
         if (a.accuracy !== b.accuracy) {
           return a.accuracy - b.accuracy // 낮은 정답률 우선
@@ -443,8 +506,25 @@ export class ApiClient {
         return Math.random() - 0.5
       })
 
+      // 학습 완료된 한자들을 랜덤하게 섞기
+      const shuffledCompleted = completedHanzi.sort(() => Math.random() - 0.5)
+
+      // 15% 비율로 학습 완료된 한자 선택
+      const completedCount = Math.max(1, Math.floor(count * 0.15)) // 최소 1개는 보장
+      const incompleteCount = count - completedCount
+
+      // 미완료 한자에서 필요한 개수만큼 선택
+      const selectedIncomplete = sortedIncomplete.slice(0, incompleteCount)
+
+      // 학습 완료된 한자에서 필요한 개수만큼 선택
+      const selectedCompleted = shuffledCompleted.slice(0, completedCount)
+
+      // 두 그룹을 합치고 랜덤하게 섞기
+      const combined = [...selectedIncomplete, ...selectedCompleted]
+      const finalSelection = combined.sort(() => Math.random() - 0.5)
+
       // 요청된 개수만큼 반환
-      return sortedHanzi.slice(0, count)
+      return finalSelection.slice(0, count)
     } catch (error) {
       console.error("Error getting prioritized hanzi:", error)
       throw new Error("우선순위 기반 한자 선택에 실패했습니다.")
@@ -587,6 +667,70 @@ export class ApiClient {
   }
 
   /**
+   * 한자 통계 업데이트 (isKnown 필드 포함)
+   */
+  static async updateHanziStatisticsWithKnown(
+    userId: string,
+    hanziId: string,
+    gameType: string,
+    isCorrect: boolean,
+    isKnown?: boolean
+  ): Promise<void> {
+    try {
+      // 기존 통계 찾기
+      const hanziStatsRef = collection(db, "hanziStatistics")
+      const q = query(
+        hanziStatsRef,
+        where("userId", "==", userId),
+        where("hanziId", "==", hanziId)
+      )
+      const snapshot = await getDocs(q)
+
+      if (snapshot.empty) {
+        // 새로운 통계 생성
+        const newStatsRef = doc(collection(db, "hanziStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          userId,
+          hanziId,
+          totalStudied: 1,
+          correctAnswers: isCorrect ? 1 : 0,
+          wrongAnswers: isCorrect ? 0 : 1,
+          isKnown: isKnown || false,
+          lastStudied: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        // 기존 통계 업데이트
+        const existingDoc = snapshot.docs[0]
+        const existingData = existingDoc.data()
+
+        const newTotalStudied = existingData.totalStudied + 1
+        const newCorrectAnswers =
+          existingData.correctAnswers + (isCorrect ? 1 : 0)
+        const newWrongAnswers = existingData.wrongAnswers + (isCorrect ? 0 : 1)
+
+        const updatedData = {
+          ...existingData,
+          totalStudied: newTotalStudied,
+          correctAnswers: newCorrectAnswers,
+          wrongAnswers: newWrongAnswers,
+          isKnown:
+            isKnown !== undefined ? isKnown : existingData.isKnown || false,
+          lastStudied: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+
+        await setDoc(existingDoc.ref, updatedData)
+      }
+    } catch (error) {
+      console.error("한자 통계 업데이트 실패:", error)
+      throw error
+    }
+  }
+
+  /**
    * 사용자의 게임 통계 가져오기 (새로운 구조)
    */
   static async getGameStatisticsNew(userId: string): Promise<{
@@ -648,6 +792,7 @@ export class ApiClient {
       wrongAnswers: number
       accuracy: number
       lastStudied: string | null
+      isKnown?: boolean
     }[]
   > {
     try {
@@ -668,10 +813,100 @@ export class ApiClient {
             wrongAnswers: number
             accuracy: number
             lastStudied: string | null
+            isKnown?: boolean
           }
       )
     } catch (error) {
       console.error("한자 통계 가져오기 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 특정 급수의 한자들에 대한 한자 통계만 가져오기 (한자 목록 페이지용)
+   */
+  static async getHanziStatisticsByGrade(
+    userId: string,
+    grade: number
+  ): Promise<
+    {
+      hanziId: string
+      character: string
+      meaning: string
+      sound: string
+      gradeNumber: number
+      totalStudied: number
+      correctAnswers: number
+      wrongAnswers: number
+      accuracy: number
+      lastStudied: string | null
+      isKnown?: boolean
+    }[]
+  > {
+    try {
+      // 1. 해당 급수의 한자들 조회
+      const gradeHanzi = await this.getHanziByGrade(grade)
+
+      if (gradeHanzi.length === 0) {
+        return []
+      }
+
+      const gradeHanziIds = gradeHanzi.map((hanzi) => hanzi.id)
+
+      // Firestore 'in' 쿼리 제한 확인 (최대 10개)
+      if (gradeHanziIds.length > 10) {
+        // 배치로 나누어 처리
+        const batchSize = 10
+        const allStats: any[] = []
+
+        for (let i = 0; i < gradeHanziIds.length; i += batchSize) {
+          const batch = gradeHanziIds.slice(i, i + batchSize)
+
+          const hanziStatsRef = collection(db, "hanziStatistics")
+          const q = query(
+            hanziStatsRef,
+            where("userId", "==", userId),
+            where("hanziId", "in", batch)
+          )
+
+          const snapshot = await getDocs(q)
+          const batchStats = snapshot.docs.map((doc) => doc.data())
+          allStats.push(...batchStats)
+        }
+
+        return allStats
+      } else {
+        // 10개 이하인 경우 일반 쿼리
+        const hanziStatsRef = collection(db, "hanziStatistics")
+        const q = query(
+          hanziStatsRef,
+          where("userId", "==", userId),
+          where("hanziId", "in", gradeHanziIds)
+        )
+
+        const snapshot = await getDocs(q)
+
+        const result = snapshot.docs.map((doc) => {
+          const data = doc.data()
+          return data as {
+            hanziId: string
+            character: string
+            meaning: string
+            sound: string
+            gradeNumber: number
+            totalStudied: number
+            correctAnswers: number
+            wrongAnswers: number
+            accuracy: number
+            lastStudied: string | null
+            isKnown?: boolean
+          }
+        })
+
+        return result
+      }
+    } catch (error) {
+      console.error(`${grade}급 한자 통계 가져오기 실패:`, error)
       throw error
     }
   }
@@ -692,6 +927,64 @@ export class ApiClient {
       await batch.commit()
     } catch (error) {
       console.error("한자들에 gradeNumber 추가 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 새로운 급수 데이터 추가 시 기존 사용자들의 학습완료 상태 동기화
+   * @param newGrade 새로 추가된 급수
+   * @param newGradeData 새로 추가된 급수의 한자 데이터
+   */
+  static async syncKnownStatusForNewGrade(
+    newGrade: number,
+    newGradeData: Hanzi[]
+  ): Promise<void> {
+    try {
+      console.log(`${newGrade}급 데이터 추가 시 학습완료 상태 동기화 시작...`)
+
+      // 모든 사용자 조회
+      const usersRef = collection(db, "users")
+      const usersSnapshot = await getDocs(usersRef)
+
+      const syncPromises: Promise<void>[] = []
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id
+
+        // 각 사용자의 기존 한자 통계 조회
+        const userHanziStats = await this.getHanziStatisticsNew(userId)
+
+        // 새로 추가된 급수의 각 한자에 대해
+        for (const newHanzi of newGradeData) {
+          // 기존 통계에서 동일한 한자 찾기
+          const existingStat = userHanziStats.find(
+            (stat) => stat.character === newHanzi.character
+          )
+
+          if (existingStat && existingStat.isKnown) {
+            // 기존에 학습완료로 체크된 한자라면 새 급수에서도 동일하게 설정
+            syncPromises.push(
+              this.updateHanziStatisticsWithKnown(
+                userId,
+                newHanzi.id,
+                "quiz",
+                true,
+                true // isKnown = true
+              )
+            )
+          }
+        }
+      }
+
+      // 모든 동기화 완료 대기
+      await Promise.all(syncPromises)
+
+      console.log(
+        `${newGrade}급 학습완료 상태 동기화 완료: ${syncPromises.length}개 업데이트`
+      )
+    } catch (error) {
+      console.error("새 급수 학습완료 상태 동기화 실패:", error)
       throw error
     }
   }

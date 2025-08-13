@@ -35,7 +35,9 @@ export default function QuizGame() {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [gameEnded, setGameEnded] = useState<boolean>(false)
   const [showSettings, setShowSettings] = useState<boolean>(true)
-  const [selectedGrade, setSelectedGrade] = useState<number>(8)
+  const [selectedGrade, setSelectedGrade] = useState<number>(
+    user?.preferredGrade || 8
+  )
   const [questionCount, setQuestionCount] = useState<number>(10)
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
@@ -72,6 +74,14 @@ export default function QuizGame() {
     loadInitialData()
   }, [])
 
+  // 사용자 정보 로드 후 선호 급수 반영
+  useEffect(() => {
+    if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
+      setSelectedGrade(user.preferredGrade)
+      handleGradeChange(user.preferredGrade)
+    }
+  }, [user])
+
   // 페이지 이탈 시 통계 업데이트 (중도 포기 대응)
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -107,10 +117,10 @@ export default function QuizGame() {
 
     window.addEventListener("beforeunload", handleBeforeUnload)
 
-    // 컴포넌트 언마운트 시에도 통계 업데이트
+    // 컴포넌트 언마운트 시에도 통계 업데이트 (중도 포기 대응)
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload)
-      handleRouteChange()
+      handleRouteChange() // 중도 포기 시 통계 업데이트 필요
     }
   }, [questionsAnswered, gameEnded, hasUpdatedStats, user, correctAnswers])
 
@@ -260,28 +270,19 @@ export default function QuizGame() {
       updateHanziStats(false)
     }
 
-    // 틀렸을 때 정답 모달 2.5초간 표시, 맞았을 때는 바로 다음 문제
-    if (!correct) {
-      setTimeout(() => {
-        if (currentQuestionIndex < questions.length - 1) {
-          setCurrentQuestionIndex((prev) => prev + 1)
-          setSelectedAnswer(null)
-          setIsCorrect(null)
-        } else {
-          setGameEnded(true)
-        }
-      }, 2500) // 틀렸을 때 2.5초 대기
-    } else {
-      setTimeout(() => {
-        if (currentQuestionIndex < questions.length - 1) {
-          setCurrentQuestionIndex((prev) => prev + 1)
-          setSelectedAnswer(null)
-          setIsCorrect(null)
-        } else {
-          setGameEnded(true)
-        }
-      }, 1000) // 맞았을 때 1초 대기
-    }
+    // 정답/오답 모달 2.5초간 표시 후 자동으로 다음 문제로 이동
+    setTimeout(() => {
+      if (currentQuestionIndex < questions.length - 1) {
+        setCurrentQuestionIndex((prev) => prev + 1)
+        setSelectedAnswer(null)
+        setIsCorrect(null)
+      } else {
+        // 마지막 문제인 경우 게임 종료 및 팝업 상태 초기화
+        setGameEnded(true)
+        setSelectedAnswer(null)
+        setIsCorrect(null)
+      }
+    }, 2500) // 2.5초 후 자동 이동
   }
 
   // 문제별 경험치 추가 및 한자별 통계 업데이트 (정답시)
@@ -330,11 +331,11 @@ export default function QuizGame() {
         try {
           // 게임이 완료되면 게임 통계만 업데이트 (세션 단위)
           await GameStatisticsService.updateGameStatistics(user.id, "quiz", {
-            totalPlayed: questionsAnswered, // 실제 답한 문제 수
+            totalPlayed: questionsAnswered, // 문제별로 1회씩 (10문제 = 10회)
             correctAnswers: correctAnswers, // 이번 게임의 총 정답수
             wrongAnswers: questionsAnswered - correctAnswers, // 실제 답한 문제 중 오답수
           })
-          updateUserExperience(1) // 게임 종료 시 추가 경험치
+          // 경험치는 이미 각 문제마다 추가되었으므로 여기서는 추가하지 않음
           setHasUpdatedStats(true)
         } catch (error) {
           console.error("게임 통계 업데이트 실패:", error)
@@ -736,6 +737,45 @@ export default function QuizGame() {
                   틀렸습니다
                 </h3>
                 <p className='text-gray-600'>정답을 확인해보세요</p>
+              </div>
+
+              <div className='bg-gray-50 rounded-lg p-6 mb-6'>
+                <div className='text-6xl font-bold text-blue-600 mb-6'>
+                  {currentQuestion.hanzi}
+                </div>
+                <div className='space-y-3'>
+                  <div className='text-xl text-gray-700'>
+                    <span className='text-gray-500 font-medium'>뜻:</span>
+                    <span className='font-bold text-green-600 ml-2'>
+                      {currentQuestion.meaning}
+                    </span>
+                  </div>
+                  <div className='text-xl text-gray-700'>
+                    <span className='text-gray-500 font-medium'>음:</span>
+                    <span className='font-bold text-green-600 ml-2'>
+                      {currentQuestion.sound}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className='text-sm text-gray-500'>
+                잠시 후 다음 문제로 넘어갑니다...
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 맞았을 때 성공 모달 */}
+        {selectedAnswer !== null && isCorrect && (
+          <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
+            <div className='bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center'>
+              <div className='mb-6'>
+                <CheckCircle className='h-16 w-16 text-green-500 mx-auto mb-4' />
+                <h3 className='text-2xl font-bold text-gray-900 mb-2'>
+                  정답입니다!
+                </h3>
+                <p className='text-green-600'>잘 하셨습니다!</p>
               </div>
 
               <div className='bg-gray-50 rounded-lg p-6 mb-6'>

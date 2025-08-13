@@ -25,7 +25,9 @@ export default function TextbookWordsPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
   const [textbookWords, setTextbookWords] = useState<TextbookWord[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedGrade, setSelectedGrade] = useState<number>(8)
+  const [selectedGrade, setSelectedGrade] = useState<number>(
+    user?.preferredGrade || 8
+  )
   const [selectedItem, setSelectedItem] = useState<{
     type: "word" | "hanzi"
     data: any
@@ -55,6 +57,14 @@ export default function TextbookWordsPage() {
   useEffect(() => {
     loadData(8) // 8급 기본 로드
   }, []) // loadData를 dependency에서 제거
+
+  // 사용자 정보 로드 후 선호 급수 반영
+  useEffect(() => {
+    if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
+      setSelectedGrade(user.preferredGrade)
+      loadData(user.preferredGrade)
+    }
+  }, [user])
 
   // 급수 변경 시 데이터 로드
   const handleGradeChange = async (grade: number) => {
@@ -138,6 +148,15 @@ export default function TextbookWordsPage() {
           sound: hanzi.sound,
           grade: hanzi.grade,
           gradeNumber: hanzi.gradeNumber,
+        })
+      } else {
+        // 한자를 찾지 못한 경우에도 빈 객체로 추가 (UI에서 "-" 표시)
+        includedHanzi.push({
+          character: char,
+          meaning: "?",
+          sound: "?",
+          grade: 0,
+          gradeNumber: 0,
         })
       }
     }

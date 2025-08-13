@@ -37,7 +37,9 @@ export default function MemoryGame() {
   const [showPreview, setShowPreview] = useState<boolean>(true)
   const [timeLeft, setTimeLeft] = useState<number>(10)
   const [totalTime, setTotalTime] = useState<number>(0)
-  const [currentGrade, setCurrentGrade] = useState<number>(8) // 현재 선택된 급수
+  const [currentGrade, setCurrentGrade] = useState<number>(
+    user?.preferredGrade || 8
+  ) // 현재 선택된 급수
   const [gridSize, setGridSize] = useState<{ cols: number; rows: number }>({
     cols: 4,
     rows: 4,
@@ -62,6 +64,7 @@ export default function MemoryGame() {
   } | null>(null) // 모달에 표시할 한자
   const [isPaused, setIsPaused] = useState<boolean>(false) // 게임 일시정지 상태
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
+  const [earnedExperience, setEarnedExperience] = useState<number>(0) // 획득한 경험치
 
   // 8급 데이터 기본 로딩 (컴포넌트 마운트 시)
   useEffect(() => {
@@ -80,6 +83,14 @@ export default function MemoryGame() {
 
     loadInitialData()
   }, [])
+
+  // 사용자 정보 로드 후 선호 급수 반영
+  useEffect(() => {
+    if (user?.preferredGrade && user.preferredGrade !== currentGrade) {
+      setCurrentGrade(user.preferredGrade)
+      handleGradeChange(user.preferredGrade)
+    }
+  }, [user])
 
   // 급수 변경 핸들러
   const handleGradeChange = async (grade: number) => {
@@ -160,21 +171,31 @@ export default function MemoryGame() {
       case "easy":
         setTimeLimit(0) // 무제한
         setFlipLimit(0) // 무제한
+        setRemainingTime(0) // 무제한
+        setRemainingFlips(0) // 무제한
         break
       case "medium":
         // 타일 수에 따라 시간과 횟수 조정
         if (totalPairs <= 8) {
           setTimeLimit(300) // 4x4: 5분
           setFlipLimit(totalPairs * 3)
+          setRemainingTime(300)
+          setRemainingFlips(totalPairs * 3)
         } else if (totalPairs <= 12) {
           setTimeLimit(420) // 4x6: 7분
           setFlipLimit(totalPairs * 3)
+          setRemainingTime(420)
+          setRemainingFlips(totalPairs * 3)
         } else if (totalPairs <= 14) {
           setTimeLimit(480) // 4x7: 8분
           setFlipLimit(totalPairs * 3)
+          setRemainingTime(480)
+          setRemainingFlips(totalPairs * 3)
         } else {
           setTimeLimit(600) // 4x8: 10분
           setFlipLimit(totalPairs * 3)
+          setRemainingTime(600)
+          setRemainingFlips(totalPairs * 3)
         }
         break
       case "hard":
@@ -182,15 +203,23 @@ export default function MemoryGame() {
         if (totalPairs <= 8) {
           setTimeLimit(180) // 4x4: 3분
           setFlipLimit(totalPairs * 2)
+          setRemainingTime(180)
+          setRemainingFlips(totalPairs * 2)
         } else if (totalPairs <= 12) {
           setTimeLimit(240) // 4x6: 4분
           setFlipLimit(totalPairs * 2)
+          setRemainingTime(240)
+          setRemainingFlips(totalPairs * 2)
         } else if (totalPairs <= 14) {
           setTimeLimit(300) // 4x7: 5분
           setFlipLimit(totalPairs * 2)
+          setRemainingTime(300)
+          setRemainingFlips(totalPairs * 2)
         } else {
           setTimeLimit(360) // 4x8: 6분
           setFlipLimit(totalPairs * 2)
+          setRemainingTime(360)
+          setRemainingFlips(totalPairs * 2)
         }
         break
     }
@@ -387,13 +416,13 @@ export default function MemoryGame() {
       gameStarted && // 게임이 시작되었고
       !gameEnded && // 아직 끝나지 않았고
       cards.length > 0 && // 카드가 존재하고
-      matchedPairs > 0 && // 실제로 매칭된 쌍이 있고
-      matchedPairs === totalPairs // 모든 쌍을 완성했을 때만
+      matchedPairs === totalPairs // 모든 쌍을 완성했을 때
     ) {
       setGameEnded(true)
 
       // 난이도와 카드 수에 따른 경험치 계산
       const experience = calculateMemoryGameExperience(difficulty, totalPairs)
+      setEarnedExperience(experience) // 획득한 경험치 상태 업데이트
 
       // 사용자 경험치 업데이트
       if (user) {
@@ -419,8 +448,8 @@ export default function MemoryGame() {
   }, [
     matchedPairs,
     gameEnded,
-    gameStarted, // 추가
-    cards.length, // 추가
+    gameStarted,
+    cards.length,
     gridSize,
     user,
     updateUserExperience,
@@ -446,31 +475,29 @@ export default function MemoryGame() {
     setGradeError("")
     setShowErrorModal(false)
     setIsProcessing(false) // 처리 중 상태 리셋
+    setEarnedExperience(0) // 획득한 경험치 리셋
   }
 
   // 프리뷰 시간 계산 함수
   const getPreviewTime = () => {
-    const totalPairs = (gridSize.cols * gridSize.rows) / 2
+    const totalPairs = Math.floor((gridSize.cols * gridSize.rows) / 2)
 
     switch (difficulty) {
       case "easy":
         // 쉬움: 타일 수에 따라 차등
         if (totalPairs <= 8) return 10 // 4x4: 10초
-        else if (totalPairs <= 12) return 15 // 4x6: 15초
-        else if (totalPairs <= 14) return 20 // 4x7: 20초
-        else return 30 // 4x8: 30초 (1분의 절반)
+        else if (totalPairs <= 12) return 15 // 4x6, 5x5: 15초
+        else return 20 // 5x6: 20초
       case "medium":
         // 중간: 쉬움의 70%
         if (totalPairs <= 8) return 7
         else if (totalPairs <= 12) return 10
-        else if (totalPairs <= 14) return 14
-        else return 21
+        else return 14
       case "hard":
         // 어려움: 쉬움의 50%
         if (totalPairs <= 8) return 5
         else if (totalPairs <= 12) return 7
-        else if (totalPairs <= 14) return 10
-        else return 15
+        else return 10
       default:
         return 10
     }
@@ -706,7 +733,7 @@ export default function MemoryGame() {
 
               {/* 타일 크기 선택 */}
               <div className='mb-6'>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                <label className='text-sm font-medium text-gray-700 mb-2'>
                   타일 크기
                 </label>
                 <div className='grid grid-cols-2 gap-2'>
@@ -714,26 +741,18 @@ export default function MemoryGame() {
                     { cols: 4, rows: 4, label: "4 x 4 (8쌍)" },
                     { cols: 4, rows: 5, label: "4 x 5 (10쌍)" },
                     { cols: 4, rows: 6, label: "4 x 6 (12쌍)" },
-                    { cols: 4, rows: 7, label: "4 x 7 (14쌍)" },
-                    { cols: 4, rows: 8, label: "4 x 8 (16쌍)" },
+                    { cols: 5, rows: 5, label: "5 x 5 (12쌍)" },
+                    { cols: 5, rows: 6, label: "5 x 6 (15쌍)" },
                   ].map((size) => {
-                    const totalPairs = (size.cols * size.rows) / 2
+                    const totalPairs = Math.floor((size.cols * size.rows) / 2)
                     const mediumTime =
                       totalPairs <= 8
                         ? "5분"
                         : totalPairs <= 12
                         ? "7분"
-                        : totalPairs <= 14
-                        ? "8분"
                         : "10분"
                     const hardTime =
-                      totalPairs <= 8
-                        ? "3분"
-                        : totalPairs <= 12
-                        ? "4분"
-                        : totalPairs <= 14
-                        ? "5분"
-                        : "6분"
+                      totalPairs <= 8 ? "3분" : totalPairs <= 12 ? "4분" : "6분"
 
                     return (
                       <button
@@ -980,11 +999,7 @@ export default function MemoryGame() {
               </div>
               <div className='text-lg'>
                 <span className='font-semibold'>획득 경험치:</span>{" "}
-                {calculateMemoryGameExperience(
-                  difficulty,
-                  (gridSize.cols * gridSize.rows) / 2
-                )}
-                EXP
+                {earnedExperience} EXP
               </div>
               <div className='text-lg'>
                 <span className='font-semibold'>소요 시간:</span>{" "}
@@ -996,8 +1011,23 @@ export default function MemoryGame() {
                   {flipLimit - remainingFlips}/{flipLimit}
                 </div>
               )}
+              <div className='text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg'>
+                <div className='font-medium mb-1'>게임 정보:</div>
+                <div>
+                  난이도:{" "}
+                  {difficulty === "easy"
+                    ? "쉬움"
+                    : difficulty === "medium"
+                    ? "중간"
+                    : "어려움"}
+                </div>
+                <div>
+                  타일: {gridSize.cols} x {gridSize.rows} (
+                  {(gridSize.cols * gridSize.rows) / 2}쌍)
+                </div>
+              </div>
             </div>
-            <div className='flex space-x-4 justify-center'>
+            <div className='flex space-x-4 justify-center mt-8'>
               <button
                 onClick={handleBackToSettings}
                 className='px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
