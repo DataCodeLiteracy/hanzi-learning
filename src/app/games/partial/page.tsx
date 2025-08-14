@@ -568,7 +568,7 @@ export default function PartialGame() {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
         {/* 헤더 */}
-        <header className='bg-white shadow-sm'>
+        <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
           <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
             <div className='flex justify-between items-center py-4'>
               <div className='flex items-center space-x-4'>
@@ -584,7 +584,7 @@ export default function PartialGame() {
         </header>
 
         {/* 메인 컨텐츠 */}
-        <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+        <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
           <div className='bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto'>
             <h2 className='text-3xl font-bold text-gray-900 mb-6 text-center'>
               부분 맞추기 설정
@@ -723,7 +723,7 @@ export default function PartialGame() {
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 헤더 */}
-      <header className='bg-white shadow-sm'>
+      <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center py-4'>
             <div className='flex items-center space-x-4'>
@@ -758,7 +758,7 @@ export default function PartialGame() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+      <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
         {!gameEnded ? (
           <div className='space-y-8'>
             {/* 문제 */}

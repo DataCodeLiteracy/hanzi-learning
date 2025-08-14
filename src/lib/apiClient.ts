@@ -291,6 +291,7 @@ export class ApiClient {
           userId,
           totalSessions: 0,
           todayExperience: experienceToAdd,
+          todayGoal: 100, // 기본 목표값
           lastPlayedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -299,6 +300,40 @@ export class ApiClient {
     } catch (error) {
       console.error("Error updating today's experience:", error)
       throw new Error("오늘 경험치 업데이트에 실패했습니다.")
+    }
+  }
+
+  // 오늘의 학습 목표 업데이트
+  static async updateTodayGoal(userId: string, goal: number): Promise<void> {
+    try {
+      const userStats = await this.getUserStatistics(userId)
+
+      if (userStats) {
+        // 기존 통계 업데이트
+        const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        await updateDoc(userStatsRef, {
+          todayGoal: goal,
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        // 새로운 userStatistics 생성
+        const newStatsRef = doc(collection(db, "userStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          userId,
+          totalExperience: 0,
+          totalSessions: 0,
+          todayExperience: 0,
+          todayGoal: goal,
+          lastResetDate: new Date().toDateString(),
+          lastPlayedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error("Error updating today's goal:", error)
+      throw new Error("오늘의 학습 목표 업데이트에 실패했습니다.")
     }
   }
 
@@ -1243,6 +1278,7 @@ export class ApiClient {
         totalExperience: userData.experience || 0,
         totalSessions: totalSessions,
         todayExperience: 0, // 새로운 사용자는 0으로 시작
+        todayGoal: 100, // 기본 목표값
         lastResetDate: new Date().toDateString(), // 오늘 날짜로 초기화
         lastPlayedAt: userData.updatedAt || new Date().toISOString(),
         createdAt: new Date().toISOString(),

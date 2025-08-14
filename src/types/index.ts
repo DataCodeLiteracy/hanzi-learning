@@ -97,6 +97,7 @@ export interface UserStatistics {
   totalExperience: number
   totalSessions: number
   todayExperience: number // 오늘 달성한 경험치
+  todayGoal?: number // 오늘의 학습 목표 (기본값: 100)
   lastResetDate?: string // 마지막 리셋 날짜 (자정 리셋용)
   lastPlayedAt: string
   updatedAt: string

@@ -44,6 +44,7 @@ export default function ProfilePage() {
     GameStatistics
   > | null>(null)
   const [todayExperience, setTodayExperience] = useState<number>(0)
+  const [todayGoal, setTodayGoal] = useState<number>(100)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -66,6 +67,12 @@ export default function ProfilePage() {
           // 오늘 경험치 로드
           const todayExp = await ApiClient.getTodayExperience(user.id)
           setTodayExperience(todayExp)
+
+          // 오늘의 학습 목표 로드
+          const userStats = await ApiClient.getUserStatistics(user.id)
+          if (userStats) {
+            setTodayGoal(userStats.todayGoal || 100)
+          }
         } catch (error) {
           console.error("데이터 로드 실패:", error)
         }
@@ -229,15 +236,73 @@ export default function ProfilePage() {
                   오늘의 학습
                 </span>
               </div>
-              <div className='flex items-baseline space-x-2'>
+              <div className='flex items-baseline space-x-2 mb-2'>
                 <span className='text-2xl font-bold text-blue-600'>
                   {todayExperience}
                 </span>
                 <span className='text-sm text-blue-600'>EXP 획득</span>
+                <span className='text-sm text-gray-500'>
+                  / {todayGoal} 목표
+                </span>
               </div>
-              <p className='text-xs text-blue-700 mt-1'>
-                오늘 {todayExperience}문제를 풀었어요! 🎯
+
+              {/* 진행률 바 */}
+              <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
+                <div
+                  className='bg-blue-600 h-2 rounded-full transition-all duration-300'
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (todayExperience / todayGoal) * 100
+                    )}%`,
+                  }}
+                ></div>
+              </div>
+
+              <p className='text-xs text-blue-700'>
+                {todayExperience >= todayGoal
+                  ? `🎉 목표 달성! ${todayExperience}EXP를 획득했어요!`
+                  : `목표까지 ${todayGoal - todayExperience}EXP 남았어요! 🎯`}
               </p>
+            </div>
+
+            {/* 오늘의 학습 목표 설정 */}
+            <div className='mb-6'>
+              <h3 className='text-lg font-semibold text-gray-900 mb-3'>
+                오늘의 학습 목표
+              </h3>
+              <p className='text-sm text-gray-600 mb-3'>
+                오늘 획득할 경험치(EXP)를 설정해보세요. 목표를 달성하면 더 많은
+                동기부여를 받을 수 있습니다.
+              </p>
+              <div className='flex items-center space-x-3'>
+                <input
+                  type='number'
+                  value={todayGoal}
+                  onChange={(e) => setTodayGoal(Number(e.target.value))}
+                  className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
+                  min='1'
+                  max='1000'
+                />
+                <span className='text-sm text-gray-600'>EXP</span>
+                <button
+                  onClick={async () => {
+                    if (user) {
+                      try {
+                        await ApiClient.updateTodayGoal(user.id, todayGoal)
+                        alert(
+                          `오늘의 학습 목표가 ${todayGoal}EXP로 설정되었습니다.`
+                        )
+                      } catch (error) {
+                        console.error("오늘의 학습 목표 설정 실패:", error)
+                      }
+                    }
+                  }}
+                  className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+                >
+                  목표 설정
+                </button>
+              </div>
             </div>
 
             {/* 선호 급수 설정 */}

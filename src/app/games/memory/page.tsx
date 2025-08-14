@@ -65,6 +65,7 @@ export default function MemoryGame() {
   const [isPaused, setIsPaused] = useState<boolean>(false) // 게임 일시정지 상태
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
   const [earnedExperience, setEarnedExperience] = useState<number>(0) // 획득한 경험치
+  const [hasUpdatedStats, setHasUpdatedStats] = useState<boolean>(false) // 게임 완료 후 통계 업데이트 여부
 
   // 8급 데이터 기본 로딩 (컴포넌트 마운트 시)
   useEffect(() => {
@@ -284,12 +285,12 @@ export default function MemoryGame() {
     }
 
     try {
-      // 우선순위 기반으로 한자 선택
-      const selectedHanzi = await ApiClient.getPrioritizedHanzi(
-        user!.id,
-        currentGrade,
-        totalPairs
-      )
+      // 카드 뒤집기용 한자 선택 (모든 한자 사용, 학습 완료된 한자도 포함)
+      const allGradeHanzi = await ApiClient.getHanziByGrade(currentGrade)
+
+      // 필요한 개수만큼 한자 선택 (랜덤하게 섞기)
+      const shuffledHanzi = allGradeHanzi.sort(() => Math.random() - 0.5)
+      const selectedHanzi = shuffledHanzi.slice(0, totalPairs)
 
       // 각 한자를 2개씩 만들어서 카드 배열 생성
       const cardPairs = selectedHanzi.flatMap((hanzi) => [
@@ -338,7 +339,21 @@ export default function MemoryGame() {
 
   // 게임 초기화
   useEffect(() => {
-    if (currentGrade > 0 && !showGameSettings) {
+    console.log(`🔄 게임 초기화 체크:`, {
+      currentGrade,
+      showGameSettings,
+      gameEnded,
+      shouldInitialize: currentGrade > 0 && !showGameSettings && !gameEnded,
+    })
+
+    // 게임 완료 후에는 절대 초기화하지 않음
+    if (
+      currentGrade > 0 &&
+      !showGameSettings &&
+      !gameEnded &&
+      !hasUpdatedStats
+    ) {
+      console.log(`🚀 게임 초기화 시작`)
       initializeGame()
     }
   }, [currentGrade, gridSize, showGameSettings])
@@ -412,24 +427,43 @@ export default function MemoryGame() {
   useEffect(() => {
     const totalPairs = (gridSize.cols * gridSize.rows) / 2
 
+    console.log(`🔍 게임 상태 체크:`, {
+      gameStarted,
+      gameEnded,
+      cardsLength: cards.length,
+      matchedPairs,
+      totalPairs,
+      condition: matchedPairs === totalPairs,
+    })
+
     if (
       gameStarted && // 게임이 시작되었고
       !gameEnded && // 아직 끝나지 않았고
       cards.length > 0 && // 카드가 존재하고
       matchedPairs === totalPairs // 모든 쌍을 완성했을 때
     ) {
+      console.log(`🎯 게임 완료 조건 충족! 게임 종료 처리 시작`)
       setGameEnded(true)
 
       // 난이도와 카드 수에 따른 경험치 계산
       const experience = calculateMemoryGameExperience(difficulty, totalPairs)
+      console.log(
+        `💰 경험치 계산: 난이도=${difficulty}, 쌍수=${totalPairs}, 경험치=${experience}`
+      )
       setEarnedExperience(experience) // 획득한 경험치 상태 업데이트
 
       // 사용자 경험치 업데이트
       if (user) {
         const updateStats = async () => {
           try {
+            console.log(`🎮 카드 뒤집기 완료! 획득 경험치: ${experience}EXP`)
+
             // 게임 완료 시 난이도와 카드 수에 따른 경험치 지급
             await updateUserExperience(experience)
+
+            // 오늘 경험치 업데이트
+            await ApiClient.updateTodayExperience(user.id, experience)
+            console.log(`📅 오늘 경험치 업데이트: +${experience}EXP`)
 
             // 게임 통계 업데이트
             await ApiClient.updateGameStatisticsNew(user.id, "memory", {
@@ -438,12 +472,15 @@ export default function MemoryGame() {
               wrongAnswers: 0, // 카드 뒤집기는 오답 개념이 없음
               completedSessions: 1, // 세션 1회 완료
             })
+
+            console.log("✅ 카드 뒤집기 통계 업데이트 완료")
           } catch (error) {
             console.error("경험치 저장 실패:", error)
           }
         }
 
         updateStats()
+        setHasUpdatedStats(true) // 통계 업데이트 후 플래그 설정
       }
     }
   }, [
@@ -455,6 +492,7 @@ export default function MemoryGame() {
     user,
     updateUserExperience,
     difficulty,
+    hasUpdatedStats,
   ])
 
   // 게임 시작 처리
@@ -464,6 +502,7 @@ export default function MemoryGame() {
 
   // 게임 설정으로 돌아가기
   const handleBackToSettings = () => {
+    console.log(`🔄 게임 설정으로 돌아가기 - 모든 상태 리셋`)
     setShowGameSettings(true)
     setCards([])
     setFlippedCards([])
@@ -477,6 +516,7 @@ export default function MemoryGame() {
     setShowErrorModal(false)
     setIsProcessing(false) // 처리 중 상태 리셋
     setEarnedExperience(0) // 획득한 경험치 리셋
+    setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
   }
 
   // 프리뷰 시간 계산 함수
@@ -628,7 +668,7 @@ export default function MemoryGame() {
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 헤더 */}
-      <header className='bg-white shadow-sm'>
+      <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center py-4'>
             <div className='flex items-center space-x-4'>
@@ -649,10 +689,10 @@ export default function MemoryGame() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
         {/* 게임 설정 화면 */}
         {showGameSettings && (
-          <div className='text-center py-12'>
+          <div className='text-center py-8'>
             <div className='bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto'>
               <h2 className='text-3xl font-bold text-gray-900 mb-6'>
                 게임 설정
@@ -790,7 +830,7 @@ export default function MemoryGame() {
 
         {/* 카드 생성 중 로딩 */}
         {isGeneratingCards && (
-          <div className='text-center py-12'>
+          <div className='text-center py-8'>
             <LoadingSpinner message='카드를 생성하는 중...' />
           </div>
         )}
@@ -824,7 +864,7 @@ export default function MemoryGame() {
           !isGeneratingCards &&
           showPreview &&
           cards.length > 0 && (
-            <div className='text-center py-12'>
+            <div className='text-center py-8'>
               <div className='mb-8'>
                 <Timer className='h-16 w-16 text-blue-600 mx-auto mb-4' />
                 <h2 className='text-3xl font-bold text-gray-900 mb-4'>
@@ -845,16 +885,12 @@ export default function MemoryGame() {
 
               {/* 카드 프리뷰 */}
               <div
-                className={`grid gap-2 sm:gap-3 max-w-6xl mx-auto`}
-                style={{
-                  gridTemplateColumns: `repeat(${gridSize.cols}, 1fr)`,
-                  gridTemplateRows: `repeat(${gridSize.rows}, 1fr)`,
-                }}
+                className={`flex flex-wrap gap-2 sm:gap-3 max-w-6xl mx-auto justify-center`}
               >
                 {cards.map((card) => (
                   <div
                     key={card.id}
-                    className='bg-white rounded-lg shadow-md p-2 sm:p-3 text-center border-2 border-blue-200 aspect-square flex flex-col justify-center card-hover'
+                    className='bg-white rounded-lg shadow-md p-2 sm:p-3 text-center border-2 border-blue-200 w-20 h-24 sm:w-24 sm:h-28 md:w-28 md:h-32 flex flex-col justify-center card-hover flex-shrink-0'
                   >
                     <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
                       {card.hanzi}
@@ -926,11 +962,7 @@ export default function MemoryGame() {
               </div>
 
               <div
-                className={`grid gap-2 sm:gap-3 max-w-6xl mx-auto`}
-                style={{
-                  gridTemplateColumns: `repeat(${gridSize.cols}, 1fr)`,
-                  gridTemplateRows: `repeat(${gridSize.rows}, 1fr)`,
-                }}
+                className={`flex flex-wrap gap-2 sm:gap-3 max-w-6xl mx-auto justify-center`}
               >
                 {cards.map((card, index) => (
                   <button
@@ -938,8 +970,8 @@ export default function MemoryGame() {
                     onClick={() => handleCardClick(index)}
                     disabled={card.isMatched}
                     className={`
-                    aspect-square rounded-lg shadow-md transition-all duration-300 transform
-                    card-hover perspective-1000
+                    w-20 h-24 sm:w-24 sm:h-28 md:w-28 md:h-32 rounded-lg shadow-md transition-all duration-300 transform
+                    card-hover perspective-1000 flex-shrink-0
                     ${
                       card.isMatched
                         ? "border-green-500 bg-green-100"
@@ -989,7 +1021,7 @@ export default function MemoryGame() {
 
         {/* 게임 종료 화면 */}
         {gameEnded && (
-          <div className='text-center py-12'>
+          <div className='text-center py-8'>
             <h2 className='text-3xl font-bold text-gray-900 mb-4'>
               게임 완료!
             </h2>
