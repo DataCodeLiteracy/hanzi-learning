@@ -246,12 +246,115 @@ export class ApiClient {
     try {
       const userRef = doc(db, "users", userId)
       await updateDoc(userRef, {
-        preferredGrade: preferredGrade,
+        preferredGrade,
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
       console.error("Error updating user preferred grade:", error)
       throw new Error("선호 급수 업데이트에 실패했습니다.")
+    }
+  }
+
+  // 오늘 달성한 경험치 조회 (userStatistics에서 가져오기)
+  static async getTodayExperience(userId: string): Promise<number> {
+    try {
+      // userStatistics에서 todayExperience 가져오기
+      const userStats = await this.getUserStatistics(userId)
+      return userStats?.todayExperience || 0
+    } catch (error) {
+      console.error("Error getting today's experience:", error)
+      return 0 // 에러 시 0 반환
+    }
+  }
+
+  // 오늘 경험치 업데이트 (userStatistics에 저장)
+  static async updateTodayExperience(
+    userId: string,
+    experienceToAdd: number
+  ): Promise<void> {
+    try {
+      // 기존 userStatistics 조회
+      const userStats = await this.getUserStatistics(userId)
+
+      if (userStats) {
+        // 기존 통계 업데이트
+        const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        await updateDoc(userStatsRef, {
+          todayExperience: (userStats.todayExperience || 0) + experienceToAdd,
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        // 새로운 userStatistics 생성
+        const newStatsRef = doc(collection(db, "userStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          userId,
+          totalSessions: 0,
+          todayExperience: experienceToAdd,
+          lastPlayedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error("Error updating today's experience:", error)
+      throw new Error("오늘 경험치 업데이트에 실패했습니다.")
+    }
+  }
+
+  // 오늘 경험치 리셋 (자정에 호출)
+  static async resetTodayExperience(userId: string): Promise<void> {
+    try {
+      const userStats = await this.getUserStatistics(userId)
+
+      if (userStats) {
+        const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        await updateDoc(userStatsRef, {
+          todayExperience: 0,
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error("Error resetting today's experience:", error)
+      throw new Error("오늘 경험치 리셋에 실패했습니다.")
+    }
+  }
+
+  // 자정 리셋 확인 및 처리 (데이터베이스 기반)
+  static async checkAndResetTodayExperience(userId: string): Promise<void> {
+    try {
+      let userStats = await this.getUserStatistics(userId)
+
+      // userStatistics가 없으면 잠시 대기 후 다시 확인 (네트워크 지연 대응)
+      if (!userStats) {
+        console.log("UserStatistics not found, waiting and retrying...")
+        await new Promise((resolve) => setTimeout(resolve, 1000)) // 1초 대기
+        userStats = await this.getUserStatistics(userId)
+      }
+
+      if (!userStats) {
+        // 여전히 없으면 생성 (기존 데이터 보존)
+        console.log("Creating new UserStatistics for user:", userId)
+        await this.initializeUserStatistics(userId)
+        return
+      }
+
+      const today = new Date().toDateString()
+      const lastResetDate = userStats.lastResetDate || ""
+
+      if (lastResetDate !== today) {
+        // 자정이 지났으면 오늘 경험치 리셋
+        const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        await updateDoc(userStatsRef, {
+          todayExperience: 0,
+          lastResetDate: today,
+          updatedAt: new Date().toISOString(),
+        })
+        console.log("자정 리셋 완료: 오늘 경험치 초기화")
+      }
+    } catch (error) {
+      console.error("Error checking and resetting today's experience:", error)
+      throw new Error("오늘 경험치 리셋 확인에 실패했습니다.")
     }
   }
 
@@ -548,6 +651,18 @@ export class ApiClient {
     }
   ): Promise<void> {
     try {
+      console.log(`🔧 updateGameStatisticsNew 호출됨:`)
+      console.log(`  - userId: ${userId}`)
+      console.log(`  - gameType: ${gameType}`)
+      console.log(`  - stats:`, stats)
+
+      // completedSessions 업데이트 시 특별 로그
+      if (stats.completedSessions && stats.completedSessions > 0) {
+        console.log(
+          `🎯 completedSessions 업데이트 감지: +${stats.completedSessions}`
+        )
+      }
+
       // 기존 통계 찾기
       const gameStatsRef = collection(db, "gameStatistics")
       const q = query(
@@ -559,6 +674,7 @@ export class ApiClient {
 
       if (snapshot.empty) {
         // 새로운 통계 생성
+        console.log(`📝 새로운 게임 통계 생성: ${gameType}`)
         const newStatsRef = doc(collection(db, "gameStatistics"))
         await setDoc(newStatsRef, {
           id: newStatsRef.id,
@@ -572,8 +688,13 @@ export class ApiClient {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
+        console.log(
+          `✅ 새로운 게임 통계 생성 완료: completedSessions=${
+            stats.completedSessions || 0
+          }`
+        )
       } else {
-        // 기존 통계 업데이트
+        // 기존 통계 업데이트 (누적)
         const existingDoc = snapshot.docs[0]
         const existingData = existingDoc.data()
 
@@ -588,6 +709,15 @@ export class ApiClient {
         const newTotalSessions =
           existingData.totalSessions + (stats.totalSessions || 0)
 
+        console.log(`📊 기존 게임 통계 업데이트:`)
+        console.log(
+          `  - 기존 completedSessions: ${existingData.completedSessions || 0}`
+        )
+        console.log(
+          `  - 추가할 completedSessions: ${stats.completedSessions || 0}`
+        )
+        console.log(`  - 새로운 completedSessions: ${newCompletedSessions}`)
+
         const updatedData = {
           ...existingData,
           totalPlayed: newTotalPlayed,
@@ -599,9 +729,72 @@ export class ApiClient {
         }
 
         await setDoc(existingDoc.ref, updatedData)
+        console.log(
+          `✅ 기존 게임 통계 업데이트 완료: completedSessions=${newCompletedSessions}`
+        )
       }
+
+      // userStatistics의 totalSessions도 함께 업데이트
+      await this.updateUserStatisticsTotalSessions(
+        userId,
+        stats.completedSessions || 0 // totalPlayed 대신 completedSessions 사용
+      )
     } catch (error) {
       console.error("게임 통계 업데이트 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * userStatistics의 totalSessions 업데이트
+   */
+  static async updateUserStatisticsTotalSessions(
+    userId: string,
+    sessionsToAdd: number
+  ): Promise<void> {
+    try {
+      console.log(`🔧 updateUserStatisticsTotalSessions 호출됨:`)
+      console.log(`  - userId: ${userId}`)
+      console.log(`  - sessionsToAdd: ${sessionsToAdd}`)
+
+      const userStats = await this.getUserStatistics(userId)
+
+      if (userStats) {
+        // 기존 통계 업데이트
+        console.log(`📊 기존 userStatistics 업데이트:`)
+        console.log(`  - 기존 totalSessions: ${userStats.totalSessions || 0}`)
+        console.log(`  - 추가할 sessionsToAdd: ${sessionsToAdd}`)
+        console.log(
+          `  - 새로운 totalSessions: ${
+            (userStats.totalSessions || 0) + sessionsToAdd
+          }`
+        )
+
+        const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        await updateDoc(userStatsRef, {
+          totalSessions: (userStats.totalSessions || 0) + sessionsToAdd,
+          updatedAt: new Date().toISOString(),
+        })
+        console.log(`✅ userStatistics totalSessions 업데이트 완료`)
+      } else {
+        // 새로운 userStatistics 생성
+        console.log(`📝 새로운 userStatistics 생성`)
+        const newStatsRef = doc(collection(db, "userStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          userId,
+          totalExperience: 0,
+          totalSessions: sessionsToAdd,
+          todayExperience: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        console.log(
+          `✅ 새로운 userStatistics 생성 완료: totalSessions=${sessionsToAdd}`
+        )
+      }
+    } catch (error) {
+      console.error("userStatistics totalSessions 업데이트 실패:", error)
       throw error
     }
   }
@@ -1006,6 +1199,145 @@ export class ApiClient {
       console.log(`🗑️ ${grade}급 한자 ${hanziList.length}개 삭제 완료`)
     } catch (error) {
       console.error(`${grade}급 한자 삭제 실패:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * 사용자 통계 초기화 (기존 사용자 데이터에서 생성)
+   */
+  static async initializeUserStatistics(userId: string): Promise<void> {
+    try {
+      // 기존 userStatistics가 있는지 확인
+      const existingStats = await this.getUserStatistics(userId)
+      if (existingStats) {
+        console.log("UserStatistics already exists for user:", userId)
+        return
+      }
+
+      // 사용자 정보 조회
+      const userRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userRef)
+
+      if (!userDoc.exists()) {
+        console.log("User not found:", userId)
+        return
+      }
+
+      const userData = userDoc.data()
+
+      // 게임 통계 조회하여 totalSessions 계산
+      const gameStats = await this.getGameStatisticsNew(userId)
+      let totalSessions = 0
+
+      Object.entries(gameStats).forEach(([gameType, stats]) => {
+        // 모든 게임에서 completedSessions 사용 (세션 완료 수)
+        totalSessions += stats.completedSessions || 0
+      })
+
+      // 새로운 userStatistics 생성
+      const newStatsRef = doc(collection(db, "userStatistics"))
+      await setDoc(newStatsRef, {
+        id: newStatsRef.id,
+        userId,
+        totalExperience: userData.experience || 0,
+        totalSessions: totalSessions,
+        todayExperience: 0, // 새로운 사용자는 0으로 시작
+        lastResetDate: new Date().toDateString(), // 오늘 날짜로 초기화
+        lastPlayedAt: userData.updatedAt || new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+
+      console.log("UserStatistics initialized for user:", userId)
+    } catch (error) {
+      console.error("Error initializing user statistics:", error)
+      throw new Error("사용자 통계 초기화에 실패했습니다.")
+    }
+  }
+
+  /**
+   * 모든 사용자의 통계 초기화 (마이그레이션용)
+   */
+  static async initializeAllUserStatistics(): Promise<void> {
+    try {
+      const usersRef = collection(db, "users")
+      const usersSnapshot = await getDocs(usersRef)
+
+      const initPromises: Promise<void>[] = []
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id
+        initPromises.push(this.initializeUserStatistics(userId))
+      }
+
+      await Promise.all(initPromises)
+      console.log(
+        `UserStatistics initialization completed for ${initPromises.length} users`
+      )
+    } catch (error) {
+      console.error("Error initializing all user statistics:", error)
+      throw error
+    }
+  }
+
+  /**
+   * userStatistics의 totalExperience를 users 컬렉션과 동기화
+   */
+  static async syncUserStatisticsTotalExperience(
+    userId: string
+  ): Promise<void> {
+    try {
+      // 사용자 정보 조회
+      const userRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userRef)
+
+      if (!userDoc.exists()) {
+        console.log("User not found:", userId)
+        return
+      }
+
+      const userData = userDoc.data()
+      const userStats = await this.getUserStatistics(userId)
+
+      if (userStats) {
+        // 기존 통계 업데이트
+        const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        await updateDoc(userStatsRef, {
+          totalExperience: userData.experience || 0,
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        // 새로운 userStatistics 생성 (initializeUserStatistics 호출)
+        await this.initializeUserStatistics(userId)
+      }
+    } catch (error) {
+      console.error("Error syncing user statistics totalExperience:", error)
+      throw new Error("사용자 통계 동기화에 실패했습니다.")
+    }
+  }
+
+  /**
+   * 모든 사용자의 totalExperience 동기화 (마이그레이션용)
+   */
+  static async syncAllUserStatisticsTotalExperience(): Promise<void> {
+    try {
+      const usersRef = collection(db, "users")
+      const usersSnapshot = await getDocs(usersRef)
+
+      const syncPromises: Promise<void>[] = []
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id
+        syncPromises.push(this.syncUserStatisticsTotalExperience(userId))
+      }
+
+      await Promise.all(syncPromises)
+      console.log(
+        `UserStatistics totalExperience sync completed for ${syncPromises.length} users`
+      )
+    } catch (error) {
+      console.error("Error syncing all user statistics totalExperience:", error)
       throw error
     }
   }

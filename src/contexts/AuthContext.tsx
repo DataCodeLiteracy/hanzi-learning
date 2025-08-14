@@ -11,6 +11,7 @@ import { auth, googleProvider, db } from "@/lib/firebase"
 import { doc, setDoc, getDoc } from "firebase/firestore"
 import { User } from "@/types"
 import { calculateLevel } from "@/lib/experienceSystem"
+import { ApiClient } from "@/lib/apiClient"
 
 interface AuthContextType {
   user: User | null
@@ -116,6 +117,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           { merge: true }
         )
+
+        // userStatistics의 totalExperience도 함께 업데이트
+        try {
+          const userStatsRef = doc(db, "userStatistics", firebaseUser.uid)
+          await setDoc(
+            userStatsRef,
+            {
+              totalExperience: newExperience,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          )
+        } catch (statsError) {
+          console.error("userStatistics 업데이트 실패:", statsError)
+          // userStatistics가 없으면 생성
+          try {
+            await ApiClient.initializeUserStatistics(firebaseUser.uid)
+            // 다시 업데이트 시도
+            const userStatsRef = doc(db, "userStatistics", firebaseUser.uid)
+            await setDoc(
+              userStatsRef,
+              {
+                totalExperience: newExperience,
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true }
+            )
+          } catch (initError) {
+            console.error("userStatistics 초기화 실패:", initError)
+          }
+        }
       } catch (error) {
         console.error("경험치 업데이트 에러:", error)
         // 에러 발생 시 전체 새로고침

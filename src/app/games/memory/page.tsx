@@ -436,6 +436,7 @@ export default function MemoryGame() {
               totalPlayed: 1,
               correctAnswers: matchedPairs, // 매칭된 쌍의 수
               wrongAnswers: 0, // 카드 뒤집기는 오답 개념이 없음
+              completedSessions: 1, // 세션 1회 완료
             })
           } catch (error) {
             console.error("경험치 저장 실패:", error)

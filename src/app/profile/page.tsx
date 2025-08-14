@@ -13,6 +13,7 @@ import {
   Crown,
   LogOut,
   Trash2,
+  TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -42,6 +43,7 @@ export default function ProfilePage() {
     string,
     GameStatistics
   > | null>(null)
+  const [todayExperience, setTodayExperience] = useState<number>(0)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -49,18 +51,26 @@ export default function ProfilePage() {
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
 
-  // 게임 통계 로드
+  // 게임 통계 및 오늘 경험치 로드
   useEffect(() => {
     if (user) {
-      const loadGameStatistics = async () => {
+      const loadData = async () => {
         try {
+          // 자정 리셋 확인 및 처리
+          await ApiClient.checkAndResetTodayExperience(user.id)
+
+          // 게임 통계 로드
           const stats = await GameStatisticsService.getGameStatistics(user.id)
           setGameStatistics(stats)
+
+          // 오늘 경험치 로드
+          const todayExp = await ApiClient.getTodayExperience(user.id)
+          setTodayExperience(todayExp)
         } catch (error) {
-          console.error("게임 통계 로드 실패:", error)
+          console.error("데이터 로드 실패:", error)
         }
       }
-      loadGameStatistics()
+      loadData()
     }
   }, [user])
 
@@ -211,6 +221,25 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* 오늘의 학습 성과 */}
+            <div className='bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100 mb-6'>
+              <div className='flex items-center space-x-2 mb-2'>
+                <TrendingUp className='h-5 w-5 text-blue-600' />
+                <span className='text-sm font-semibold text-blue-800'>
+                  오늘의 학습
+                </span>
+              </div>
+              <div className='flex items-baseline space-x-2'>
+                <span className='text-2xl font-bold text-blue-600'>
+                  {todayExperience}
+                </span>
+                <span className='text-sm text-blue-600'>EXP 획득</span>
+              </div>
+              <p className='text-xs text-blue-700 mt-1'>
+                오늘 {todayExperience}문제를 풀었어요! 🎯
+              </p>
+            </div>
+
             {/* 선호 급수 설정 */}
             <div className='mb-6'>
               <h3 className='text-lg font-semibold text-gray-900 mb-3'>
@@ -283,6 +312,22 @@ export default function ProfilePage() {
                 >
                   <Settings className='h-4 w-4' />
                   <span>사용자 선호 급수 마이그레이션</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      await ApiClient.syncAllUserStatisticsTotalExperience()
+                      alert("모든 사용자의 총 경험치 동기화가 완료되었습니다.")
+                    } catch (error) {
+                      console.error("총 경험치 동기화 실패:", error)
+                      alert("총 경험치 동기화에 실패했습니다.")
+                    }
+                  }}
+                  className='inline-flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors'
+                >
+                  <Settings className='h-4 w-4' />
+                  <span>총 경험치 동기화</span>
                 </button>
               </div>
             )}

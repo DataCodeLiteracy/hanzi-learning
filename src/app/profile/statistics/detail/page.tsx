@@ -17,10 +17,16 @@ import {
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
+import { ApiClient } from "@/lib/apiClient"
+import { UserStatistics } from "@/types"
 
 export default function DetailStatisticsPage() {
   const { user, loading: authLoading } = useAuth()
-  const { userStatistics, learningSessions } = useData()
+  const { learningSessions } = useData()
+  const [userStatistics, setUserStatistics] = useState<UserStatistics | null>(
+    null
+  )
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -28,11 +34,47 @@ export default function DetailStatisticsPage() {
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
 
+  // userStatistics 직접 로드
+  useEffect(() => {
+    const loadUserStatistics = async () => {
+      if (!user) return
+
+      setIsLoadingStats(true)
+      try {
+        let stats = await ApiClient.getUserStatistics(user.id)
+
+        // userStatistics가 없으면 초기화
+        if (!stats) {
+          console.log("UserStatistics not found, initializing...")
+          await ApiClient.initializeUserStatistics(user.id)
+          stats = await ApiClient.getUserStatistics(user.id)
+        }
+
+        // totalExperience를 users 컬렉션과 동기화
+        if (stats && stats.totalExperience !== user.experience) {
+          console.log(
+            `동기화 필요: userStatistics.totalExperience(${stats.totalExperience}) !== user.experience(${user.experience})`
+          )
+          await ApiClient.syncUserStatisticsTotalExperience(user.id)
+          stats = await ApiClient.getUserStatistics(user.id)
+        }
+
+        setUserStatistics(stats)
+      } catch (error) {
+        console.error("사용자 통계 로드 에러:", error)
+      } finally {
+        setIsLoadingStats(false)
+      }
+    }
+
+    loadUserStatistics()
+  }, [user])
+
   // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading) {
+  if (authLoading || isLoadingStats) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
+        <LoadingSpinner message='통계 데이터를 불러오는 중...' />
       </div>
     )
   }
@@ -171,7 +213,7 @@ export default function DetailStatisticsPage() {
                 <TrendingUp className='h-5 w-5' />
                 <span>학습 통계</span>
               </h3>
-              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <div className='text-center p-4 bg-blue-50 rounded-lg'>
                   <div className='text-2xl font-bold text-blue-600'>
                     {userStatistics.totalExperience}
@@ -183,12 +225,6 @@ export default function DetailStatisticsPage() {
                     {userStatistics.totalSessions}
                   </div>
                   <div className='text-sm text-gray-600'>학습 세션</div>
-                </div>
-                <div className='text-center p-4 bg-purple-50 rounded-lg'>
-                  <div className='text-2xl font-bold text-purple-600'>
-                    {Math.round(userStatistics.averageScore)}%
-                  </div>
-                  <div className='text-sm text-gray-600'>평균 점수</div>
                 </div>
               </div>
             </div>

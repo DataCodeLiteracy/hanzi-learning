@@ -79,7 +79,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoading(true)
     try {
-      const stats = await ApiClient.getUserStatistics(user.id)
+      let stats = await ApiClient.getUserStatistics(user.id)
+
+      // userStatistics가 없으면 초기화
+      if (!stats) {
+        console.log("UserStatistics not found, initializing...")
+        await ApiClient.initializeUserStatistics(user.id)
+        stats = await ApiClient.getUserStatistics(user.id)
+      }
+
       setUserStatistics(stats)
     } catch (error) {
       console.error("사용자 통계 로드 에러:", error)
@@ -142,7 +150,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (userStatistics) {
           const updatedStats = { ...userStatistics }
           updatedStats.totalExperience += stats.experience || 0
-          updatedStats.totalSessions += stats.totalPlayed || 0
+          // totalSessions는 이제 API에서 직접 업데이트되므로 여기서는 제거
+          // updatedStats.totalSessions += stats.totalPlayed || 0
           setUserStatistics(updatedStats)
         }
       } catch (error) {

@@ -11,6 +11,7 @@ import {
   LogIn,
   Gamepad2,
   Eye,
+  TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -18,19 +19,39 @@ import {
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { ApiClient } from "@/lib/apiClient"
 
 export default function Home() {
   const { user, initialLoading, signIn } = useAuth()
   const { userStatistics, isLoading: dataLoading } = useData()
   const [showWritingModal, setShowWritingModal] = useState(false)
   const [showGuideModal, setShowGuideModal] = useState(false)
+  const [todayExperience, setTodayExperience] = useState<number>(0)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
   const currentExperience = user?.experience || 0
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
+
+  // 오늘 경험치 로드
+  useEffect(() => {
+    if (user) {
+      const loadTodayExperience = async () => {
+        try {
+          // 자정 리셋 확인 및 처리
+          await ApiClient.checkAndResetTodayExperience(user.id)
+
+          const todayExp = await ApiClient.getTodayExperience(user.id)
+          setTodayExperience(todayExp)
+        } catch (error) {
+          console.error("오늘 경험치 로드 실패:", error)
+        }
+      }
+      loadTodayExperience()
+    }
+  }, [user])
 
   // 로딩 중일 때는 로딩 스피너만 표시 (진짜 초기 로딩만)
   if (initialLoading) {
@@ -184,6 +205,25 @@ export default function Home() {
                   레벨 {currentLevel}
                 </h3>
 
+                {/* 오늘의 학습 성과 */}
+                <div className='bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100'>
+                  <div className='flex items-center space-x-2 mb-2'>
+                    <TrendingUp className='h-5 w-5 text-blue-600' />
+                    <span className='text-sm font-semibold text-blue-800'>
+                      오늘의 학습
+                    </span>
+                  </div>
+                  <div className='flex items-baseline space-x-2'>
+                    <span className='text-2xl font-bold text-blue-600'>
+                      {todayExperience}
+                    </span>
+                    <span className='text-sm text-blue-600'>EXP 획득</span>
+                  </div>
+                  <p className='text-xs text-blue-700 mt-1'>
+                    오늘 {todayExperience}문제를 풀었어요! 🎯
+                  </p>
+                </div>
+
                 {/* 다음 레벨까지와 진행률 */}
                 <div className='flex items-center justify-between text-sm text-gray-600'>
                   <span>다음 레벨까지 {expToNextLevel} EXP 필요</span>
@@ -232,36 +272,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-
-            {/* 통계 카드 */}
-            {userStatistics && (
-              <div className='grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6'>
-                <div className='bg-white rounded-lg shadow-sm p-4 sm:p-6'>
-                  <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-2'>
-                    총 경험치
-                  </h3>
-                  <p className='text-2xl sm:text-3xl font-bold text-blue-600'>
-                    {userStatistics.totalExperience}
-                  </p>
-                </div>
-                <div className='bg-white rounded-lg shadow-sm p-4 sm:p-6'>
-                  <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-2'>
-                    학습 세션
-                  </h3>
-                  <p className='text-2xl sm:text-3xl font-bold text-green-600'>
-                    {userStatistics.totalSessions}
-                  </p>
-                </div>
-                <div className='bg-white rounded-lg shadow-sm p-4 sm:p-6'>
-                  <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-2'>
-                    평균 점수
-                  </h3>
-                  <p className='text-2xl sm:text-3xl font-bold text-purple-600'>
-                    {Math.round(userStatistics.averageScore)}%
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* 게임 선택 */}
             <div>

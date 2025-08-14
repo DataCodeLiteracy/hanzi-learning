@@ -96,10 +96,8 @@ export interface UserStatistics {
   userId: string
   totalExperience: number
   totalSessions: number
-  averageScore: number
-  favoriteGame: "memory" | "quiz" | "writing" | "partial"
-  weakCharacters: string[] // 취약한 한자들
-  strongCharacters: string[] // 잘하는 한자들
+  todayExperience: number // 오늘 달성한 경험치
+  lastResetDate?: string // 마지막 리셋 날짜 (자정 리셋용)
   lastPlayedAt: string
   updatedAt: string
 }

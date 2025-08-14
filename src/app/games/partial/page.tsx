@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
@@ -59,7 +59,15 @@ export default function PartialGame() {
   } | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
-  const [questionsAnswered, setQuestionsAnswered] = useState<number>(0) // 실제 답한 문제 수
+
+  // useRef로 문제 풀기 카운팅 (리렌더링해도 값 유지)
+  const questionsAnsweredRef = useRef<number>(0)
+
+  // 뒤로가기 확인 모달 상태
+  const [showExitModal, setShowExitModal] = useState<boolean>(false)
+
+  // 사용자가 나가기로 확인했는지 플래그
+  const [userConfirmedExit, setUserConfirmedExit] = useState<boolean>(false)
 
   // 8급 데이터 기본 로딩
   useEffect(() => {
@@ -78,6 +86,33 @@ export default function PartialGame() {
     loadInitialData()
   }, [])
 
+  // 뒤로가기 감지 및 모달 표시 (beforeunload 제거, popstate만 유지)
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (
+        questionsAnsweredRef.current > 0 &&
+        !gameEnded &&
+        !hasUpdatedStats &&
+        !userConfirmedExit
+      ) {
+        e.preventDefault()
+        setShowExitModal(true)
+        // 브라우저 뒤로가기 방지
+        window.history.pushState(null, "", window.location.pathname)
+      }
+    }
+
+    // 브라우저 뒤로가기 감지만 (beforeunload 제거)
+    window.addEventListener("popstate", handlePopState)
+
+    // 초기 히스토리 상태 추가
+    window.history.pushState(null, "", window.location.pathname)
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+    }
+  }, [gameEnded, hasUpdatedStats, userConfirmedExit])
+
   // 사용자 정보 로드 후 선호 급수 반영
   useEffect(() => {
     if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
@@ -86,47 +121,42 @@ export default function PartialGame() {
     }
   }, [user])
 
-  // 페이지 이탈 시 통계 업데이트 (중도 포기 대응)
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (questionsAnswered > 0 && !gameEnded && !hasUpdatedStats) {
-        // 비동기로 통계 업데이트 (페이지 이탈 직전)
-        navigator.sendBeacon(
-          "/api/updateStats",
-          JSON.stringify({
-            userId: user?.id,
-            gameType: "partial",
-            totalPlayed: questionsAnswered,
-            correctAnswers: correctAnswers,
-            wrongAnswers: questionsAnswered - correctAnswers,
-          })
+  // 뒤로가기 확인 및 통계 업데이트는 불필요 (이미 각 문제마다 즉시 업데이트됨)
+  const handleExitConfirm = async () => {
+    if (questionsAnsweredRef.current > 0 && !gameEnded && user) {
+      try {
+        console.log(`🚪 게임 중단 확인:`)
+        console.log(
+          `  - questionsAnsweredRef.current: ${questionsAnsweredRef.current}`
         )
+        console.log(
+          `ℹ️ 각 문제마다 즉시 통계와 경험치가 업데이트되었으므로 추가 업데이트 불필요`
+        )
+
+        // 사용자가 나가기로 확인했음을 표시
+        setUserConfirmedExit(true)
+
+        // 모달 닫고 홈으로 이동
+        setShowExitModal(false)
+        window.location.href = "/"
+      } catch (error) {
+        console.error("게임 중단 처리 실패:", error)
+        // 에러가 발생해도 홈으로 이동
+        setUserConfirmedExit(true)
+        setShowExitModal(false)
+        window.location.href = "/"
       }
+    } else {
+      // 통계 업데이트가 필요없으면 바로 홈으로 이동
+      setUserConfirmedExit(true)
+      setShowExitModal(false)
+      window.location.href = "/"
     }
+  }
 
-    const handleRouteChange = async () => {
-      if (questionsAnswered > 0 && !gameEnded && !hasUpdatedStats && user) {
-        try {
-          await ApiClient.updateGameStatisticsNew(user.id, "partial", {
-            totalPlayed: questionsAnswered,
-            correctAnswers: correctAnswers,
-            wrongAnswers: questionsAnswered - correctAnswers,
-          })
-          setHasUpdatedStats(true)
-        } catch (error) {
-          console.error("중도 포기 통계 업데이트 실패:", error)
-        }
-      }
-    }
-
-    window.addEventListener("beforeunload", handleBeforeUnload)
-
-    // 컴포넌트 언마운트 시에도 통계 업데이트 (중도 포기 대응)
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload)
-      handleRouteChange() // 중도 포기 시 통계 업데이트 필요
-    }
-  }, [questionsAnswered, gameEnded, hasUpdatedStats, user, correctAnswers])
+  const handleExitCancel = () => {
+    setShowExitModal(false)
+  }
 
   // 급수 변경 시 데이터 업데이트
   const handleGradeChange = async (grade: number) => {
@@ -242,13 +272,14 @@ export default function PartialGame() {
         setQuestions(generatedQuestions)
         setCurrentQuestionIndex(0)
         setCorrectAnswers(0)
-        setQuestionsAnswered(0) // 답한 문제 수 리셋
+        questionsAnsweredRef.current = 0 // 답한 문제 수 리셋
         setSelectedAnswer(null)
         setIsCorrect(null)
         setGameEnded(false)
         setShowSettings(false)
         setIsGenerating(false)
         setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
+        setUserConfirmedExit(false) // 나가기 확인 플래그 리셋
       }, 1000)
     } catch (error) {
       console.error("게임 초기화 실패:", error)
@@ -256,49 +287,6 @@ export default function PartialGame() {
       setNoDataMessage("게임 초기화 중 오류가 발생했습니다.")
       setShowNoDataModal(true)
     }
-  }
-
-  const handleAnswerSelect = (answer: string) => {
-    if (selectedAnswer !== null) return // 이미 답을 선택했으면 무시
-
-    setSelectedAnswer(answer)
-    const currentQuestion = questions[currentQuestionIndex]
-    const correct = answer === currentQuestion.correctAnswer
-
-    setIsCorrect(correct)
-    setQuestionsAnswered((prev) => prev + 1) // 답한 문제 수 증가
-
-    if (correct) {
-      setCorrectAnswers((prev) => prev + 1)
-      // 문제별로 경험치 추가 및 한자별 통계 업데이트
-      addQuestionExperience()
-
-      // 정답인 경우에만 모달 표시
-      setModalHanzi({
-        hanzi: currentQuestion.hanzi,
-        meaning: currentQuestion.meaning,
-        sound: currentQuestion.sound,
-      })
-      setShowModal(true)
-    } else {
-      // 틀렸을 때 한자별 통계 업데이트 (틀린 답)
-      updateHanziStats(false)
-    }
-
-    // 정답/오답 모달 3초간 표시 후 자동으로 다음 문제로 이동
-    setTimeout(() => {
-      setShowModal(false) // 모달 닫기
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex((prev) => prev + 1)
-        setSelectedAnswer(null)
-        setIsCorrect(null)
-      } else {
-        // 마지막 문제인 경우 게임 종료 및 팝업 상태 초기화
-        setGameEnded(true)
-        setSelectedAnswer(null)
-        setIsCorrect(null)
-      }
-    }, 3000) // 3초 후 자동 이동
   }
 
   // 문제별 경험치 추가 및 한자별 통계 업데이트 (정답시)
@@ -340,34 +328,179 @@ export default function PartialGame() {
     }
   }
 
-  // 게임 종료 시 최종 통계 업데이트 (게임 전체 통계만)
-  useEffect(() => {
-    if (gameEnded && user && !hasUpdatedStats) {
-      const updateFinalStats = async () => {
+  const handleAnswerSelect = useCallback(
+    async (answer: string) => {
+      if (selectedAnswer !== null) return // 이미 답을 선택했으면 무시
+
+      setSelectedAnswer(answer)
+      const currentQuestion = questions[currentQuestionIndex]
+      const correct = answer === currentQuestion.correctAnswer
+
+      setIsCorrect(correct)
+      questionsAnsweredRef.current = questionsAnsweredRef.current + 1
+      console.log(
+        `🔢 문제 답변: ${currentQuestionIndex + 1}/${
+          questions.length
+        }, questionsAnswered: ${questionsAnsweredRef.current}`
+      )
+      console.log(
+        `📊 현재 questionsAnsweredRef.current: ${questionsAnsweredRef.current}`
+      )
+      console.log(
+        `🎯 questionsAnsweredRef.current 값 확인: ${questionsAnsweredRef.current}`
+      )
+
+      // 즉시 통계 업데이트 (문제 풀 때마다)
+      if (user) {
         try {
-          // 게임이 완료되면 게임 통계만 업데이트 (세션 단위)
+          console.log(`📊 즉시 통계 업데이트 시작 (Partial):`)
+          console.log(`  - totalPlayed: +1`)
+          console.log(`  - correctAnswers: ${correct ? "+1" : "+0"}`)
+          console.log(`  - wrongAnswers: ${correct ? "+0" : "+1"}`)
+          console.log(`  - completedSessions: +0 (문제 풀 때마다는 0)`)
+
           await ApiClient.updateGameStatisticsNew(user.id, "partial", {
-            totalPlayed: questionsAnswered, // 문제별로 1회씩 (10문제 = 10회)
-            correctAnswers: correctAnswers, // 이번 게임의 총 정답수
-            wrongAnswers: questionsAnswered - correctAnswers, // 실제 답한 문제 중 오답수
+            totalPlayed: 1, // 1문제씩 즉시 추가
+            correctAnswers: correct ? 1 : 0,
+            wrongAnswers: correct ? 0 : 1,
+            completedSessions: 0, // 문제 풀 때마다는 0
           })
-          // 경험치는 이미 각 문제마다 추가되었으므로 여기서는 추가하지 않음
-          setHasUpdatedStats(true)
+
+          console.log(`✅ 즉시 통계 업데이트 완료 (Partial)!`)
         } catch (error) {
-          console.error("게임 통계 업데이트 실패:", error)
+          console.error("즉시 통계 업데이트 실패 (Partial):", error)
         }
       }
 
-      updateFinalStats()
+      // 즉시 경험치 추가
+      if (user) {
+        try {
+          console.log(
+            `💰 경험치 업데이트 시작 (Partial): ${
+              correct ? "정답" : "오답"
+            } → +1 EXP`
+          )
+          await updateUserExperience(1)
+          // 오늘 경험치도 함께 업데이트
+          await ApiClient.updateTodayExperience(user.id, 1)
+          console.log(
+            `⭐ 즉시 경험치 추가 완료 (Partial): +1 EXP (${
+              correct ? "정답" : "오답"
+            })`
+          )
+        } catch (error) {
+          console.error("즉시 경험치 추가 실패 (Partial):", error)
+        }
+      }
+
+      if (correct) {
+        setCorrectAnswers((prev) => prev + 1)
+        // 문제별로 한자별 통계 업데이트
+        addQuestionExperience()
+
+        // 정답인 경우에만 모달 표시
+        setModalHanzi({
+          hanzi: currentQuestion.hanzi,
+          meaning: currentQuestion.meaning,
+          sound: currentQuestion.sound,
+        })
+        setShowModal(true)
+      } else {
+        // 틀렸을 때 한자별 통계 업데이트 (틀린 답)
+        updateHanziStats(false)
+      }
+
+      // 정답/오답 모달 3초간 표시 후 자동으로 다음 문제로 이동
+      setTimeout(() => {
+        setShowModal(false) // 모달 닫기
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex((prev) => prev + 1)
+          setSelectedAnswer(null)
+          setIsCorrect(null)
+        } else {
+          // 마지막 문제인 경우 게임 종료 및 팝업 상태 초기화
+          console.log(
+            `🎯 마지막 문제 완료! 총 답변: ${questionsAnsweredRef.current}개`
+          )
+          console.log(`🏁 gameEnded를 true로 설정합니다. (Partial)`)
+          setSelectedAnswer(null)
+          setIsCorrect(null)
+          // questionsAnswered 업데이트 후 gameEnded 설정
+          setTimeout(() => {
+            setGameEnded(true)
+          }, 100)
+        }
+      }, 3000) // 3초 후 자동 이동
+    },
+    [
+      questions,
+      currentQuestionIndex,
+      selectedAnswer,
+      setSelectedAnswer,
+      setIsCorrect,
+      setCurrentQuestionIndex,
+      setGameEnded,
+      setShowModal,
+      setModalHanzi,
+      addQuestionExperience,
+      updateUserExperience,
+      updateHanziStats,
+      user,
+    ]
+  )
+
+  // 게임 종료 시 최종 통계 업데이트는 불필요 (이미 각 문제마다 즉시 업데이트됨)
+  useEffect(() => {
+    console.log(`🔍 게임 종료 useEffect 트리거됨 (Partial):`)
+    console.log(`  - gameEnded: ${gameEnded}`)
+    console.log(`  - user: ${user ? "있음" : "없음"}`)
+    console.log(`  - hasUpdatedStats: ${hasUpdatedStats}`)
+    console.log(
+      `  - questionsAnsweredRef.current: ${questionsAnsweredRef.current}`
+    )
+    console.log(`  - questionCount: ${questionCount}`)
+    console.log(
+      `  - 조건 확인 (Partial): gameEnded=${gameEnded}, user=${!!user}, hasUpdatedStats=${hasUpdatedStats}, questionsAnswered=${
+        questionsAnsweredRef.current
+      }, questionCount=${questionCount}`
+    )
+
+    // 모든 문제를 풀었을 때만 세션 완료로 인정
+    if (
+      gameEnded &&
+      user &&
+      !hasUpdatedStats &&
+      questionsAnsweredRef.current === questionCount
+    ) {
+      console.log(`🎯 게임 완료 (Partial)! 세션 완료 통계 업데이트`)
+      console.log(`📊 completedSessions +1 업데이트 시작 (Partial)`)
+
+      // 세션 완료 통계 업데이트
+      ApiClient.updateGameStatisticsNew(user.id, "partial", {
+        completedSessions: 1, // 세션 1회 완료
+      })
+        .then(() => {
+          console.log(
+            `✅ 세션 완료 통계 업데이트 완료 (Partial) - completedSessions +1`
+          )
+          setHasUpdatedStats(true)
+        })
+        .catch((error) => {
+          console.error("세션 완료 통계 업데이트 실패 (Partial):", error)
+        })
+    } else if (gameEnded && questionsAnsweredRef.current !== questionCount) {
+      console.log(
+        `🚫 중도 포기 (Partial): 세션 완료 통계 업데이트 안함 (${questionsAnsweredRef.current}/${questionCount})`
+      )
+      setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
+    } else {
+      console.log(
+        `❓ 조건 불만족 (Partial): gameEnded=${gameEnded}, user=${!!user}, hasUpdatedStats=${hasUpdatedStats}, questionsAnswered=${
+          questionsAnsweredRef.current
+        }, questionCount=${questionCount}`
+      )
     }
-  }, [
-    gameEnded,
-    user,
-    correctAnswers,
-    questionCount,
-    hasUpdatedStats,
-    questionsAnswered,
-  ])
+  }, [gameEnded, user, hasUpdatedStats, questionCount])
 
   const getHiddenPartStyle = (part: string) => {
     switch (part) {
@@ -594,9 +727,22 @@ export default function PartialGame() {
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center py-4'>
             <div className='flex items-center space-x-4'>
-              <Link href='/' className='text-blue-600 hover:text-blue-700'>
+              <button
+                onClick={() => {
+                  if (
+                    questionsAnsweredRef.current > 0 &&
+                    !gameEnded &&
+                    !hasUpdatedStats
+                  ) {
+                    setShowExitModal(true)
+                  } else {
+                    window.location.href = "/"
+                  }
+                }}
+                className='text-blue-600 hover:text-blue-700'
+              >
                 <ArrowLeft className='h-5 w-5' />
-              </Link>
+              </button>
               <h1 className='text-2xl font-bold text-gray-900'>부분 맞추기</h1>
             </div>
             <div className='flex items-center space-x-4'>
@@ -745,7 +891,7 @@ export default function PartialGame() {
                 <p className='text-lg text-gray-700 font-medium'>
                   획득 경험치:{" "}
                   <span className='font-bold text-green-600'>
-                    {correctAnswers}EXP
+                    {questionsAnsweredRef.current}EXP
                   </span>
                 </p>
                 <p className='text-gray-700 font-medium'>
@@ -762,8 +908,9 @@ export default function PartialGame() {
                 <button
                   onClick={() => {
                     setShowSettings(true)
-                    setQuestionsAnswered(0) // 답한 문제 수 리셋
+                    questionsAnsweredRef.current = 0 // 답한 문제 수 리셋
                     setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
+                    setUserConfirmedExit(false) // 나가기 확인 플래그 리셋
                   }}
                   className='flex-1 max-w-xs px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
                 >
@@ -780,6 +927,46 @@ export default function PartialGame() {
           </div>
         )}
       </main>
+
+      {/* 뒤로가기 확인 모달 */}
+      {showExitModal && (
+        <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
+          <div className='bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center'>
+            <div className='mb-6'>
+              <div className='text-yellow-500 text-4xl mb-4'>⚠️</div>
+              <h3 className='text-2xl font-bold text-gray-900 mb-4'>
+                게임을 중단하시겠습니까?
+              </h3>
+              <div className='space-y-3 text-gray-700'>
+                <p className='font-medium'>
+                  현재까지 {questionsAnsweredRef.current}문제를 풀었습니다.
+                </p>
+                <p className='text-sm'>
+                  게임을 중단하면 진행 상황이 저장되지 않습니다.
+                </p>
+                <p className='text-sm font-semibold text-red-600'>
+                  정말 나가시겠습니까?
+                </p>
+              </div>
+            </div>
+
+            <div className='flex justify-center space-x-4'>
+              <button
+                onClick={handleExitCancel}
+                className='px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium'
+              >
+                계속하기
+              </button>
+              <button
+                onClick={handleExitConfirm}
+                className='px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium'
+              >
+                나가기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 정답 모달 팝업 */}
       {showModal && modalHanzi && (
