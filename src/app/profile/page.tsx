@@ -45,6 +45,8 @@ export default function ProfilePage() {
   > | null>(null)
   const [todayExperience, setTodayExperience] = useState<number>(0)
   const [todayGoal, setTodayGoal] = useState<number>(100)
+  const [inputGoal, setInputGoal] = useState<string>("100") // string으로 변경
+  const [isEditingGoal, setIsEditingGoal] = useState<boolean>(false) // 편집 모드 상태
   const [consecutiveGoalDays, setConsecutiveGoalDays] = useState<number>(0)
   const [weeklyGoalAchievement, setWeeklyGoalAchievement] = useState<{
     achievedDays: number
@@ -76,7 +78,9 @@ export default function ProfilePage() {
           // 오늘의 학습 목표 로드
           const userStats = await ApiClient.getUserStatistics(user.id)
           if (userStats) {
-            setTodayGoal(userStats.todayGoal || 100)
+            const goal = userStats.todayGoal || 100
+            setTodayGoal(goal)
+            setInputGoal(goal.toString()) // inputGoal도 함께 설정
             setConsecutiveGoalDays(userStats.consecutiveGoalDays || 0)
             if (userStats.weeklyGoalAchievement) {
               setWeeklyGoalAchievement({
@@ -92,6 +96,28 @@ export default function ProfilePage() {
       loadData()
     }
   }, [user])
+
+  // 목표 설정 핸들러
+  const handleGoalSubmit = async () => {
+    if (user && inputGoal !== todayGoal.toString()) {
+      try {
+        await ApiClient.updateTodayGoal(user.id, Number(inputGoal))
+        setTodayGoal(Number(inputGoal)) // 성공 시에만 todayGoal 업데이트
+        setIsEditingGoal(false) // 편집 모드 종료
+        alert(`오늘의 학습 목표가 ${inputGoal}EXP로 설정되었습니다.`)
+      } catch (error) {
+        console.error("오늘의 학습 목표 설정 실패:", error)
+        // 실패 시 원래 값으로 복원
+        setInputGoal(todayGoal.toString())
+      }
+    }
+  }
+
+  // 목표 편집 취소
+  const handleGoalCancel = () => {
+    setInputGoal(todayGoal.toString()) // 원래 값으로 복원
+    setIsEditingGoal(false) // 편집 모드 종료
+  }
 
   const handleLogout = async () => {
     try {
@@ -308,34 +334,62 @@ export default function ProfilePage() {
                 오늘 획득할 경험치(EXP)를 설정해보세요. 목표를 달성하면 더 많은
                 동기부여를 받을 수 있습니다.
               </p>
-              <div className='flex items-center space-x-3'>
-                <input
-                  type='number'
-                  value={todayGoal}
-                  onChange={(e) => setTodayGoal(Number(e.target.value))}
-                  className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
-                  min='1'
-                  max='1000'
-                />
-                <span className='text-sm text-gray-600'>EXP</span>
-                <button
-                  onClick={async () => {
-                    if (user) {
-                      try {
-                        await ApiClient.updateTodayGoal(user.id, todayGoal)
-                        alert(
-                          `오늘의 학습 목표가 ${todayGoal}EXP로 설정되었습니다.`
-                        )
-                      } catch (error) {
-                        console.error("오늘의 학습 목표 설정 실패:", error)
+
+              {isEditingGoal ? (
+                // 편집 모드
+                <div className='flex items-center space-x-3'>
+                  <input
+                    type='number'
+                    value={inputGoal}
+                    onChange={(e) => setInputGoal(e.target.value)}
+                    className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
+                    min='1'
+                    max='1000'
+                    autoFocus
+                  />
+                  <span className='text-sm text-gray-600'>EXP</span>
+                  <button
+                    onClick={async () => {
+                      if (user) {
+                        try {
+                          const goalValue = parseInt(inputGoal) || 0 // 빈 문자열일 때 0
+                          const finalGoal = goalValue <= 0 ? 100 : goalValue // 0 이하일 때 기본값 100
+                          await ApiClient.updateTodayGoal(user.id, finalGoal)
+                          setTodayGoal(finalGoal)
+                          setInputGoal(finalGoal.toString())
+                          alert(
+                            `오늘의 학습 목표가 ${finalGoal}EXP로 설정되었습니다.`
+                          )
+                        } catch (error) {
+                          console.error("오늘의 학습 목표 설정 실패:", error)
+                        }
                       }
-                    }
-                  }}
-                  className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
-                >
-                  목표 설정
-                </button>
-              </div>
+                    }}
+                    className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+                  >
+                    저장
+                  </button>
+                  <button
+                    onClick={handleGoalCancel}
+                    className='px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors'
+                  >
+                    취소
+                  </button>
+                </div>
+              ) : (
+                // 표시 모드
+                <div className='flex items-center space-x-3'>
+                  <div className='px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-900 font-medium'>
+                    {todayGoal} EXP
+                  </div>
+                  <button
+                    onClick={() => setIsEditingGoal(true)}
+                    className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+                  >
+                    수정
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 선호 급수 설정 */}

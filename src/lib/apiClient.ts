@@ -357,7 +357,9 @@ export class ApiClient {
 
       const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD
       const todayGoal = userStats.todayGoal || 100
-      const achieved = todayExperience >= todayGoal
+
+      // 목표가 0 이하일 때는 달성으로 처리하지 않음
+      const achieved = todayGoal > 0 && todayExperience >= todayGoal
 
       // 오늘 목표 달성 기록 추가
       const todayRecord = {
@@ -411,7 +413,7 @@ export class ApiClient {
 
   // 연속 목표 달성일 계산
   private static calculateConsecutiveGoalDays(
-    history: Array<{ date: string; achieved: boolean }>
+    history: Array<{ date: string; achieved: boolean; experience: number }>
   ): number {
     if (!history || history.length === 0) return 0
 
@@ -432,6 +434,7 @@ export class ApiClient {
         break
       }
 
+      // 달성한 경우에만 연속일 증가
       if (record.achieved) {
         consecutiveDays++
       } else {
@@ -444,7 +447,7 @@ export class ApiClient {
 
   // 이번주 목표 달성 현황 계산
   private static calculateWeeklyGoalAchievement(
-    history: Array<{ date: string; achieved: boolean }>
+    history: Array<{ date: string; achieved: boolean; experience: number }>
   ): {
     currentWeek: string
     achievedDays: number
@@ -471,6 +474,7 @@ export class ApiClient {
 
       if (record) {
         totalDays++
+        // 달성한 경우에만 카운트 (목표가 0인 날은 제외)
         if (record.achieved) achievedDays++
       }
     }
@@ -484,7 +488,7 @@ export class ApiClient {
 
   // 이번달 목표 달성 현황 계산
   private static calculateMonthlyGoalAchievement(
-    history: Array<{ date: string; achieved: boolean }>
+    history: Array<{ date: string; achieved: boolean; experience: number }>
   ): {
     currentMonth: string
     achievedDays: number
@@ -511,6 +515,7 @@ export class ApiClient {
 
       if (record) {
         totalDays++
+        // 달성한 경우에만 카운트 (목표가 0인 날은 제외)
         if (record.achieved) achievedDays++
       }
     }
