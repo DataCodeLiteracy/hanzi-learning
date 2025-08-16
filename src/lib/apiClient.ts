@@ -463,7 +463,7 @@ export class ApiClient {
     let achievedDays = 0
     let totalDays = 0
 
-    // 이번주 기록 확인
+    // 이번주 기록 확인 (항상 7일)
     for (
       let d = new Date(weekStart);
       d <= weekEnd;
@@ -472,17 +472,19 @@ export class ApiClient {
       const dateStr = d.toISOString().split("T")[0]
       const record = history.find((h) => h.date === dateStr)
 
-      if (record) {
-        totalDays++
-        // 달성한 경우에만 카운트 (목표가 0인 날은 제외)
-        if (record.achieved) achievedDays++
+      // 항상 totalDays는 증가 (일주일은 7일)
+      totalDays++
+
+      // 기록이 있으면 달성 여부 확인
+      if (record && record.achieved) {
+        achievedDays++
       }
     }
 
     return {
       currentWeek,
       achievedDays,
-      totalDays: Math.min(totalDays, 7), // 최대 7일
+      totalDays: totalDays, // 항상 7일
     }
   }
 
@@ -504,7 +506,7 @@ export class ApiClient {
     let achievedDays = 0
     let totalDays = 0
 
-    // 이번달 기록 확인
+    // 이번달 기록 확인 (해당 월의 총 날짜)
     for (
       let d = new Date(monthStart);
       d <= monthEnd;
@@ -513,10 +515,12 @@ export class ApiClient {
       const dateStr = d.toISOString().split("T")[0]
       const record = history.find((h) => h.date === dateStr)
 
-      if (record) {
-        totalDays++
-        // 달성한 경우에만 카운트 (목표가 0인 날은 제외)
-        if (record.achieved) achievedDays++
+      // 항상 totalDays는 증가 (해당 월의 총 날짜)
+      totalDays++
+
+      // 기록이 있으면 달성 여부 확인
+      if (record && record.achieved) {
+        achievedDays++
       }
     }
 
@@ -1503,12 +1507,16 @@ export class ApiClient {
         weeklyGoalAchievement: {
           currentWeek: this.getWeekNumber(new Date()),
           achievedDays: 0,
-          totalDays: 0,
+          totalDays: 7, // 항상 7일로 시작
         },
         monthlyGoalAchievement: {
           currentMonth: new Date().toISOString().slice(0, 7),
           achievedDays: 0,
-          totalDays: 0,
+          totalDays: new Date(
+            new Date().getFullYear(),
+            new Date().getMonth() + 1,
+            0
+          ).getDate(), // 해당 월의 총 날짜
         },
 
         lastPlayedAt: userData.updatedAt || new Date().toISOString(),

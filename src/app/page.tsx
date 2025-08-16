@@ -33,7 +33,7 @@ export default function Home() {
   const [weeklyGoalAchievement, setWeeklyGoalAchievement] = useState<{
     achievedDays: number
     totalDays: number
-  }>({ achievedDays: 0, totalDays: 0 })
+  }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1

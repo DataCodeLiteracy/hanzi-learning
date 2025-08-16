@@ -249,18 +249,22 @@ export default function DetailStatisticsPage() {
                 {/* 이번주 달성률 */}
                 <div className='text-center p-4 bg-purple-50 rounded-lg'>
                   <div className='text-2xl font-bold text-purple-600'>
-                    {userStatistics.weeklyGoalAchievement
+                    {userStatistics?.weeklyGoalAchievement
                       ? `${userStatistics.weeklyGoalAchievement.achievedDays}/${userStatistics.weeklyGoalAchievement.totalDays}`
-                      : "0/0"}
+                      : "0/7"}
                   </div>
                   <div className='text-sm text-gray-600'>이번주 달성 현황</div>
                 </div>
                 {/* 이번달 달성률 */}
                 <div className='text-center p-4 bg-orange-50 rounded-lg'>
                   <div className='text-2xl font-bold text-orange-600'>
-                    {userStatistics.monthlyGoalAchievement
+                    {userStatistics?.monthlyGoalAchievement
                       ? `${userStatistics.monthlyGoalAchievement.achievedDays}/${userStatistics.monthlyGoalAchievement.totalDays}`
-                      : "0/0"}
+                      : `0/${new Date(
+                          new Date().getFullYear(),
+                          new Date().getMonth() + 1,
+                          0
+                        ).getDate()}`}
                   </div>
                   <div className='text-sm text-gray-600'>이번달 달성 현황</div>
                 </div>
