@@ -99,6 +99,25 @@ export interface UserStatistics {
   todayExperience: number // 오늘 달성한 경험치
   todayGoal?: number // 오늘의 학습 목표 (기본값: 100)
   lastResetDate?: string // 마지막 리셋 날짜 (자정 리셋용)
+
+  // 목표 달성 통계 필드들 추가
+  goalAchievementHistory?: {
+    date: string // YYYY-MM-DD 형식
+    achieved: boolean // 해당 날짜 목표 달성 여부
+    experience: number // 해당 날짜 획득 경험치
+  }[]
+  consecutiveGoalDays?: number // 연속 목표 달성일
+  weeklyGoalAchievement?: {
+    currentWeek: string // YYYY-WW 형식 (예: 2024-01)
+    achievedDays: number // 이번주 달성한 날 수
+    totalDays: number // 이번주 총 날 수 (보통 7)
+  }
+  monthlyGoalAchievement?: {
+    currentMonth: string // YYYY-MM 형식
+    achievedDays: number // 이번달 달성한 날 수
+    totalDays: number // 이번달 총 날 수
+  }
+
   lastPlayedAt: string
   updatedAt: string
 }

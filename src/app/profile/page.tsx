@@ -45,6 +45,11 @@ export default function ProfilePage() {
   > | null>(null)
   const [todayExperience, setTodayExperience] = useState<number>(0)
   const [todayGoal, setTodayGoal] = useState<number>(100)
+  const [consecutiveGoalDays, setConsecutiveGoalDays] = useState<number>(0)
+  const [weeklyGoalAchievement, setWeeklyGoalAchievement] = useState<{
+    achievedDays: number
+    totalDays: number
+  }>({ achievedDays: 0, totalDays: 0 })
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -72,6 +77,13 @@ export default function ProfilePage() {
           const userStats = await ApiClient.getUserStatistics(user.id)
           if (userStats) {
             setTodayGoal(userStats.todayGoal || 100)
+            setConsecutiveGoalDays(userStats.consecutiveGoalDays || 0)
+            if (userStats.weeklyGoalAchievement) {
+              setWeeklyGoalAchievement({
+                achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
+                totalDays: userStats.weeklyGoalAchievement.totalDays || 0,
+              })
+            }
           }
         } catch (error) {
           console.error("데이터 로드 실패:", error)
@@ -264,6 +276,27 @@ export default function ProfilePage() {
                   ? `🎉 목표 달성! ${todayExperience}EXP를 획득했어요!`
                   : `목표까지 ${todayGoal - todayExperience}EXP 남았어요! 🎯`}
               </p>
+
+              {/* 목표 달성 통계 */}
+              <div className='mt-3 pt-3 border-t border-blue-200'>
+                <div className='grid grid-cols-2 gap-3'>
+                  {/* 연속 목표 달성일 */}
+                  <div className='text-center'>
+                    <div className='text-lg font-bold text-green-600'>
+                      {consecutiveGoalDays}일
+                    </div>
+                    <div className='text-xs text-gray-600'>연속 달성</div>
+                  </div>
+                  {/* 이번주 달성 현황 */}
+                  <div className='text-center'>
+                    <div className='text-lg font-bold text-purple-600'>
+                      {weeklyGoalAchievement.achievedDays}/
+                      {weeklyGoalAchievement.totalDays}
+                    </div>
+                    <div className='text-xs text-gray-600'>이번주 달성</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 오늘의 학습 목표 설정 */}

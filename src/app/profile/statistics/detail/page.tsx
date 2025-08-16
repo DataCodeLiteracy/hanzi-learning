@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Calendar,
   Target,
+  Trophy,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -227,6 +228,76 @@ export default function DetailStatisticsPage() {
                   <div className='text-sm text-gray-600'>학습 세션</div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* 목표 달성 통계 */}
+          {userStatistics && (
+            <div className='bg-white rounded-lg shadow-lg p-6'>
+              <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
+                <Trophy className='h-5 w-5' />
+                <span>목표 달성 통계</span>
+              </h3>
+              <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'>
+                {/* 연속 목표 달성일 */}
+                <div className='text-center p-4 bg-green-50 rounded-lg'>
+                  <div className='text-2xl font-bold text-green-600'>
+                    {userStatistics.consecutiveGoalDays || 0}
+                  </div>
+                  <div className='text-sm text-gray-600'>연속 목표 달성일</div>
+                </div>
+                {/* 이번주 달성률 */}
+                <div className='text-center p-4 bg-purple-50 rounded-lg'>
+                  <div className='text-2xl font-bold text-purple-600'>
+                    {userStatistics.weeklyGoalAchievement
+                      ? `${userStatistics.weeklyGoalAchievement.achievedDays}/${userStatistics.weeklyGoalAchievement.totalDays}`
+                      : "0/0"}
+                  </div>
+                  <div className='text-sm text-gray-600'>이번주 달성 현황</div>
+                </div>
+                {/* 이번달 달성률 */}
+                <div className='text-center p-4 bg-orange-50 rounded-lg'>
+                  <div className='text-2xl font-bold text-orange-600'>
+                    {userStatistics.monthlyGoalAchievement
+                      ? `${userStatistics.monthlyGoalAchievement.achievedDays}/${userStatistics.monthlyGoalAchievement.totalDays}`
+                      : "0/0"}
+                  </div>
+                  <div className='text-sm text-gray-600'>이번달 달성 현황</div>
+                </div>
+              </div>
+
+              {/* 최근 30일 달성 현황 */}
+              {userStatistics.goalAchievementHistory &&
+                userStatistics.goalAchievementHistory.length > 0 && (
+                  <div className='mt-6'>
+                    <h4 className='text-lg font-semibold text-gray-900 mb-3'>
+                      최근 30일 달성 현황
+                    </h4>
+                    <div className='grid grid-cols-15 gap-1'>
+                      {userStatistics.goalAchievementHistory
+                        .slice(-30)
+                        .map((record, index) => (
+                          <div
+                            key={index}
+                            className={`w-6 h-6 rounded text-xs flex items-center justify-center ${
+                              record.achieved
+                                ? "bg-green-500 text-white"
+                                : "bg-gray-200 text-gray-500"
+                            }`}
+                            title={`${record.date}: ${
+                              record.achieved ? "달성" : "미달성"
+                            } (${record.experience}EXP)`}
+                          >
+                            {record.achieved ? "✓" : "✗"}
+                          </div>
+                        ))}
+                    </div>
+                    <div className='flex justify-between text-xs text-gray-500 mt-2'>
+                      <span>30일 전</span>
+                      <span>오늘</span>
+                    </div>
+                  </div>
+                )}
             </div>
           )}
 

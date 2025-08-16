@@ -29,6 +29,11 @@ export default function Home() {
   const [showGuideModal, setShowGuideModal] = useState(false)
   const [todayExperience, setTodayExperience] = useState<number>(0)
   const [todayGoal, setTodayGoal] = useState<number>(100)
+  const [consecutiveGoalDays, setConsecutiveGoalDays] = useState<number>(0)
+  const [weeklyGoalAchievement, setWeeklyGoalAchievement] = useState<{
+    achievedDays: number
+    totalDays: number
+  }>({ achievedDays: 0, totalDays: 0 })
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -47,10 +52,17 @@ export default function Home() {
           const todayExp = await ApiClient.getTodayExperience(user.id)
           setTodayExperience(todayExp)
 
-          // 오늘의 학습 목표 로드
+          // 오늘의 학습 목표와 목표 달성 통계 로드
           const userStats = await ApiClient.getUserStatistics(user.id)
           if (userStats) {
             setTodayGoal(userStats.todayGoal || 100)
+            setConsecutiveGoalDays(userStats.consecutiveGoalDays || 0)
+            if (userStats.weeklyGoalAchievement) {
+              setWeeklyGoalAchievement({
+                achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
+                totalDays: userStats.weeklyGoalAchievement.totalDays || 0,
+              })
+            }
           }
         } catch (error) {
           console.error("오늘 경험치 로드 실패:", error)
@@ -250,6 +262,27 @@ export default function Home() {
                           todayGoal - todayExperience
                         }EXP 남았어요! 🎯`}
                   </p>
+
+                  {/* 목표 달성 통계 */}
+                  <div className='mt-3 pt-3 border-t border-blue-200'>
+                    <div className='grid grid-cols-2 gap-3'>
+                      {/* 연속 목표 달성일 */}
+                      <div className='text-center'>
+                        <div className='text-lg font-bold text-green-600'>
+                          {consecutiveGoalDays}일
+                        </div>
+                        <div className='text-xs text-gray-600'>연속 달성</div>
+                      </div>
+                      {/* 이번주 달성 현황 */}
+                      <div className='text-center'>
+                        <div className='text-lg font-bold text-purple-600'>
+                          {weeklyGoalAchievement.achievedDays}/
+                          {weeklyGoalAchievement.totalDays}
+                        </div>
+                        <div className='text-xs text-gray-600'>이번주 달성</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* 다음 레벨까지와 진행률 */}

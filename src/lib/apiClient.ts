@@ -279,10 +279,16 @@ export class ApiClient {
       if (userStats) {
         // 기존 통계 업데이트
         const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        const newTodayExperience =
+          (userStats.todayExperience || 0) + experienceToAdd
+
         await updateDoc(userStatsRef, {
-          todayExperience: (userStats.todayExperience || 0) + experienceToAdd,
+          todayExperience: newTodayExperience,
           updatedAt: new Date().toISOString(),
         })
+
+        // 목표 달성 통계도 함께 업데이트
+        await this.updateGoalAchievementStats(userId, newTodayExperience)
       } else {
         // 새로운 userStatistics 생성
         const newStatsRef = doc(collection(db, "userStatistics"))
@@ -296,6 +302,9 @@ export class ApiClient {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
+
+        // 목표 달성 통계도 함께 업데이트
+        await this.updateGoalAchievementStats(userId, experienceToAdd)
       }
     } catch (error) {
       console.error("Error updating today's experience:", error)
@@ -335,6 +344,208 @@ export class ApiClient {
       console.error("Error updating today's goal:", error)
       throw new Error("오늘의 학습 목표 업데이트에 실패했습니다.")
     }
+  }
+
+  // 목표 달성 통계 업데이트 (오늘 경험치 업데이트 시 호출)
+  static async updateGoalAchievementStats(
+    userId: string,
+    todayExperience: number
+  ): Promise<void> {
+    try {
+      const userStats = await this.getUserStatistics(userId)
+      if (!userStats) return
+
+      const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD
+      const todayGoal = userStats.todayGoal || 100
+      const achieved = todayExperience >= todayGoal
+
+      // 오늘 목표 달성 기록 추가
+      const todayRecord = {
+        date: today,
+        achieved,
+        experience: todayExperience,
+      }
+
+      // 기존 기록에서 오늘 기록 업데이트 또는 추가
+      const existingHistory = userStats.goalAchievementHistory || []
+      const todayIndex = existingHistory.findIndex(
+        (record) => record.date === today
+      )
+
+      let newHistory
+      if (todayIndex >= 0) {
+        // 오늘 기록이 있으면 업데이트
+        newHistory = [...existingHistory]
+        newHistory[todayIndex] = todayRecord
+      } else {
+        // 오늘 기록이 없으면 추가
+        newHistory = [...existingHistory, todayRecord]
+      }
+
+      // 연속 목표 달성일 계산
+      const consecutiveDays = this.calculateConsecutiveGoalDays(newHistory)
+
+      // 이번주/이번달 달성 현황 계산
+      const weeklyStats = this.calculateWeeklyGoalAchievement(newHistory)
+      const monthlyStats = this.calculateMonthlyGoalAchievement(newHistory)
+
+      // 데이터베이스 업데이트
+      const userStatsRef = doc(db, "userStatistics", userStats.id!)
+      await updateDoc(userStatsRef, {
+        goalAchievementHistory: newHistory,
+        consecutiveGoalDays: consecutiveDays,
+        weeklyGoalAchievement: weeklyStats,
+        monthlyGoalAchievement: monthlyStats,
+        updatedAt: new Date().toISOString(),
+      })
+
+      console.log(
+        `목표 달성 통계 업데이트: ${
+          achieved ? "달성" : "미달성"
+        }, 연속 ${consecutiveDays}일`
+      )
+    } catch (error) {
+      console.error("Error updating goal achievement stats:", error)
+    }
+  }
+
+  // 연속 목표 달성일 계산
+  private static calculateConsecutiveGoalDays(
+    history: Array<{ date: string; achieved: boolean }>
+  ): number {
+    if (!history || history.length === 0) return 0
+
+    // 날짜순으로 정렬 (최신순)
+    const sortedHistory = [...history].sort((a, b) =>
+      b.date.localeCompare(a.date)
+    )
+
+    let consecutiveDays = 0
+    const today = new Date().toISOString().split("T")[0]
+
+    // 오늘부터 역순으로 확인
+    for (let i = 0; i < sortedHistory.length; i++) {
+      const record = sortedHistory[i]
+
+      // 오늘 기록이 아니고 달성하지 못했으면 중단
+      if (record.date !== today && !record.achieved) {
+        break
+      }
+
+      if (record.achieved) {
+        consecutiveDays++
+      } else {
+        break
+      }
+    }
+
+    return consecutiveDays
+  }
+
+  // 이번주 목표 달성 현황 계산
+  private static calculateWeeklyGoalAchievement(
+    history: Array<{ date: string; achieved: boolean }>
+  ): {
+    currentWeek: string
+    achievedDays: number
+    totalDays: number
+  } {
+    const today = new Date()
+    const currentWeek = this.getWeekNumber(today)
+
+    // 이번주 시작일과 끝일 계산
+    const weekStart = this.getWeekStart(today)
+    const weekEnd = this.getWeekEnd(today)
+
+    let achievedDays = 0
+    let totalDays = 0
+
+    // 이번주 기록 확인
+    for (
+      let d = new Date(weekStart);
+      d <= weekEnd;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = d.toISOString().split("T")[0]
+      const record = history.find((h) => h.date === dateStr)
+
+      if (record) {
+        totalDays++
+        if (record.achieved) achievedDays++
+      }
+    }
+
+    return {
+      currentWeek,
+      achievedDays,
+      totalDays: Math.min(totalDays, 7), // 최대 7일
+    }
+  }
+
+  // 이번달 목표 달성 현황 계산
+  private static calculateMonthlyGoalAchievement(
+    history: Array<{ date: string; achieved: boolean }>
+  ): {
+    currentMonth: string
+    achievedDays: number
+    totalDays: number
+  } {
+    const today = new Date()
+    const currentMonth = today.toISOString().slice(0, 7) // YYYY-MM
+
+    // 이번달 시작일과 끝일 계산
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+
+    let achievedDays = 0
+    let totalDays = 0
+
+    // 이번달 기록 확인
+    for (
+      let d = new Date(monthStart);
+      d <= monthEnd;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = d.toISOString().split("T")[0]
+      const record = history.find((h) => h.date === dateStr)
+
+      if (record) {
+        totalDays++
+        if (record.achieved) achievedDays++
+      }
+    }
+
+    return {
+      currentMonth,
+      achievedDays,
+      totalDays,
+    }
+  }
+
+  // 주차 번호 계산 (YYYY-WW 형식)
+  private static getWeekNumber(date: Date): string {
+    const year = date.getFullYear()
+    const startOfYear = new Date(year, 0, 1)
+    const days = Math.floor(
+      (date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
+    )
+    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7)
+    return `${year}-${weekNumber.toString().padStart(2, "0")}`
+  }
+
+  // 주 시작일 계산 (월요일)
+  private static getWeekStart(date: Date): Date {
+    const day = date.getDay()
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1) // 월요일이 1, 일요일이 0
+    return new Date(date.setDate(diff))
+  }
+
+  // 주 끝일 계산 (일요일)
+  private static getWeekEnd(date: Date): Date {
+    const weekStart = this.getWeekStart(date)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 6)
+    return weekEnd
   }
 
   // 오늘 경험치 리셋 (자정에 호출)
@@ -1280,6 +1491,21 @@ export class ApiClient {
         todayExperience: 0, // 새로운 사용자는 0으로 시작
         todayGoal: 100, // 기본 목표값
         lastResetDate: new Date().toDateString(), // 오늘 날짜로 초기화
+
+        // 목표 달성 통계 필드들 초기화
+        goalAchievementHistory: [], // 빈 배열로 시작
+        consecutiveGoalDays: 0, // 0일로 시작
+        weeklyGoalAchievement: {
+          currentWeek: this.getWeekNumber(new Date()),
+          achievedDays: 0,
+          totalDays: 0,
+        },
+        monthlyGoalAchievement: {
+          currentMonth: new Date().toISOString().slice(0, 7),
+          achievedDays: 0,
+          totalDays: 0,
+        },
+
         lastPlayedAt: userData.updatedAt || new Date().toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
