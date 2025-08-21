@@ -66,6 +66,7 @@ export default function MemoryGame() {
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
   const [earnedExperience, setEarnedExperience] = useState<number>(0) // 획득한 경험치
   const [hasUpdatedStats, setHasUpdatedStats] = useState<boolean>(false) // 게임 완료 후 통계 업데이트 여부
+  const [isLargeScreen, setIsLargeScreen] = useState(false) // 390px 이상 화면 여부
 
   // 8급 데이터 기본 로딩 (컴포넌트 마운트 시)
   useEffect(() => {
@@ -83,6 +84,18 @@ export default function MemoryGame() {
     }
 
     loadInitialData()
+  }, [])
+
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth >= 390)
+    }
+
+    checkScreenSize()
+    window.addEventListener("resize", checkScreenSize)
+
+    return () => window.removeEventListener("resize", checkScreenSize)
   }, [])
 
   // 사용자 정보 로드 후 선호 급수 반영
@@ -567,6 +580,24 @@ export default function MemoryGame() {
     }
   }
 
+  // 카드 크기 계산 함수
+  const getCardSize = () => {
+    const baseSize = isLargeScreen ? 80 : 70
+
+    if (gridSize.cols === 4) {
+      return baseSize
+    } else if (gridSize.cols === 5) {
+      return isLargeScreen ? 70 : 65 // 390px에서는 70px, 375px에서는 65px
+    } else {
+      return isLargeScreen ? 65 : 60 // 6x6 등 더 큰 그리드
+    }
+  }
+
+  // 컨테이너 최대 너비 계산 함수
+  const getContainerMaxWidth = () => {
+    return isLargeScreen ? "390px" : "375px"
+  }
+
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (initialLoading) {
     return (
@@ -689,7 +720,7 @@ export default function MemoryGame() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
+      <main className='max-w-4xl mx-auto px-0 sm:px-6 lg:px-8 py-8 pt-20'>
         {/* 게임 설정 화면 */}
         {showGameSettings && (
           <div className='text-center py-8'>
@@ -885,18 +916,29 @@ export default function MemoryGame() {
 
               {/* 카드 프리뷰 */}
               <div
-                className={`flex flex-wrap gap-2 sm:gap-3 max-w-6xl mx-auto justify-center`}
+                className={`flex flex-wrap max-w-6xl mx-auto justify-center`}
+                style={{
+                  width: "100%",
+                  maxWidth: getContainerMaxWidth(),
+                  margin: "0 auto",
+                  gap: `${gridSize.cols === 4 ? "8px" : "6px"}`, // 4x4는 8px, 5x5는 6px
+                }}
               >
                 {cards.map((card) => (
                   <div
                     key={card.id}
-                    className='bg-white rounded-lg shadow-md p-2 sm:p-3 text-center border-2 border-blue-200 w-20 h-24 sm:w-24 sm:h-28 md:w-28 md:h-32 flex flex-col justify-center card-hover flex-shrink-0'
+                    className='bg-white rounded-lg shadow-md text-center border-2 border-blue-200 flex flex-col justify-center card-hover flex-shrink-0'
+                    style={{
+                      width: getCardSize(),
+                      height: getCardSize(),
+                      flex: `0 0 ${getCardSize()}px`,
+                    }}
                   >
-                    <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
+                    <div className='text-lg font-bold text-gray-900 leading-none'>
                       {card.hanzi}
                     </div>
-                    <div className='text-xs sm:text-sm text-gray-600'>
-                      {card.meaning} {card.sound}
+                    <div className='text-xs text-gray-600 leading-tight mt-1'>
+                      {card.meaning}
                     </div>
                   </div>
                 ))}
@@ -962,7 +1004,13 @@ export default function MemoryGame() {
               </div>
 
               <div
-                className={`flex flex-wrap gap-2 sm:gap-3 max-w-6xl mx-auto justify-center`}
+                className={`flex flex-wrap max-w-6xl mx-auto justify-center`}
+                style={{
+                  width: "100%",
+                  maxWidth: getContainerMaxWidth(),
+                  margin: "0 auto",
+                  gap: `${gridSize.cols === 4 ? "8px" : "6px"}`, // 4x4는 8px, 5x5는 6px
+                }}
               >
                 {cards.map((card, index) => (
                   <button
@@ -970,7 +1018,7 @@ export default function MemoryGame() {
                     onClick={() => handleCardClick(index)}
                     disabled={card.isMatched}
                     className={`
-                    w-20 h-24 sm:w-24 sm:h-28 md:w-28 md:h-32 rounded-lg shadow-md transition-all duration-300 transform
+                    rounded-lg shadow-md transition-all duration-300 transform
                     card-hover perspective-1000 flex-shrink-0
                     ${
                       card.isMatched
@@ -982,6 +1030,11 @@ export default function MemoryGame() {
                     ${card.isMatched ? "cursor-default" : "cursor-pointer"}
                     ${card.isFlipped ? "animate-flip" : ""}
                   `}
+                    style={{
+                      width: getCardSize(),
+                      height: getCardSize(),
+                      flex: `0 0 ${getCardSize()}px`,
+                    }}
                   >
                     <div className='relative w-full h-full transform-style-preserve-3d'>
                       {/* 카드 뒷면 (물음표) */}
@@ -992,24 +1045,22 @@ export default function MemoryGame() {
                         transition-opacity duration-300
                       `}
                       >
-                        <div className='text-lg sm:text-xl md:text-2xl text-white font-bold'>
-                          ?
-                        </div>
+                        <div className='text-xl text-white font-bold'>?</div>
                       </div>
 
                       {/* 카드 앞면 (한자 정보) */}
                       <div
                         className={`
-                        absolute inset-0 flex flex-col items-center justify-center p-2 sm:p-3
+                        absolute inset-0 flex flex-col items-center justify-center
                         ${card.isFlipped ? "opacity-100" : "opacity-0"}
                         transition-opacity duration-300
                       `}
                       >
-                        <div className='text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1'>
+                        <div className='text-lg font-bold text-gray-900 leading-none'>
                           {card.hanzi}
                         </div>
-                        <div className='text-xs sm:text-sm text-gray-600 text-center'>
-                          {card.meaning} {card.sound}
+                        <div className='text-xs text-gray-600 text-center leading-tight mt-1'>
+                          {card.meaning}
                         </div>
                       </div>
                     </div>

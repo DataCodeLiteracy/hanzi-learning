@@ -7,7 +7,14 @@ import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ensureStrokeOrder } from "@/lib/hanziWriter"
-import { Edit, Trash2, Save, Upload, Download } from "lucide-react"
+import {
+  Edit,
+  Trash2,
+  Save,
+  Upload,
+  Download,
+  MessageSquare,
+} from "lucide-react"
 import { migrateAllUsers, migrateUserData } from "@/lib/migration"
 
 export default function AdminPage() {
@@ -463,34 +470,58 @@ export default function AdminPage() {
 
       <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
         <div className='space-y-8'>
+          {/* 관리 도구 */}
+          <div className='bg-white rounded-lg shadow-sm p-6'>
+            <h2 className='text-lg font-semibold text-gray-900 mb-4'>
+              관리 도구
+            </h2>
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-3'>
+              <button
+                onClick={generateStrokeOrdersForGrade}
+                disabled={isLoading || hanziData.length === 0}
+                className='flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
+              >
+                <Download className='h-4 w-4' />
+                <span>Stroke Order 생성</span>
+              </button>
+              <button
+                onClick={() => setShowDeleteGradeModal(true)}
+                className='flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors'
+              >
+                <Trash2 className='h-4 w-4' />
+                <span>급수 삭제</span>
+              </button>
+              <button
+                onClick={testGetAllHanzi}
+                className='flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors'
+              >
+                <span>🧪 전체 테스트</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 고객 피드백 관리 */}
+          <div className='bg-white rounded-lg shadow-sm p-6'>
+            <h2 className='text-lg font-semibold text-gray-900 mb-4'>
+              고객 피드백 관리
+            </h2>
+            <p className='text-sm text-gray-600 mb-4'>
+              고객이 등록한 피드백을 확인하고 관리할 수 있습니다.
+            </p>
+            <Link
+              href='/admin/feedback'
+              className='inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+            >
+              <MessageSquare className='h-4 w-4' />
+              <span>피드백 관리</span>
+            </Link>
+          </div>
+
           {/* 등급 선택 */}
           <div className='bg-white rounded-lg shadow-sm p-6'>
-            <div className='flex justify-between items-center mb-4'>
-              <h2 className='text-lg font-semibold text-gray-900'>등급 선택</h2>
-              <div className='flex space-x-2'>
-                <button
-                  onClick={generateStrokeOrdersForGrade}
-                  disabled={isLoading || hanziData.length === 0}
-                  className='flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
-                >
-                  <Download className='h-4 w-4' />
-                  <span>Stroke Order 생성</span>
-                </button>
-                <button
-                  onClick={() => setShowDeleteGradeModal(true)}
-                  className='flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors'
-                >
-                  <Trash2 className='h-4 w-4' />
-                  <span>급수 삭제</span>
-                </button>
-                <button
-                  onClick={testGetAllHanzi}
-                  className='flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors'
-                >
-                  <span>🧪 전체 테스트</span>
-                </button>
-              </div>
-            </div>
+            <h2 className='text-lg font-semibold text-gray-900 mb-4'>
+              등급 선택
+            </h2>
             <div className='flex flex-wrap gap-2'>
               {[8, 7, 6].map((grade) => (
                 <button
@@ -622,6 +653,26 @@ export default function AdminPage() {
                   💡 등급이 일치하는 기존 데이터에 누적 등록됩니다.
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* 고객 피드백 관리 */}
+          <div className='bg-white rounded-lg shadow-sm p-6'>
+            <h2 className='text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
+              <MessageSquare className='h-5 w-5' />
+              <span>고객 피드백 관리</span>
+            </h2>
+            <div className='space-y-4'>
+              <p className='text-sm text-gray-600'>
+                고객이 등록한 피드백을 확인하고 관리할 수 있습니다.
+              </p>
+              <Link
+                href='/admin/feedback'
+                className='inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
+              >
+                <MessageSquare className='h-4 w-4' />
+                <span>피드백 목록 보기</span>
+              </Link>
             </div>
           </div>
 

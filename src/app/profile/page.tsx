@@ -14,6 +14,7 @@ import {
   LogOut,
   Trash2,
   TrendingUp,
+  MessageSquare,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -483,6 +484,24 @@ export default function ProfilePage() {
                 </button>
               </div>
             )}
+
+            {/* 고객 게시판 */}
+            <div className='mb-6'>
+              <h3 className='text-lg font-semibold text-gray-900 mb-3'>
+                고객 지원
+              </h3>
+              <p className='text-sm text-gray-600 mb-3'>
+                불편사항이나 개선사항을 알려주세요. 더 나은 서비스를 만들기 위해
+                노력하겠습니다.
+              </p>
+              <Link
+                href='/profile/feedback'
+                className='inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+              >
+                <MessageSquare className='h-4 w-4' />
+                <span>고객 게시판</span>
+              </Link>
+            </div>
 
             {/* 계정 관리 버튼 */}
             <div className='space-y-3'>

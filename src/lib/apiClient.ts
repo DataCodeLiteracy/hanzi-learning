@@ -37,6 +37,64 @@ export class ApiClient {
     }
   }
 
+  // 피드백 목록 가져오기 (관리자용)
+  static async getFeedbackList(): Promise<
+    {
+      id: string
+      userId: string
+      userEmail: string
+      userName: string
+      type: "bug" | "feature" | "improvement" | "other"
+      title: string
+      content: string
+      status: "pending" | "in_progress" | "completed"
+      createdAt: string
+      updatedAt: string
+    }[]
+  > {
+    try {
+      const feedbackRef = collection(db, "feedback")
+      const q = query(feedbackRef, where("status", "!=", "deleted"))
+      const snapshot = await getDocs(q)
+
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as any
+    } catch (error) {
+      console.error("피드백 목록 조회 실패:", error)
+      throw new Error("피드백 목록을 가져오는데 실패했습니다.")
+    }
+  }
+
+  // 피드백 상태 업데이트 (관리자용)
+  static async updateFeedbackStatus(
+    feedbackId: string,
+    status: "pending" | "in_progress" | "completed"
+  ): Promise<void> {
+    try {
+      const feedbackRef = doc(db, "feedback", feedbackId)
+      await updateDoc(feedbackRef, {
+        status,
+        updatedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error("피드백 상태 업데이트 실패:", error)
+      throw new Error("피드백 상태 업데이트에 실패했습니다.")
+    }
+  }
+
+  // 피드백 삭제 (관리자용)
+  static async deleteFeedback(feedbackId: string): Promise<void> {
+    try {
+      const feedbackRef = doc(db, "feedback", feedbackId)
+      await deleteDoc(feedbackRef)
+    } catch (error) {
+      console.error("피드백 삭제 실패:", error)
+      throw new Error("피드백 삭제에 실패했습니다.")
+    }
+  }
+
   // 문서 조회
   static async getDocument<T>(
     collectionName: string,
@@ -867,21 +925,63 @@ export class ApiClient {
       // 학습 완료된 한자들을 랜덤하게 섞기
       const shuffledCompleted = completedHanzi.sort(() => Math.random() - 0.5)
 
-      // 15% 비율로 학습 완료된 한자 선택
-      const completedCount = Math.max(1, Math.floor(count * 0.15)) // 최소 1개는 보장
+      // 15% 비율로 학습 완료된 한자 선택 (최소 1개는 보장)
+      const completedCount = Math.max(1, Math.floor(count * 0.15))
       const incompleteCount = count - completedCount
 
-      // 미완료 한자에서 필요한 개수만큼 선택
-      const selectedIncomplete = sortedIncomplete.slice(0, incompleteCount)
+      // 미완료 한자에서 필요한 개수만큼 선택 (부족하면 전체 사용)
+      const selectedIncomplete = sortedIncomplete.slice(
+        0,
+        Math.min(incompleteCount, sortedIncomplete.length)
+      )
 
-      // 학습 완료된 한자에서 필요한 개수만큼 선택
-      const selectedCompleted = shuffledCompleted.slice(0, completedCount)
+      // 학습 완료된 한자에서 필요한 개수만큼 선택 (부족하면 전체 사용)
+      const selectedCompleted = shuffledCompleted.slice(
+        0,
+        Math.min(completedCount, shuffledCompleted.length)
+      )
 
       // 두 그룹을 합치고 랜덤하게 섞기
-      const combined = [...selectedIncomplete, ...selectedCompleted]
-      const finalSelection = combined.sort(() => Math.random() - 0.5)
+      let combined = [...selectedIncomplete, ...selectedCompleted]
 
-      // 요청된 개수만큼 반환
+      // 요청된 개수만큼 확보되지 않았다면 부족한 만큼 추가
+      if (combined.length < count) {
+        const remainingCount = count - combined.length
+
+        // 미완료 한자가 더 있다면 추가
+        if (selectedIncomplete.length < sortedIncomplete.length) {
+          const additionalIncomplete = sortedIncomplete.slice(
+            selectedIncomplete.length,
+            selectedIncomplete.length + remainingCount
+          )
+          combined = [...combined, ...additionalIncomplete]
+        }
+
+        // 여전히 부족하다면 학습 완료된 한자로 채우기
+        if (combined.length < count) {
+          const stillRemaining = count - combined.length
+          const additionalCompleted = shuffledCompleted.slice(
+            selectedCompleted.length,
+            selectedCompleted.length + stillRemaining
+          )
+          combined = [...combined, ...additionalCompleted]
+        }
+
+        // 그래도 부족하다면 전체 한자 목록에서 랜덤하게 선택
+        if (combined.length < count) {
+          const usedIds = new Set(combined.map((h) => h.id))
+          const unusedHanzi = hanziWithStats.filter((h) => !usedIds.has(h.id))
+          const shuffledUnused = unusedHanzi.sort(() => Math.random() - 0.5)
+          const additionalRandom = shuffledUnused.slice(
+            0,
+            count - combined.length
+          )
+          combined = [...combined, ...additionalRandom]
+        }
+      }
+
+      // 최종적으로 요청된 개수만큼 랜덤하게 섞어서 반환
+      const finalSelection = combined.sort(() => Math.random() - 0.5)
       return finalSelection.slice(0, count)
     } catch (error) {
       console.error("Error getting prioritized hanzi:", error)

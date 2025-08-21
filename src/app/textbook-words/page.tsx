@@ -299,7 +299,7 @@ export default function TextbookWordsPage() {
       <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
         {/* 검색 및 필터 */}
         <div className='bg-white rounded-lg shadow-sm p-6 mb-6'>
-          <div className='flex justify-between items-center'>
+          <div className='flex justify-between items-center mb-4'>
             {/* 급수 필터 */}
             <div className='flex items-center space-x-4'>
               <label className='text-lg font-bold text-gray-900'>
@@ -358,6 +358,46 @@ export default function TextbookWordsPage() {
             {/* 결과 수 */}
             <div className='flex items-center text-lg font-bold text-gray-600'>
               총 {textbookWords.length}개의 단어
+            </div>
+          </div>
+
+          {/* 통계 정보 */}
+          <div className='flex justify-around items-center py-4 border-t border-gray-200'>
+            <div className='text-center'>
+              <div className='text-2xl font-bold text-blue-600'>
+                {textbookWords.length}
+              </div>
+              <div className='text-sm text-gray-600'>총 단어</div>
+            </div>
+            <div className='text-center'>
+              <div className='text-2xl font-bold text-green-600'>
+                {textbookWords.reduce(
+                  (total, word) => total + word.includedHanzi.length,
+                  0
+                )}
+              </div>
+              <div className='text-sm text-gray-600'>총 등장</div>
+            </div>
+            <div className='text-center'>
+              <div className='text-2xl font-bold text-purple-600'>
+                {
+                  new Set(
+                    textbookWords.flatMap((word) =>
+                      word.includedHanzi.map((hanzi) => hanzi.character)
+                    )
+                  ).size
+                }
+              </div>
+              <div className='text-sm text-gray-600'>설명된 단어</div>
+            </div>
+            <div className='text-center'>
+              <div className='text-2xl font-bold text-orange-600'>
+                {
+                  textbookWords.filter((word) => word.includedHanzi.length > 0)
+                    .length
+                }
+              </div>
+              <div className='text-sm text-gray-600'>이 개수</div>
             </div>
           </div>
         </div>
