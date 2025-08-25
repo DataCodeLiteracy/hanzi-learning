@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi, RelatedWord } from "@/types"
-import { ArrowLeft, BookOpen } from "lucide-react"
+import { ArrowLeft, BookOpen, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
 interface TextbookWord {
@@ -242,6 +242,14 @@ export default function TextbookWordsPage() {
     setShowModal(true)
   }
 
+  // 네이버 국어사전 검색 함수
+  const handleNaverKoreanSearch = (word: string) => {
+    const searchUrl = `https://ko.dict.naver.com/#/search?query=${encodeURIComponent(
+      word
+    )}`
+    window.open(searchUrl, "_blank")
+  }
+
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (initialLoading) {
     return (
@@ -432,13 +440,25 @@ export default function TextbookWordsPage() {
                     <td className='px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center'>
                       {index + 1}
                     </td>
-                    <td
-                      className='px-3 py-4 whitespace-nowrap text-sm text-gray-900 cursor-pointer hover:bg-blue-50 text-center'
-                      onClick={() => handleWordClick(word)}
-                    >
+                    <td className='px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center'>
                       <div className='flex items-center justify-center space-x-2'>
-                        <span className='font-semibold'>{word.korean}</span>
-                        <span className='text-gray-500'>({word.hanzi})</span>
+                        <div
+                          className='cursor-pointer hover:bg-blue-50 px-2 py-1 rounded'
+                          onClick={() => handleWordClick(word)}
+                        >
+                          <span className='font-semibold'>{word.korean}</span>
+                          <span className='text-gray-500'>({word.hanzi})</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleNaverKoreanSearch(word.korean)
+                          }}
+                          className='text-blue-600 hover:text-blue-800 transition-colors p-1'
+                          title='네이버 국어사전에서 검색'
+                        >
+                          <ExternalLink className='h-3 w-3' />
+                        </button>
                       </div>
                     </td>
                     {[0, 1, 2, 3].map((i) => {
@@ -455,8 +475,20 @@ export default function TextbookWordsPage() {
                         >
                           {hanzi ? (
                             <div className='text-center'>
-                              <div className='font-semibold text-gray-600'>
-                                {hanzi.meaning}
+                              <div className='flex items-center justify-center space-x-1 mb-1'>
+                                <div className='font-semibold text-gray-600'>
+                                  {hanzi.meaning}
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleNaverKoreanSearch(hanzi.meaning)
+                                  }}
+                                  className='text-blue-600 hover:text-blue-800 transition-colors p-1'
+                                  title='네이버 국어사전에서 검색'
+                                >
+                                  <ExternalLink className='h-3 w-3' />
+                                </button>
                               </div>
                               <div className='text-gray-900 font-bold'>
                                 {hanzi.sound}({hanzi.character})

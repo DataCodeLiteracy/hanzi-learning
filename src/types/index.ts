@@ -99,6 +99,7 @@ export interface UserStatistics {
   todayExperience: number // 오늘 달성한 경험치
   todayGoal?: number // 오늘의 학습 목표 (기본값: 100)
   lastResetDate?: string // 마지막 리셋 날짜 (자정 리셋용)
+  lastWeekNumber?: string // 마지막 주차 번호 (주간 리셋용)
 
   // 목표 달성 통계 필드들 추가
   goalAchievementHistory?: {

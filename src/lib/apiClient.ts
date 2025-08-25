@@ -445,9 +445,24 @@ export class ApiClient {
       // 연속 목표 달성일 계산
       const consecutiveDays = this.calculateConsecutiveGoalDays(newHistory)
 
+      // 주간이 바뀌었는지 확인
+      const currentWeek = this.getWeekNumber(new Date())
+      const lastWeek = userStats.lastWeekNumber || ""
+      const isNewWeek = lastWeek !== currentWeek
+
       // 이번주/이번달 달성 현황 계산
-      const weeklyStats = this.calculateWeeklyGoalAchievement(newHistory)
-      const monthlyStats = this.calculateMonthlyGoalAchievement(newHistory)
+      let weeklyStats = this.calculateWeeklyGoalAchievement(newHistory)
+      let monthlyStats = this.calculateMonthlyGoalAchievement(newHistory)
+
+      // 새로운 주가 시작되었으면 주간 달성 초기화
+      if (isNewWeek) {
+        weeklyStats = {
+          currentWeek,
+          achievedDays: 0,
+          totalDays: 7,
+        }
+        console.log("새로운 주 시작: 주간 달성 초기화")
+      }
 
       // 데이터베이스 업데이트
       const userStatsRef = doc(db, "userStatistics", userStats.id!)
@@ -456,6 +471,7 @@ export class ApiClient {
         consecutiveGoalDays: consecutiveDays,
         weeklyGoalAchievement: weeklyStats,
         monthlyGoalAchievement: monthlyStats,
+        lastWeekNumber: currentWeek, // 현재 주차 번호 업데이트
         updatedAt: new Date().toISOString(),
       })
 
@@ -514,7 +530,7 @@ export class ApiClient {
     const today = new Date()
     const currentWeek = this.getWeekNumber(today)
 
-    // 이번주 시작일과 끝일 계산
+    // 이번주 시작일과 끝일 계산 (일요일 ~ 토요일)
     const weekStart = this.getWeekStart(today)
     const weekEnd = this.getWeekEnd(today)
 
@@ -600,14 +616,14 @@ export class ApiClient {
     return `${year}-${weekNumber.toString().padStart(2, "0")}`
   }
 
-  // 주 시작일 계산 (월요일)
+  // 주 시작일 계산 (일요일)
   private static getWeekStart(date: Date): Date {
     const day = date.getDay()
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1) // 월요일이 1, 일요일이 0
-    return new Date(date.setDate(diff))
+    const diff = date.getDate() - day // 일요일이 0
+    return new Date(date.getFullYear(), date.getMonth(), diff)
   }
 
-  // 주 끝일 계산 (일요일)
+  // 주 끝일 계산 (토요일)
   private static getWeekEnd(date: Date): Date {
     const weekStart = this.getWeekStart(date)
     const weekEnd = new Date(weekStart)
@@ -664,6 +680,20 @@ export class ApiClient {
           updatedAt: new Date().toISOString(),
         })
         console.log("자정 리셋 완료: 오늘 경험치 초기화")
+      }
+
+      // 주간 리셋 확인 (일요일에서 월요일로 넘어갈 때)
+      const currentWeek = this.getWeekNumber(new Date())
+      const lastWeek = userStats.lastWeekNumber || ""
+
+      if (lastWeek !== currentWeek) {
+        // 새로운 주가 시작되었으면 주간 달성 초기화
+        const userStatsRef = doc(db, "userStatistics", userStats.id!)
+        await updateDoc(userStatsRef, {
+          lastWeekNumber: currentWeek,
+          updatedAt: new Date().toISOString(),
+        })
+        console.log("새로운 주 시작: 주간 달성 초기화")
       }
     } catch (error) {
       console.error("Error checking and resetting today's experience:", error)
@@ -1600,6 +1630,7 @@ export class ApiClient {
         todayExperience: 0, // 새로운 사용자는 0으로 시작
         todayGoal: 100, // 기본 목표값
         lastResetDate: new Date().toDateString(), // 오늘 날짜로 초기화
+        lastWeekNumber: this.getWeekNumber(new Date()), // 현재 주차로 초기화
 
         // 목표 달성 통계 필드들 초기화
         goalAchievementHistory: [], // 빈 배열로 시작
