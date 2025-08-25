@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "한자 학습 앱",
   description: "한자 진흥회 데이터를 기반으로 한 한자 학습 게임",
+  icons: {
+    icon: "/icon",
+    apple: "/apple-icon",
+  },
 }
 
 export default function RootLayout({
