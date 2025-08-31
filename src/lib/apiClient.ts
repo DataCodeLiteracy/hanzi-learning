@@ -1850,24 +1850,51 @@ export class ApiClient {
         `📊 gameStatistics에서 ${gameStatsSnapshot.docs.length}개 문서 발견`
       )
 
-      // 3. gameStatistics 데이터를 userId별로 그룹화
+      // 3. gameStatistics 데이터를 userId별로 그룹화 (게임 타입별로 분리)
       const userStatsMap = new Map()
+      const processedDocs = new Set() // 중복 문서 확인용
+
       for (const statDoc of gameStatsSnapshot.docs) {
         const statData = statDoc.data()
         if (statData.userId) {
           const actualUserId = statData.userId
+          const gameType = statData.gameType || "unknown"
+          const docKey = `${actualUserId}_${gameType}`
+
+          // 중복 문서 확인
+          if (processedDocs.has(docKey)) {
+            console.log(`⚠️ 중복 문서 발견: ${docKey}`)
+            continue
+          }
+          processedDocs.add(docKey)
+
+          console.log(
+            `📊 게임 통계 문서: userId=${actualUserId}, gameType=${gameType}, totalPlayed=${statData.totalPlayed}, correct=${statData.correctAnswers}, wrong=${statData.wrongAnswers}`
+          )
+
           if (!userStatsMap.has(actualUserId)) {
             userStatsMap.set(actualUserId, {
+              games: new Map(), // 게임 타입별 통계
               totalPlayed: 0,
-              correctAnswers: 0,
-              wrongAnswers: 0,
+              totalCorrect: 0,
+              totalWrong: 0,
               completedSessions: 0,
             })
           }
+
           const userStats = userStatsMap.get(actualUserId)
+
+          // 게임 타입별 통계 저장 (누적하지 않고 덮어쓰기)
+          userStats.games.set(gameType, {
+            totalPlayed: statData.totalPlayed || 0,
+            correctAnswers: statData.correctAnswers || 0,
+            wrongAnswers: statData.wrongAnswers || 0,
+          })
+
+          // 전체 통계도 누적
           userStats.totalPlayed += statData.totalPlayed || 0
-          userStats.correctAnswers += statData.correctAnswers || 0
-          userStats.wrongAnswers += statData.wrongAnswers || 0
+          userStats.totalCorrect += statData.correctAnswers || 0
+          userStats.totalWrong += statData.wrongAnswers || 0
           userStats.completedSessions += statData.completedSessions || 0
         }
       }
@@ -1899,19 +1926,44 @@ export class ApiClient {
 
           // gameStatistics가 있는 경우 해당 데이터 사용, 없으면 기본값
           const userStats = userStatsMap.get(userId) || {
+            games: new Map(),
             totalPlayed: 0,
-            correctAnswers: 0,
-            wrongAnswers: 0,
+            totalCorrect: 0,
+            totalWrong: 0,
             completedSessions: 0,
           }
 
-          // 정답률 계산 (게임을 한 적이 없으면 0%)
-          const accuracy =
-            userStats.totalPlayed > 0
-              ? Math.round(
-                  (userStats.correctAnswers / userStats.totalPlayed) * 100
+          // 게임 타입별 정답률 계산
+          let totalAccuracy = 0
+          let gameCount = 0
+
+          if (userStats.games && userStats.games.size > 0) {
+            for (const [gameType, gameStats] of userStats.games) {
+              const totalAnswers =
+                gameStats.correctAnswers + gameStats.wrongAnswers
+              if (totalAnswers > 0) {
+                const gameAccuracy =
+                  (gameStats.correctAnswers / totalAnswers) * 100
+                console.log(
+                  `🎮 ${username} - ${gameType}: ${
+                    gameStats.correctAnswers
+                  }/${totalAnswers} = ${gameAccuracy.toFixed(1)}%`
                 )
-              : 0
+                totalAccuracy += gameAccuracy
+                gameCount++
+              }
+            }
+          }
+
+          // 전체 평균 정답률 계산 (게임을 한 적이 없으면 0%)
+          const accuracy =
+            gameCount > 0 ? Math.round(totalAccuracy / gameCount) : 0
+
+          console.log(
+            `📊 ${username} 정답률 계산: ${gameCount}개 게임, 총 정답률 ${totalAccuracy.toFixed(
+              1
+            )}, 평균 ${accuracy}%`
+          )
 
           // 모든 사용자를 순위에 포함 (경험치가 0이어도 포함)
           userRankings.push({
