@@ -17,6 +17,7 @@ export interface RelatedWord {
   hanzi: string // 한자 단어 (예: "火事")
   korean: string // 한글 뜻 (예: "화재")
   isTextBook?: boolean // 교과서 한자어 여부
+  meaning?: string // 교과서 한자어의 뜻 (사용자가 등록)
 }
 
 // 한자 관련 타입

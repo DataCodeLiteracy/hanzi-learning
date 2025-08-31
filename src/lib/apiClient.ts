@@ -329,7 +329,11 @@ export class ApiClient {
   static async updateTodayExperience(
     userId: string,
     experienceToAdd: number,
-    onBonusEarned?: (consecutiveDays: number, bonusExperience: number, dailyGoal: number) => void
+    onBonusEarned?: (
+      consecutiveDays: number,
+      bonusExperience: number,
+      dailyGoal: number
+    ) => void
   ): Promise<void> {
     try {
       // 기존 userStatistics 조회
@@ -347,7 +351,11 @@ export class ApiClient {
         })
 
         // 목표 달성 통계도 함께 업데이트 (보너스 콜백 포함)
-        await this.updateGoalAchievementStats(userId, newTodayExperience, onBonusEarned)
+        await this.updateGoalAchievementStats(
+          userId,
+          newTodayExperience,
+          onBonusEarned
+        )
       } else {
         // 새로운 userStatistics 생성
         const newStatsRef = doc(collection(db, "userStatistics"))
@@ -363,7 +371,11 @@ export class ApiClient {
         })
 
         // 목표 달성 통계도 함께 업데이트 (보너스 콜백 포함)
-        await this.updateGoalAchievementStats(userId, experienceToAdd, onBonusEarned)
+        await this.updateGoalAchievementStats(
+          userId,
+          experienceToAdd,
+          onBonusEarned
+        )
       }
     } catch (error) {
       console.error("Error updating today's experience:", error)
@@ -409,7 +421,11 @@ export class ApiClient {
   static async updateGoalAchievementStats(
     userId: string,
     todayExperience: number,
-    onBonusEarned?: (consecutiveDays: number, bonusExperience: number, dailyGoal: number) => void
+    onBonusEarned?: (
+      consecutiveDays: number,
+      bonusExperience: number,
+      dailyGoal: number
+    ) => void
   ): Promise<void> {
     try {
       const userStats = await this.getUserStatistics(userId)
@@ -447,42 +463,42 @@ export class ApiClient {
       // 연속 목표 달성일 계산
       const consecutiveDays = this.calculateConsecutiveGoalDays(newHistory)
 
-              // 보너스 경험치 계산 및 적용
-        const bonusExperience = calculateBonusExperience(
-          consecutiveDays,
-          todayGoal
+      // 보너스 경험치 계산 및 적용
+      const bonusExperience = calculateBonusExperience(
+        consecutiveDays,
+        todayGoal
+      )
+      if (bonusExperience > 0) {
+        console.log(
+          `🎁 보너스 경험치 획득: ${bonusExperience} EXP (연속 ${consecutiveDays}일, 목표 ${todayGoal})`
         )
-        if (bonusExperience > 0) {
+
+        // users 컬렉션에 보너스 경험치 추가
+        const userRef = doc(db, "users", userId)
+        const userDoc = await getDoc(userRef)
+        if (userDoc.exists()) {
+          const currentExp = userDoc.data().experience || 0
+          const newExp = currentExp + bonusExperience
+          const newLevel = calculateLevel(newExp)
+
+          await updateDoc(userRef, {
+            experience: newExp,
+            level: newLevel,
+            updatedAt: new Date().toISOString(),
+          })
+
           console.log(
-            `🎁 보너스 경험치 획득: ${bonusExperience} EXP (연속 ${consecutiveDays}일, 목표 ${todayGoal})`
+            `보너스 경험치 적용: ${currentExp} → ${newExp} EXP, 레벨 ${
+              userDoc.data().level
+            } → ${newLevel}`
           )
-
-          // users 컬렉션에 보너스 경험치 추가
-          const userRef = doc(db, "users", userId)
-          const userDoc = await getDoc(userRef)
-          if (userDoc.exists()) {
-            const currentExp = userDoc.data().experience || 0
-            const newExp = currentExp + bonusExperience
-            const newLevel = calculateLevel(newExp)
-
-            await updateDoc(userRef, {
-              experience: newExp,
-              level: newLevel,
-              updatedAt: new Date().toISOString(),
-            })
-
-            console.log(
-              `보너스 경험치 적용: ${currentExp} → ${newExp} EXP, 레벨 ${
-                userDoc.data().level
-              } → ${newLevel}`
-            )
-          }
-
-          // 보너스 획득 콜백 호출 (모달 표시용)
-          if (onBonusEarned) {
-            onBonusEarned(consecutiveDays, bonusExperience, todayGoal)
-          }
         }
+
+        // 보너스 획득 콜백 호출 (모달 표시용)
+        if (onBonusEarned) {
+          onBonusEarned(consecutiveDays, bonusExperience, todayGoal)
+        }
+      }
 
       // 주간이 바뀌었는지 확인
       const currentWeek = this.getWeekNumber(new Date())
@@ -1806,7 +1822,7 @@ export class ApiClient {
   }
 
   /**
-   * 유저 레벨 순위 조회 (상위 20명) - gameStatistics 기반
+   * 유저 레벨 순위 조회 (상위 20명) - 모든 사용자 포함
    */
   static async getUserRankings(): Promise<
     Array<{
@@ -1822,14 +1838,43 @@ export class ApiClient {
     try {
       console.log("🔍 유저 순위 조회 시작...")
 
-      // gameStatistics 컬렉션에서 데이터 조회
+      // 1. 모든 사용자 조회 (users 컬렉션)
+      const usersRef = collection(db, "users")
+      const usersSnapshot = await getDocs(usersRef)
+      console.log(`📊 users에서 ${usersSnapshot.docs.length}명의 사용자 발견`)
+
+      // 2. gameStatistics 컬렉션에서 데이터 조회
       const gameStatsRef = collection(db, "gameStatistics")
       const gameStatsSnapshot = await getDocs(gameStatsRef)
-
       console.log(
         `📊 gameStatistics에서 ${gameStatsSnapshot.docs.length}개 문서 발견`
       )
 
+      // 3. gameStatistics 데이터를 userId별로 그룹화
+      const userStatsMap = new Map()
+      for (const statDoc of gameStatsSnapshot.docs) {
+        const statData = statDoc.data()
+        if (statData.userId) {
+          const actualUserId = statData.userId
+          if (!userStatsMap.has(actualUserId)) {
+            userStatsMap.set(actualUserId, {
+              totalPlayed: 0,
+              correctAnswers: 0,
+              wrongAnswers: 0,
+              completedSessions: 0,
+            })
+          }
+          const userStats = userStatsMap.get(actualUserId)
+          userStats.totalPlayed += statData.totalPlayed || 0
+          userStats.correctAnswers += statData.correctAnswers || 0
+          userStats.wrongAnswers += statData.wrongAnswers || 0
+          userStats.completedSessions += statData.completedSessions || 0
+        }
+      }
+
+      console.log(`📊 그룹화된 게임 통계:`, userStatsMap)
+
+      // 4. 모든 사용자를 순위에 포함
       const userRankings: Array<{
         userId: string
         username: string
@@ -1841,79 +1886,50 @@ export class ApiClient {
         rank: number
       }> = []
 
-      // userId별로 게임 통계 데이터를 그룹화
-      const userStatsMap = new Map()
-
-      for (const statDoc of gameStatsSnapshot.docs) {
-        const statData = statDoc.data()
-
-        if (statData.userId) {
-          const actualUserId = statData.userId
-
-          if (!userStatsMap.has(actualUserId)) {
-            userStatsMap.set(actualUserId, {
-              totalPlayed: 0,
-              correctAnswers: 0,
-              wrongAnswers: 0,
-              completedSessions: 0,
-            })
-          }
-
-          const userStats = userStatsMap.get(actualUserId)
-          userStats.totalPlayed += statData.totalPlayed || 0
-          userStats.correctAnswers += statData.correctAnswers || 0
-          userStats.wrongAnswers += statData.wrongAnswers || 0
-          userStats.completedSessions += statData.completedSessions || 0
-        }
-      }
-
-      console.log(`📊 그룹화된 사용자 통계:`, userStatsMap)
-
-      // 그룹화된 데이터를 기반으로 순위 생성
-      for (const [actualUserId, userStats] of userStatsMap) {
+      for (const userDoc of usersSnapshot.docs) {
         try {
-          // users 컬렉션에서 username 가져오기
-          const userRef = doc(db, "users", actualUserId)
-          const userDoc = await getDoc(userRef)
+          const userData = userDoc.data()
+          const userId = userDoc.id
+          const username =
+            userData.displayName ||
+            userData.username ||
+            `User_${userId.slice(0, 8)}`
+          const totalExp = userData.experience || 0
+          const level = userData.level || 1
 
-          if (userDoc.exists()) {
-            const userData = userDoc.data()
-            const username =
-              userData.displayName ||
-              userData.username ||
-              `User_${actualUserId.slice(0, 8)}`
-
-            // users 컬렉션에서 실제 experience와 level 가져오기
-            const totalExp = userData.experience || 0
-            const level = userData.level || 1
-
-            // 정답률 계산
-            const accuracy =
-              userStats.totalPlayed > 0
-                ? Math.round(
-                    (userStats.correctAnswers / userStats.totalPlayed) * 100
-                  )
-                : 0
-
-            if (totalExp > 0) {
-              userRankings.push({
-                userId: actualUserId,
-                username,
-                level,
-                experience: totalExp,
-                totalPlayed: userStats.totalPlayed,
-                accuracy: accuracy,
-                preferredGrade: userData.preferredGrade || 8,
-                rank: 0, // 임시로 0 설정
-              })
-
-              console.log(
-                `✅ 유저 추가: ${username} (레벨${level}, ${totalExp}EXP, ${userStats.totalPlayed}문제, 정답률${accuracy}%)`
-              )
-            }
+          // gameStatistics가 있는 경우 해당 데이터 사용, 없으면 기본값
+          const userStats = userStatsMap.get(userId) || {
+            totalPlayed: 0,
+            correctAnswers: 0,
+            wrongAnswers: 0,
+            completedSessions: 0,
           }
+
+          // 정답률 계산 (게임을 한 적이 없으면 0%)
+          const accuracy =
+            userStats.totalPlayed > 0
+              ? Math.round(
+                  (userStats.correctAnswers / userStats.totalPlayed) * 100
+                )
+              : 0
+
+          // 모든 사용자를 순위에 포함 (경험치가 0이어도 포함)
+          userRankings.push({
+            userId,
+            username,
+            level,
+            experience: totalExp,
+            totalPlayed: userStats.totalPlayed,
+            accuracy: accuracy,
+            preferredGrade: userData.preferredGrade || 8,
+            rank: 0, // 임시로 0 설정
+          })
+
+          console.log(
+            `✅ 유저 추가: ${username} (레벨${level}, ${totalExp}EXP, ${userStats.totalPlayed}문제, 정답률${accuracy}%)`
+          )
         } catch (userError) {
-          console.log(`⚠️ 유저 ${actualUserId} 정보 조회 실패:`, userError)
+          console.log(`⚠️ 유저 ${userDoc.id} 정보 처리 실패:`, userError)
         }
       }
 

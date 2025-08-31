@@ -5,13 +5,14 @@ import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi, RelatedWord } from "@/types"
-import { ArrowLeft, BookOpen, ExternalLink } from "lucide-react"
+import { ArrowLeft, BookOpen, ExternalLink, Edit, Plus } from "lucide-react"
 import Link from "next/link"
 
 interface TextbookWord {
   word: string
   korean: string
   hanzi: string
+  meaning?: string // 교과서 한자어의 뜻
   includedHanzi: Array<{
     character: string
     meaning: string
@@ -42,6 +43,13 @@ export default function TextbookWordsPage() {
   } | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
+
+  // 뜻 등록 관련 상태
+  const [showMeaningModal, setShowMeaningModal] = useState(false)
+  const [selectedWordForMeaning, setSelectedWordForMeaning] =
+    useState<TextbookWord | null>(null)
+  const [meaningInput, setMeaningInput] = useState("")
+  const [isSubmittingMeaning, setIsSubmittingMeaning] = useState(false)
 
   // 8급 데이터 기본 로딩
   const loadData = async (grade: number = 8) => {
@@ -110,6 +118,7 @@ export default function TextbookWordsPage() {
                 word: relatedWord.hanzi,
                 korean: relatedWord.korean,
                 hanzi: relatedWord.hanzi,
+                meaning: relatedWord.meaning, // 뜻 정보 추가
                 includedHanzi,
               })
             }
@@ -256,6 +265,78 @@ export default function TextbookWordsPage() {
       word
     )}`
     window.open(searchUrl, "_blank")
+  }
+
+  // 뜻 등록 모달 열기
+  const openMeaningModal = (word: TextbookWord) => {
+    setSelectedWordForMeaning(word)
+    setMeaningInput(word.meaning || "")
+    setShowMeaningModal(true)
+  }
+
+  // 뜻 등록 모달 닫기
+  const closeMeaningModal = () => {
+    setShowMeaningModal(false)
+    setSelectedWordForMeaning(null)
+    setMeaningInput("")
+  }
+
+  // 뜻 등록/수정 제출
+  const submitMeaning = async () => {
+    if (!selectedWordForMeaning || !meaningInput.trim() || !user) return
+
+    setIsSubmittingMeaning(true)
+    try {
+      // 해당 한자를 찾아서 relatedWords의 meaning 업데이트
+      const hanziData = await ApiClient.getHanziByGrade(selectedGrade)
+      const targetHanzi = hanziData.find((hanzi) =>
+        hanzi.relatedWords?.some(
+          (word) =>
+            word.hanzi === selectedWordForMeaning.hanzi && word.isTextBook
+        )
+      )
+
+      if (targetHanzi) {
+        // relatedWords에서 해당 단어 찾기
+        const relatedWordIndex = targetHanzi.relatedWords?.findIndex(
+          (word) =>
+            word.hanzi === selectedWordForMeaning.hanzi && word.isTextBook
+        )
+
+        if (relatedWordIndex !== undefined && relatedWordIndex >= 0) {
+          // 새로운 relatedWords 배열 생성
+          const updatedRelatedWords = [...(targetHanzi.relatedWords || [])]
+          updatedRelatedWords[relatedWordIndex] = {
+            ...updatedRelatedWords[relatedWordIndex],
+            meaning: meaningInput.trim(),
+          }
+
+          // 한자 문서 업데이트
+          await ApiClient.updateDocument("hanzi", targetHanzi.id, {
+            relatedWords: updatedRelatedWords,
+          })
+
+          // 경험치 10 추가 (새로 등록하는 경우에만)
+          if (!selectedWordForMeaning.meaning) {
+            await ApiClient.addUserExperience(user.id, 10)
+            await ApiClient.updateTodayExperience(user.id, 10)
+            alert("뜻이 성공적으로 등록되었습니다! +10 경험치를 획득했습니다.")
+          } else {
+            alert("뜻이 성공적으로 수정되었습니다!")
+          }
+
+          // 데이터 다시 로드하여 UI 업데이트
+          await loadData(selectedGrade)
+        }
+      }
+
+      closeMeaningModal()
+    } catch (error) {
+      console.error("뜻 등록/수정 실패:", error)
+      alert("뜻 등록/수정에 실패했습니다. 다시 시도해주세요.")
+    } finally {
+      setIsSubmittingMeaning(false)
+    }
   }
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
@@ -424,31 +505,34 @@ export default function TextbookWordsPage() {
             <table className='w-full'>
               <thead className='bg-gray-50'>
                 <tr>
-                  <th className='px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'></th>
-                  <th className='px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16'></th>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]'>
                     단어
                   </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
                     한자1
                   </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
                     한자2
                   </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
                     한자3
                   </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
                     한자4
+                  </th>
+                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]'>
+                    뜻
                   </th>
                 </tr>
               </thead>
               <tbody className='bg-white divide-y divide-gray-200'>
                 {textbookWords.map((word, index) => (
                   <tr key={word.word} className='hover:bg-gray-50'>
-                    <td className='px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center'>
+                    <td className='px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center w-16'>
                       {index + 1}
                     </td>
-                    <td className='px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center'>
+                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center min-w-[200px]'>
                       <div className='flex items-center justify-center space-x-2'>
                         <div
                           className='cursor-pointer hover:bg-blue-50 px-2 py-1 rounded'
@@ -474,7 +558,7 @@ export default function TextbookWordsPage() {
                       return (
                         <td
                           key={i}
-                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center ${
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center min-w-[120px] ${
                             hanzi ? "cursor-pointer hover:bg-blue-50" : ""
                           }`}
                           onClick={
@@ -511,10 +595,48 @@ export default function TextbookWordsPage() {
                         </td>
                       )
                     })}
+                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center min-w-[150px]'>
+                      {word.meaning ? (
+                        <div className='flex items-center justify-center space-x-2'>
+                          <span className='text-gray-700'>{word.meaning}</span>
+                          <button
+                            onClick={() => openMeaningModal(word)}
+                            className='text-blue-600 hover:text-blue-800 transition-colors p-1'
+                            title='뜻 수정'
+                          >
+                            <Edit className='h-3 w-3' />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className='flex items-center justify-center h-full'>
+                          <button
+                            onClick={() => openMeaningModal(word)}
+                            className='flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors px-3 py-2 rounded border border-blue-300 hover:border-blue-400 hover:bg-blue-50'
+                            title='뜻 등록 (+10 경험치)'
+                          >
+                            <Plus className='h-4 w-4' />
+                            <span className='text-sm'>등록</span>
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* 테이블 밑 정보 */}
+          <div className='px-6 py-3 bg-gray-50 border-t border-gray-200'>
+            <div className='flex justify-between items-center'>
+              <div className='text-sm text-gray-600'>
+                총 {textbookWords.length}개의 교과서 한자어
+              </div>
+              <div className='text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200'>
+                💡 뜻 등록 시 <span className='font-semibold'>+10 경험치</span>
+                를 획득합니다!
+              </div>
+            </div>
           </div>
         </div>
 
@@ -596,11 +718,72 @@ export default function TextbookWordsPage() {
                     {(selectedItem.data as HanziItem).sound}
                   </div>
                   <div className='text-lg text-gray-500'>
-                    {(selectedItem.data as HanziItem).grade}급 {(selectedItem.data as HanziItem).gradeNumber}
-                    번
+                    {(selectedItem.data as HanziItem).grade}급{" "}
+                    {(selectedItem.data as HanziItem).gradeNumber}번
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 뜻 등록/수정 모달 */}
+      {showMeaningModal && selectedWordForMeaning && (
+        <div
+          className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+          onClick={closeMeaningModal}
+        >
+          <div
+            className='bg-white rounded-lg p-8 max-w-md w-full mx-4 relative'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeMeaningModal}
+              className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold'
+            >
+              ×
+            </button>
+            <h2 className='text-2xl font-bold text-gray-900 mb-4'>
+              {selectedWordForMeaning.meaning ? "뜻 수정" : "뜻 등록"}
+            </h2>
+            <p className='text-gray-700 mb-4'>
+              {selectedWordForMeaning.korean} ({selectedWordForMeaning.hanzi})
+              {selectedWordForMeaning.meaning
+                ? "의 뜻을 수정해주세요."
+                : "의 뜻을 등록해주세요."}
+            </p>
+            <textarea
+              value={meaningInput}
+              onChange={(e) => setMeaningInput(e.target.value)}
+              className='w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 font-medium'
+              rows={4}
+              placeholder={
+                selectedWordForMeaning.meaning
+                  ? "수정할 뜻을 입력하세요"
+                  : "등록할 뜻을 입력하세요"
+              }
+            />
+            <div className='flex justify-end space-x-2 mt-4'>
+              <button
+                onClick={closeMeaningModal}
+                className='px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100'
+              >
+                취소
+              </button>
+              <button
+                onClick={submitMeaning}
+                className='px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50'
+                disabled={isSubmittingMeaning}
+              >
+                {isSubmittingMeaning
+                  ? selectedWordForMeaning.meaning
+                    ? "수정 중..."
+                    : "등록 중..."
+                  : selectedWordForMeaning.meaning
+                  ? "수정"
+                  : "등록"}
+              </button>
             </div>
           </div>
         </div>
