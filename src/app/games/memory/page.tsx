@@ -459,7 +459,10 @@ export default function MemoryGame() {
       setGameEnded(true)
 
       // 난이도와 카드 수에 따른 경험치 계산
-      const experience = calculateMemoryGameExperience(difficulty, totalPairs)
+      const experience = calculateMemoryGameExperience(
+        difficulty,
+        Math.floor(totalPairs)
+      )
       console.log(
         `💰 경험치 계산: 난이도=${difficulty}, 쌍수=${totalPairs}, 경험치=${experience}`
       )

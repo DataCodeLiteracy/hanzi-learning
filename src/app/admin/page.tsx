@@ -358,7 +358,11 @@ export default function AdminPage() {
   }
 
   // RelatedWord 업데이트
-  const updateRelatedWord = (index: number, field: string, value: any) => {
+  const updateRelatedWord = (
+    index: number,
+    field: string,
+    value: string | boolean
+  ) => {
     if (!editingHanzi) return
 
     const newRelatedWords = [...(editingHanzi.relatedWords || [])]

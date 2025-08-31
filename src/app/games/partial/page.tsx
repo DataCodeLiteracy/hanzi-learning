@@ -241,20 +241,38 @@ export default function PartialGame() {
         const hiddenPart =
           hiddenParts[Math.floor(Math.random() * hiddenParts.length)]
 
-        // 다른 한자들에서 오답 생성 (같은 급수 내에서)
+        // 다른 한자들에서 오답 생성 (같은 급수 내에서, 중복 제거)
         const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
-        const wrongAnswers = otherHanzi
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 3)
-          .map((h) => `${h.meaning} ${h.sound || h.pinyin || ""}`)
-
-        // 정답과 오답을 섞어서 4지선다 생성
         const correctAnswer = `${hanzi.meaning} ${
           hanzi.sound || hanzi.pinyin || ""
         }`
-        const allOptions = [correctAnswer, ...wrongAnswers]
+
+        const wrongAnswers = otherHanzi
           .sort(() => Math.random() - 0.5)
-          .filter((option) => option !== undefined) as string[]
+          .map((h) => `${h.meaning} ${h.sound || h.pinyin || ""}`)
+          .filter((answer) => answer !== correctAnswer) // 정답과 다른 답안만 선택
+          .filter((answer, index, arr) => arr.indexOf(answer) === index) // 중복 제거
+          .slice(0, 3) // 3개만 선택
+
+        // 정답과 오답을 섞어서 4지선다 생성 (중복 없는지 한번 더 확인)
+        const allOptions = [correctAnswer, ...wrongAnswers]
+          .filter(
+            (option) =>
+              option !== undefined && option !== null && option.trim() !== ""
+          ) // 빈 값 제거
+          .filter((option, index, arr) => arr.indexOf(option) === index) // 중복 제거
+          .sort(() => Math.random() - 0.5) as string[]
+
+        // 만약 4개가 안 되면 추가 오답 생성
+        if (allOptions.length < 4) {
+          const additionalWrongAnswers = otherHanzi
+            .map((h) => `${h.meaning} ${h.sound || h.pinyin || ""}`)
+            .filter((answer) => !allOptions.includes(answer)) // 이미 있는 답안 제외
+            .filter((answer, index, arr) => arr.indexOf(answer) === index) // 중복 제거
+            .slice(0, 4 - allOptions.length) // 부족한 만큼 추가
+
+          allOptions.push(...additionalWrongAnswers)
+        }
 
         return {
           id: hanzi.id,

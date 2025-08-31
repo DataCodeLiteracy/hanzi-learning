@@ -384,7 +384,10 @@ export default function AdminFeedbackPage() {
                       onChange={(e) =>
                         handleStatusUpdate(
                           selectedFeedback.id,
-                          e.target.value as any
+                          e.target.value as
+                            | "pending"
+                            | "in_progress"
+                            | "completed"
                         )
                       }
                       className='block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'

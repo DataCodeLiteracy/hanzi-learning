@@ -1,0 +1,24 @@
+[
+  {
+    "userId": "gX83VflzZ6YmBTiOdlurqCb6rw63",
+    "gameType": "quiz",
+    "totalPlayed": 997,
+    "correctAnswers": 750,
+    "wrongAnswers": 247,
+    "completedSessions": 25,
+    "totalSessions": 0,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-08-31T12:00:00.000Z"
+  },
+  {
+    "userId": "gX83VflzZ6YmBTiOdlurqCb6rw63",
+    "gameType": "memory",
+    "totalPlayed": 150,
+    "correctAnswers": 120,
+    "wrongAnswers": 30,
+    "completedSessions": 8,
+    "totalSessions": 0,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-08-31T12:00:00.000Z"
+  }
+]

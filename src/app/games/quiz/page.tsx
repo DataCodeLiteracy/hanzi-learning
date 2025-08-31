@@ -6,8 +6,8 @@ import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
 import Link from "next/link"
 import { ApiClient } from "@/lib/apiClient"
-import { GameStatisticsService } from "@/lib/services/gameStatisticsService"
-import { HanziStatisticsService } from "@/lib/services/hanziStatisticsService"
+// import { GameStatisticsService } from "@/lib/services/gameStatisticsService"
+// import { HanziStatisticsService } from "@/lib/services/hanziStatisticsService"
 
 interface Question {
   id: string
@@ -241,17 +241,34 @@ export default function QuizGame() {
         const correctAnswer =
           questionType === "meaning" ? hanzi.meaning : hanzi.sound
 
-        // 다른 한자들에서 오답 생성 (같은 급수 내에서)
+        // 다른 한자들에서 오답 생성 (같은 급수 내에서, 중복 제거)
         const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
         const wrongAnswers = otherHanzi
           .sort(() => Math.random() - 0.5)
-          .slice(0, 3)
           .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
+          .filter((answer) => answer !== correctAnswer) // 정답과 다른 답안만 선택
+          .filter((answer, index, arr) => arr.indexOf(answer) === index) // 중복 제거
+          .slice(0, 3) // 3개만 선택
 
-        // 정답과 오답을 섞어서 4지선다 생성
+        // 정답과 오답을 섞어서 4지선다 생성 (중복 없는지 한번 더 확인)
         const allOptions = [correctAnswer, ...wrongAnswers]
-          .sort(() => Math.random() - 0.5)
-          .filter((option) => option !== undefined) as string[]
+          .filter(
+            (option) =>
+              option !== undefined && option !== null && option.trim() !== ""
+          ) // 빈 값 제거
+          .filter((option, index, arr) => arr.indexOf(option) === index) // 중복 제거
+          .sort(() => Math.random() - 0.5) as string[]
+
+        // 만약 4개가 안 되면 추가 오답 생성
+        if (allOptions.length < 4) {
+          const additionalWrongAnswers = otherHanzi
+            .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
+            .filter((answer) => !allOptions.includes(answer)) // 이미 있는 답안 제외
+            .filter((answer, index, arr) => arr.indexOf(answer) === index) // 중복 제거
+            .slice(0, 4 - allOptions.length) // 부족한 만큼 추가
+
+          allOptions.push(...additionalWrongAnswers)
+        }
 
         return {
           id: hanzi.id,
@@ -296,38 +313,38 @@ export default function QuizGame() {
     try {
       await updateUserExperience(1) // 1 EXP 추가 (새로고침 없이)
 
-      // 현재 문제의 한자 통계 업데이트
-      const currentQuestion = questions[currentQuestionIndex]
-      if (currentQuestion && currentQuestion.hanziId) {
-        await HanziStatisticsService.updateHanziStatistics(
-          user.id,
-          currentQuestion.hanziId,
-          "quiz",
-          true // 정답이므로 true
-        )
-      }
+      // 현재 문제의 한자 통계 업데이트 (현재 비활성화)
+      // const currentQuestion = questions[currentQuestionIndex]
+      // if (currentQuestion && currentQuestion.hanziId) {
+      //   await HanziStatisticsService.updateHanziStatistics(
+      //     user.id,
+      //     currentQuestion.hanziId,
+      //     "quiz",
+      //     true // 정답이므로 true
+      //   )
+      // }
     } catch (error) {
       console.error("경험치 추가 실패:", error)
     }
   }
 
-  // 한자별 통계 업데이트 (오답시)
-  const updateHanziStats = async (isCorrect: boolean) => {
-    if (!user) return
-    try {
-      const currentQuestion = questions[currentQuestionIndex]
-      if (currentQuestion && currentQuestion.hanziId) {
-        await HanziStatisticsService.updateHanziStatistics(
-          user.id,
-          currentQuestion.hanziId,
-          "quiz",
-          isCorrect
-        )
-      }
-    } catch (error) {
-      console.error("한자 통계 업데이트 실패:", error)
-    }
-  }
+  // 한자별 통계 업데이트 (오답시) - 현재 비활성화
+  // const updateHanziStats = async (isCorrect: boolean) => {
+  //   if (!user) return
+  //   try {
+  //     const currentQuestion = questions[currentQuestionIndex]
+  //     if (currentQuestion && currentQuestion.hanziId) {
+  //       await HanziStatisticsService.updateHanziStatistics(
+  //         user.id,
+  //         currentQuestion.hanziId,
+  //         "quiz",
+  //         isCorrect
+  //       )
+  //     }
+  //   } catch (error) {
+  //     console.error("한자 통계 업데이트 실패:", error)
+  //   }
+  // }
 
   const handleAnswerSelect = useCallback(
     async (answer: string) => {
@@ -385,7 +402,19 @@ export default function QuizGame() {
           )
           await updateUserExperience(1)
           // 오늘 경험치도 함께 업데이트
-          await ApiClient.updateTodayExperience(user.id, 1)
+          await ApiClient.updateTodayExperience(
+            user.id,
+            1,
+            (consecutiveDays, bonusExperience, dailyGoal) => {
+              // 보너스 경험치 획득 시 모달 표시
+              if (bonusExperience > 0) {
+                // 간단한 알림으로 표시 (게임 페이지에서는 모달 대신)
+                alert(
+                  `🎁 보너스 경험치 획득!\n연속 ${consecutiveDays}일 달성으로 +${bonusExperience} EXP를 획득했습니다!`
+                )
+              }
+            }
+          )
           console.log(
             `⭐ 즉시 경험치 추가 완료: +1 EXP (${correct ? "정답" : "오답"})`
           )
@@ -400,7 +429,7 @@ export default function QuizGame() {
         addQuestionExperience()
       } else {
         // 틀렸을 때 한자별 통계 업데이트 (틀린 답)
-        updateHanziStats(false)
+        // updateHanziStats(false)
       }
 
       // 정답/오답 모달 2.5초간 표시 후 자동으로 다음 문제로 이동
@@ -436,7 +465,7 @@ export default function QuizGame() {
       setGameEnded,
       setIsProcessingAnswer,
       addQuestionExperience,
-      updateHanziStats,
+      // updateHanziStats,
       user,
       updateUserExperience,
       earnedExperience,

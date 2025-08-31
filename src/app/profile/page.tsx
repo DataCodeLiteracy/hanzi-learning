@@ -313,6 +313,11 @@ export default function ProfilePage() {
                       {consecutiveGoalDays}일
                     </div>
                     <div className='text-xs text-gray-600'>연속 달성</div>
+                    {consecutiveGoalDays >= 10 && (
+                      <div className='text-xs text-blue-600 mt-1 font-medium'>
+                        🎁 보너스!
+                      </div>
+                    )}
                   </div>
                   {/* 이번주 달성 현황 */}
                   <div className='text-center'>

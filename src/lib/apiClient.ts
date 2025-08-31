@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { Hanzi, UserStatistics } from "@/types"
-import { calculateLevel } from "./experienceSystem"
+import { calculateLevel, calculateBonusExperience } from "./experienceSystem"
 
 export class ApiClient {
   // 문서 생성
@@ -328,7 +328,8 @@ export class ApiClient {
   // 오늘 경험치 업데이트 (userStatistics에 저장)
   static async updateTodayExperience(
     userId: string,
-    experienceToAdd: number
+    experienceToAdd: number,
+    onBonusEarned?: (consecutiveDays: number, bonusExperience: number, dailyGoal: number) => void
   ): Promise<void> {
     try {
       // 기존 userStatistics 조회
@@ -345,8 +346,8 @@ export class ApiClient {
           updatedAt: new Date().toISOString(),
         })
 
-        // 목표 달성 통계도 함께 업데이트
-        await this.updateGoalAchievementStats(userId, newTodayExperience)
+        // 목표 달성 통계도 함께 업데이트 (보너스 콜백 포함)
+        await this.updateGoalAchievementStats(userId, newTodayExperience, onBonusEarned)
       } else {
         // 새로운 userStatistics 생성
         const newStatsRef = doc(collection(db, "userStatistics"))
@@ -361,8 +362,8 @@ export class ApiClient {
           updatedAt: new Date().toISOString(),
         })
 
-        // 목표 달성 통계도 함께 업데이트
-        await this.updateGoalAchievementStats(userId, experienceToAdd)
+        // 목표 달성 통계도 함께 업데이트 (보너스 콜백 포함)
+        await this.updateGoalAchievementStats(userId, experienceToAdd, onBonusEarned)
       }
     } catch (error) {
       console.error("Error updating today's experience:", error)
@@ -407,7 +408,8 @@ export class ApiClient {
   // 목표 달성 통계 업데이트 (오늘 경험치 업데이트 시 호출)
   static async updateGoalAchievementStats(
     userId: string,
-    todayExperience: number
+    todayExperience: number,
+    onBonusEarned?: (consecutiveDays: number, bonusExperience: number, dailyGoal: number) => void
   ): Promise<void> {
     try {
       const userStats = await this.getUserStatistics(userId)
@@ -445,6 +447,43 @@ export class ApiClient {
       // 연속 목표 달성일 계산
       const consecutiveDays = this.calculateConsecutiveGoalDays(newHistory)
 
+              // 보너스 경험치 계산 및 적용
+        const bonusExperience = calculateBonusExperience(
+          consecutiveDays,
+          todayGoal
+        )
+        if (bonusExperience > 0) {
+          console.log(
+            `🎁 보너스 경험치 획득: ${bonusExperience} EXP (연속 ${consecutiveDays}일, 목표 ${todayGoal})`
+          )
+
+          // users 컬렉션에 보너스 경험치 추가
+          const userRef = doc(db, "users", userId)
+          const userDoc = await getDoc(userRef)
+          if (userDoc.exists()) {
+            const currentExp = userDoc.data().experience || 0
+            const newExp = currentExp + bonusExperience
+            const newLevel = calculateLevel(newExp)
+
+            await updateDoc(userRef, {
+              experience: newExp,
+              level: newLevel,
+              updatedAt: new Date().toISOString(),
+            })
+
+            console.log(
+              `보너스 경험치 적용: ${currentExp} → ${newExp} EXP, 레벨 ${
+                userDoc.data().level
+              } → ${newLevel}`
+            )
+          }
+
+          // 보너스 획득 콜백 호출 (모달 표시용)
+          if (onBonusEarned) {
+            onBonusEarned(consecutiveDays, bonusExperience, todayGoal)
+          }
+        }
+
       // 주간이 바뀌었는지 확인
       const currentWeek = this.getWeekNumber(new Date())
       const lastWeek = userStats.lastWeekNumber || ""
@@ -452,7 +491,7 @@ export class ApiClient {
 
       // 이번주/이번달 달성 현황 계산
       let weeklyStats = this.calculateWeeklyGoalAchievement(newHistory)
-      let monthlyStats = this.calculateMonthlyGoalAchievement(newHistory)
+      const monthlyStats = this.calculateMonthlyGoalAchievement(newHistory)
 
       // 새로운 주가 시작되었으면 주간 달성 초기화
       if (isNewWeek) {
@@ -485,7 +524,7 @@ export class ApiClient {
     }
   }
 
-  // 연속 목표 달성일 계산
+  // 연속 목표 달성일 계산 (자정 기준)
   private static calculateConsecutiveGoalDays(
     history: Array<{ date: string; achieved: boolean; experience: number }>
   ): number {
@@ -497,22 +536,40 @@ export class ApiClient {
     )
 
     let consecutiveDays = 0
-    const today = new Date().toISOString().split("T")[0]
+    const now = new Date()
+    const today = now.toISOString().split("T")[0]
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0]
 
     // 오늘부터 역순으로 확인
     for (let i = 0; i < sortedHistory.length; i++) {
       const record = sortedHistory[i]
+      const recordDate = record.date
 
-      // 오늘 기록이 아니고 달성하지 못했으면 중단
-      if (record.date !== today && !record.achieved) {
-        break
+      // 오늘 기록이면 달성 여부 확인
+      if (recordDate === today) {
+        if (record.achieved) {
+          consecutiveDays++
+        } else {
+          break // 오늘 달성하지 못했으면 연속 중단
+        }
       }
-
-      // 달성한 경우에만 연속일 증가
-      if (record.achieved) {
-        consecutiveDays++
-      } else {
-        break
+      // 어제 기록이면 달성 여부 확인
+      else if (recordDate === yesterday) {
+        if (record.achieved) {
+          consecutiveDays++
+        } else {
+          break // 어제 달성하지 못했으면 연속 중단
+        }
+      }
+      // 그 이전 기록들도 연속으로 확인
+      else {
+        if (record.achieved) {
+          consecutiveDays++
+        } else {
+          break // 달성하지 못한 날이 있으면 연속 중단
+        }
       }
     }
 
@@ -1745,6 +1802,259 @@ export class ApiClient {
     } catch (error) {
       console.error("Error syncing all user statistics totalExperience:", error)
       throw error
+    }
+  }
+
+  /**
+   * 유저 레벨 순위 조회 (상위 20명) - gameStatistics 기반
+   */
+  static async getUserRankings(): Promise<
+    Array<{
+      userId: string
+      username: string
+      level: number
+      experience: number
+      totalPlayed: number
+      accuracy: number
+      rank: number
+    }>
+  > {
+    try {
+      console.log("🔍 유저 순위 조회 시작...")
+
+      // gameStatistics 컬렉션에서 데이터 조회
+      const gameStatsRef = collection(db, "gameStatistics")
+      const gameStatsSnapshot = await getDocs(gameStatsRef)
+
+      console.log(
+        `📊 gameStatistics에서 ${gameStatsSnapshot.docs.length}개 문서 발견`
+      )
+
+      const userRankings: Array<{
+        userId: string
+        username: string
+        level: number
+        experience: number
+        totalPlayed: number
+        accuracy: number
+        preferredGrade: number
+        rank: number
+      }> = []
+
+      // userId별로 게임 통계 데이터를 그룹화
+      const userStatsMap = new Map()
+
+      for (const statDoc of gameStatsSnapshot.docs) {
+        const statData = statDoc.data()
+
+        if (statData.userId) {
+          const actualUserId = statData.userId
+
+          if (!userStatsMap.has(actualUserId)) {
+            userStatsMap.set(actualUserId, {
+              totalPlayed: 0,
+              correctAnswers: 0,
+              wrongAnswers: 0,
+              completedSessions: 0,
+            })
+          }
+
+          const userStats = userStatsMap.get(actualUserId)
+          userStats.totalPlayed += statData.totalPlayed || 0
+          userStats.correctAnswers += statData.correctAnswers || 0
+          userStats.wrongAnswers += statData.wrongAnswers || 0
+          userStats.completedSessions += statData.completedSessions || 0
+        }
+      }
+
+      console.log(`📊 그룹화된 사용자 통계:`, userStatsMap)
+
+      // 그룹화된 데이터를 기반으로 순위 생성
+      for (const [actualUserId, userStats] of userStatsMap) {
+        try {
+          // users 컬렉션에서 username 가져오기
+          const userRef = doc(db, "users", actualUserId)
+          const userDoc = await getDoc(userRef)
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            const username =
+              userData.displayName ||
+              userData.username ||
+              `User_${actualUserId.slice(0, 8)}`
+
+            // users 컬렉션에서 실제 experience와 level 가져오기
+            const totalExp = userData.experience || 0
+            const level = userData.level || 1
+
+            // 정답률 계산
+            const accuracy =
+              userStats.totalPlayed > 0
+                ? Math.round(
+                    (userStats.correctAnswers / userStats.totalPlayed) * 100
+                  )
+                : 0
+
+            if (totalExp > 0) {
+              userRankings.push({
+                userId: actualUserId,
+                username,
+                level,
+                experience: totalExp,
+                totalPlayed: userStats.totalPlayed,
+                accuracy: accuracy,
+                preferredGrade: userData.preferredGrade || 8,
+                rank: 0, // 임시로 0 설정
+              })
+
+              console.log(
+                `✅ 유저 추가: ${username} (레벨${level}, ${totalExp}EXP, ${userStats.totalPlayed}문제, 정답률${accuracy}%)`
+              )
+            }
+          }
+        } catch (userError) {
+          console.log(`⚠️ 유저 ${actualUserId} 정보 조회 실패:`, userError)
+        }
+      }
+
+      console.log(`✅ ${userRankings.length}명의 유저 데이터 수집 완료`)
+
+      // 경험치 기준으로 내림차순 정렬
+      userRankings.sort((a, b) => b.experience - a.experience)
+
+      // 순위 부여
+      userRankings.forEach((user, index) => {
+        user.rank = index + 1
+      })
+
+      console.log(
+        `🏆 상위 5명:`,
+        userRankings
+          .slice(0, 5)
+          .map(
+            (u) =>
+              `${u.rank}위: ${u.username} (레벨${u.level}, ${u.experience}EXP, ${u.totalPlayed}문제, 정답률${u.accuracy}%, ${u.preferredGrade}급)`
+          )
+      )
+
+      // 상위 20명만 반환
+      return userRankings.slice(0, 20)
+    } catch (error) {
+      console.error("Error getting user rankings:", error)
+      throw new Error("유저 순위 조회에 실패했습니다.")
+    }
+  }
+
+  /**
+   * 경험치로 레벨 계산 (ApiClient 내부에서 사용)
+   */
+  private static calculateLevel(experience: number): number {
+    if (experience < 100) return 1
+    if (experience < 250) return 2
+    if (experience < 450) return 3
+    if (experience < 700) return 4
+    if (experience < 1000) return 5
+    if (experience < 1350) return 6
+    if (experience < 1750) return 7
+    if (experience < 2200) return 8
+    if (experience < 2700) return 9
+    if (experience < 3200) return 10
+
+    // 레벨 10 이상은 복잡한 계산이 필요하므로 간단한 공식 사용
+    let level = 10
+    let requiredExp = 2700
+    let increment = 550
+
+    while (experience >= requiredExp) {
+      level++
+      requiredExp += increment
+      if (level <= 50) {
+        increment += 50
+      } else if (level <= 80) {
+        increment += 600
+      } else {
+        increment += 1200
+      }
+    }
+
+    return level
+  }
+
+  /**
+   * 모든 유저 조회 (디버깅용)
+   */
+  static async getAllUsers(): Promise<
+    Array<{
+      userId: string
+      username: string
+      experience: number
+      level: number
+      totalSessions: number
+    }>
+  > {
+    try {
+      console.log("🔍 모든 유저 조회 시작...")
+
+      // 1. users 컬렉션 확인
+      const usersRef = collection(db, "users")
+      const usersSnapshot = await getDocs(usersRef)
+      console.log(`📊 users 컬렉션: ${usersSnapshot.docs.length}개 문서`)
+
+      // 2. userStatistics 컬렉션도 확인
+      const userStatsRef = collection(db, "userStatistics")
+      const userStatsSnapshot = await getDocs(userStatsRef)
+      console.log(
+        `📊 userStatistics 컬렉션: ${userStatsSnapshot.docs.length}개 문서`
+      )
+
+      // 3. gameStatistics 컬렉션도 확인
+      const gameStatsRef = collection(db, "gameStatistics")
+      const gameStatsSnapshot = await getDocs(gameStatsRef)
+      console.log(
+        `📊 gameStatistics 컬렉션: ${gameStatsSnapshot.docs.length}개 문서`
+      )
+
+      const users: Array<{
+        userId: string
+        username: string
+        experience: number
+        level: number
+        totalSessions: number
+      }> = []
+
+      // users 컬렉션에서 데이터 수집
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data()
+        console.log(`👤 users 컬렉션 유저:`, {
+          id: userDoc.id,
+          data: userData,
+        })
+
+        if (userData.displayName || userData.username) {
+          users.push({
+            userId: userDoc.id,
+            username: userData.displayName || userData.username || "이름없음",
+            experience: userData.experience || 0,
+            level: userData.level || 1,
+            totalSessions: userData.totalSessions || 0,
+          })
+        }
+      }
+
+      // userStatistics 컬렉션에서도 데이터 수집 시도
+      for (const statDoc of userStatsSnapshot.docs) {
+        const statData = statDoc.data()
+        console.log(`📊 userStatistics 문서:`, {
+          id: statDoc.id,
+          data: statData,
+        })
+      }
+
+      console.log(`✅ 최종 수집된 유저: ${users.length}명`)
+      return users
+    } catch (error) {
+      console.error("Error getting all users:", error)
+      throw new Error("모든 유저 조회에 실패했습니다.")
     }
   }
 }

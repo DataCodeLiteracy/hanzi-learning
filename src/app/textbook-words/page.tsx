@@ -21,6 +21,14 @@ interface TextbookWord {
   }>
 }
 
+interface HanziItem {
+  character: string
+  meaning: string
+  sound: string
+  grade: number
+  gradeNumber: number
+}
+
 export default function TextbookWordsPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
   const [textbookWords, setTextbookWords] = useState<TextbookWord[]>([])
@@ -30,7 +38,7 @@ export default function TextbookWordsPage() {
   )
   const [selectedItem, setSelectedItem] = useState<{
     type: "word" | "hanzi"
-    data: any
+    data: TextbookWord | HanziItem
   } | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
@@ -545,10 +553,10 @@ export default function TextbookWordsPage() {
               {selectedItem.type === "word" ? (
                 <div>
                   <div className='text-6xl font-bold text-gray-900 mb-4'>
-                    {selectedItem.data.hanzi}
+                    {(selectedItem.data as TextbookWord).hanzi}
                   </div>
                   <div className='text-2xl font-semibold text-gray-700 mb-2'>
-                    {selectedItem.data.korean}
+                    {(selectedItem.data as TextbookWord).korean}
                   </div>
                   <div className='text-lg text-gray-600 mb-6'>
                     교과서 한자어
@@ -556,8 +564,8 @@ export default function TextbookWordsPage() {
 
                   {/* 구성 한자들 */}
                   <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mt-6'>
-                    {selectedItem.data.includedHanzi.map(
-                      (hanzi: any, index: number) => (
+                    {(selectedItem.data as TextbookWord).includedHanzi.map(
+                      (hanzi: HanziItem, index: number) => (
                         <div key={index} className='bg-gray-50 rounded-lg p-4'>
                           <div className='text-3xl font-bold text-gray-900 mb-2'>
                             {hanzi.character}
@@ -579,16 +587,16 @@ export default function TextbookWordsPage() {
               ) : (
                 <div>
                   <div className='text-8xl font-bold text-gray-900 mb-6'>
-                    {selectedItem.data.character}
+                    {(selectedItem.data as HanziItem).character}
                   </div>
                   <div className='text-3xl font-semibold text-gray-700 mb-4'>
-                    {selectedItem.data.meaning}
+                    {(selectedItem.data as HanziItem).meaning}
                   </div>
                   <div className='text-xl text-gray-600 mb-2'>
-                    {selectedItem.data.sound}
+                    {(selectedItem.data as HanziItem).sound}
                   </div>
                   <div className='text-lg text-gray-500'>
-                    {selectedItem.data.grade}급 {selectedItem.data.gradeNumber}
+                    {(selectedItem.data as HanziItem).grade}급 {(selectedItem.data as HanziItem).gradeNumber}
                     번
                   </div>
                 </div>

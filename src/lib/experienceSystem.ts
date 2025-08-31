@@ -1,41 +1,149 @@
 /**
- * 게임별 경험치 가중치
- * 카드 뒤집기 : 퀴즈 : 쓰기 연습 : 부분 맞추기 = 2 : 1 : 3 : 1
+ * 새로운 레벨 시스템: 점진적 증가 + 레벨별 증가폭 확대
+ * 기존 방식: 100 → 150 → 200 → 250 (50씩 증가)
+ * 새로운 방식: 레벨이 높아질수록 50의 증가폭이 더 커짐
+ *
+ * 예시:
+ * 레벨 2→3: 100 EXP (기본)
+ * 레벨 3→4: 150 EXP (100 + 50)
+ * 레벨 4→5: 200 EXP (150 + 50)
+ * 레벨 5→6: 250 EXP (200 + 50)
+ * ...
+ * 레벨 11→12: 600 EXP (550 + 50) × 1.5배 = 900 EXP
+ * 레벨 21→22: 1050 EXP (1000 + 50) × 2.0배 = 2100 EXP
+ * 레벨 31→32: 1550 EXP (1500 + 50) × 2.5배 = 3875 EXP
  */
-export const GAME_EXPERIENCE_WEIGHTS = {
-  memory: 2, // 카드 뒤집기 - 게임 완료 시 2EXP
-  quiz: 1, // 퀴즈 - 게임 완료 시 1EXP
-  writing: 3, // 쓰기 연습 - 게임 완료 시 3EXP
-  partial: 1, // 부분 맞추기 - 게임 완료 시 1EXP
-} as const
+export function calculateRequiredExperience(level: number): number {
+  if (level <= 1) return 0
 
-/**
- * 기본 경험치 (가중치 1 기준)
- */
-export const BASE_EXPERIENCE = 1
+  let totalExp = 0
+  let baseIncrement = 100 // 레벨 2→3의 기본 증가량
 
-/**
- * 게임별 경험치 계산
- * @param gameType 게임 타입
- * @returns 경험치 (게임 완료 시 고정값)
- */
-export const calculateGameExperience = (
-  gameType: keyof typeof GAME_EXPERIENCE_WEIGHTS
-): number => {
-  return GAME_EXPERIENCE_WEIGHTS[gameType]
+  for (let i = 2; i <= level; i++) {
+    // 레벨이 높아질수록 증가폭을 더 크게
+    let levelMultiplier = 1.0
+
+    if (i <= 10) {
+      levelMultiplier = 1.0 // 초급: 기본 증가폭
+    } else if (i <= 20) {
+      levelMultiplier = 1.5 // 중급: 1.5배 증가폭
+    } else if (i <= 30) {
+      levelMultiplier = 2.0 // 고급: 2배 증가폭
+    } else if (i <= 40) {
+      levelMultiplier = 2.5 // 전문가: 2.5배 증가폭
+    } else if (i <= 50) {
+      levelMultiplier = 3.0 // 마스터: 3배 증가폭
+    } else if (i <= 60) {
+      levelMultiplier = 4.0 // 극한: 4배 증가폭
+    } else if (i <= 70) {
+      levelMultiplier = 5.0 // 전설: 5배 증가폭
+    } else if (i <= 80) {
+      levelMultiplier = 6.0 // 신화: 6배 증가폭
+    } else if (i <= 90) {
+      levelMultiplier = 8.0 // 절대: 8배 증가폭
+    } else if (i <= 99) {
+      levelMultiplier = 10.0 // 궁극: 10배 증가폭
+    } else {
+      levelMultiplier = 100.0 // 레벨 100: 100배 증가폭
+    }
+
+    // 기본 증가량에 레벨 배수 적용
+    const increment = Math.round(baseIncrement * levelMultiplier)
+    totalExp += increment
+
+    // 다음 레벨을 위해 기본 증가량 증가 (50씩)
+    baseIncrement += 50
+  }
+
+  return totalExp
+}
+
+// 보너스 경험치 계산 (연속 달성일 + 목표 난이도 고려)
+export function calculateBonusExperience(
+  consecutiveDays: number,
+  dailyGoal: number
+): number {
+  if (consecutiveDays < 10) return 0
+
+  let baseBonus = 0
+
+  // 연속 달성일별 기본 보너스
+  if (consecutiveDays >= 30) {
+    baseBonus = 500 // 30일 이상: 500 EXP
+  } else if (consecutiveDays >= 20) {
+    baseBonus = 200 // 20일 이상: 200 EXP
+  } else if (consecutiveDays >= 10) {
+    baseBonus = 50 // 10일 이상: 50 EXP
+  }
+
+  // 목표 난이도에 따른 차등 보너스
+  // 목표가 높을수록 더 많은 보너스 (최소 1.0배, 최대 3.0배)
+  const difficultyMultiplier = Math.min(Math.max(dailyGoal / 100, 1.0), 3.0)
+
+  const totalBonus = Math.round(baseBonus * difficultyMultiplier)
+
+  return totalBonus
 }
 
 /**
- * 카드 뒤집기 게임 경험치 계산 (난이도와 카드 수에 따라 차등)
- * @param difficulty 난이도 ('easy' | 'medium' | 'hard')
- * @param totalPairs 총 카드 쌍 수
- * @returns 경험치
+ * 현재 경험치로 레벨 계산
  */
-export const calculateMemoryGameExperience = (
+export function calculateLevel(experience: number): number {
+  if (experience < 100) return 1
+
+  let level = 1
+  let requiredExp = 0
+
+  while (requiredExp <= experience) {
+    level++
+    requiredExp = calculateRequiredExperience(level)
+  }
+
+  return level - 1
+}
+
+/**
+ * 현재 레벨에서 다음 레벨까지의 진행률 계산
+ */
+export function calculateLevelProgress(experience: number): number {
+  const currentLevel = calculateLevel(experience)
+  const currentLevelExp = calculateRequiredExperience(currentLevel)
+  const nextLevelExp = calculateRequiredExperience(currentLevel + 1)
+
+  if (nextLevelExp === currentLevelExp) return 1
+
+  return (experience - currentLevelExp) / (nextLevelExp - currentLevelExp)
+}
+
+/**
+ * 다음 레벨까지 필요한 경험치 계산
+ */
+export function calculateExperienceToNextLevel(experience: number): number {
+  const currentLevel = calculateLevel(experience)
+  const currentLevelExp = calculateRequiredExperience(currentLevel)
+  const nextLevelExp = calculateRequiredExperience(currentLevel + 1)
+
+  return nextLevelExp - experience
+}
+
+/**
+ * 게임별 경험치 계산 (기본)
+ */
+export function calculateGameExperience(
+  correctAnswers: number,
+  wrongAnswers: number
+): number {
+  return correctAnswers + wrongAnswers
+}
+
+/**
+ * 메모리 게임 경험치 계산 (난이도와 카드 수에 따른 차등 보상)
+ */
+export function calculateMemoryGameExperience(
   difficulty: "easy" | "medium" | "hard",
   totalPairs: number
-): number => {
-  // 카드 수에 따른 기본 경험치 (기존 +3)
+): number {
+  // 카드 수에 따른 기본 경험치
   let baseExp = 0
   if (totalPairs <= 8) {
     // 4x4 (8쌍)
@@ -59,99 +167,4 @@ export const calculateMemoryGameExperience = (
     default:
       return baseExp
   }
-}
-
-/**
- * 레벨별 필요 경험치 계산 (누적 방식)
- * 레벨 1: 0점
- * 레벨 2: 100점
- * 레벨 3: 250점 (100 + 150)
- * 레벨 4: 450점 (250 + 200)
- * 레벨 5: 700점 (450 + 250)
- * 레벨 6: 1000점 (700 + 300)
- * 레벨 7: 1350점 (1000 + 350)
- * 레벨 8: 1750점 (1350 + 400)
- * 레벨 9: 2200점 (1750 + 450)
- * 레벨 10: 2700점 (2200 + 500)
- * ...
- * 레벨 50: 약 50,000점 (쉬운 구간 끝)
- * 레벨 51: 약 60,000점 (어려운 구간 시작)
- * ...
- * 레벨 100: 1,000,000점
- *
- * 증가 패턴: 1~50은 쉽게, 51~100은 어렵게
- * 레벨 2 → 3: 150 경험치
- * 레벨 3 → 4: 200 경험치
- * 레벨 4 → 5: 250 경험치
- * ...
- */
-export const calculateRequiredExperience = (level: number): number => {
-  if (level <= 1) return 0
-  if (level === 2) return 100
-
-  // 레벨 2부터 시작하여 누적 계산
-  let totalExp = 100 // 레벨 2까지의 경험치
-  let increment = 150 // 레벨 3부터의 증가량
-
-  for (let i = 3; i <= level; i++) {
-    totalExp += increment
-    // 레벨에 따라 증가량 조정
-    if (i <= 50) {
-      increment += 50 // 1~50: 쉬운 구간, 50씩 증가
-    } else if (i <= 80) {
-      increment += 600 // 51~80: 어려운 구간, 600씩 증가
-    } else {
-      increment += 1200 // 81~100: 매우 어려운 구간, 1200씩 증가
-    }
-  }
-
-  return totalExp
-}
-
-/**
- * 현재 경험치로 레벨 계산
- * @param experience 총 경험치
- * @returns 현재 레벨
- */
-export const calculateLevel = (experience: number): number => {
-  if (experience < 100) return 1
-
-  let level = 1
-  let requiredExp = 0
-
-  while (requiredExp <= experience) {
-    level++
-    requiredExp = calculateRequiredExperience(level)
-  }
-
-  return level - 1
-}
-
-/**
- * 다음 레벨까지 필요한 경험치 계산
- * @param currentExperience 현재 경험치
- * @returns 다음 레벨까지 필요한 경험치
- */
-export const calculateExperienceToNextLevel = (
-  currentExperience: number
-): number => {
-  const currentLevel = calculateLevel(currentExperience)
-  const nextLevelRequired = calculateRequiredExperience(currentLevel + 1)
-  return nextLevelRequired - currentExperience
-}
-
-/**
- * 레벨업 진행률 계산 (0-1)
- * @param currentExperience 현재 경험치
- * @returns 진행률 (0-1)
- */
-export const calculateLevelProgress = (currentExperience: number): number => {
-  const currentLevel = calculateLevel(currentExperience)
-  const currentLevelRequired = calculateRequiredExperience(currentLevel)
-  const nextLevelRequired = calculateRequiredExperience(currentLevel + 1)
-
-  const progressInLevel = currentExperience - currentLevelRequired
-  const totalLevelExp = nextLevelRequired - currentLevelRequired
-
-  return Math.min(1, Math.max(0, progressInLevel / totalLevelExp))
 }

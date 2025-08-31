@@ -18,13 +18,15 @@ import {
   calculateLevelProgress,
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
+  calculateBonusExperience,
 } from "@/lib/experienceSystem"
+import BonusExperienceModal from "@/components/BonusExperienceModal"
 import { useState, useEffect } from "react"
 import { ApiClient } from "@/lib/apiClient"
 
 export default function Home() {
   const { user, initialLoading, signIn } = useAuth()
-  const { userStatistics, isLoading: dataLoading } = useData()
+  const { isLoading: dataLoading } = useData()
   const [showWritingModal, setShowWritingModal] = useState(false)
   const [showGuideModal, setShowGuideModal] = useState(false)
   const [todayExperience, setTodayExperience] = useState<number>(0)
@@ -34,6 +36,29 @@ export default function Home() {
     achievedDays: number
     totalDays: number
   }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
+
+  // 보너스 경험치 모달 상태
+  const [showBonusModal, setShowBonusModal] = useState(false)
+  const [bonusInfo, setBonusInfo] = useState<{
+    consecutiveDays: number
+    bonusExperience: number
+    dailyGoal: number
+  }>({ consecutiveDays: 0, bonusExperience: 0, dailyGoal: 100 })
+
+  // 유저 순위 상태
+  const [userRankings, setUserRankings] = useState<
+    Array<{
+      userId: string
+      username: string
+      level: number
+      experience: number
+      totalPlayed: number
+      accuracy: number
+      preferredGrade?: number
+      rank: number
+    }>
+  >([])
+  const [isLoadingRankings, setIsLoadingRankings] = useState<boolean>(false)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -63,6 +88,26 @@ export default function Home() {
                 totalDays: userStats.weeklyGoalAchievement.totalDays || 0,
               })
             }
+
+            // 보너스 경험치 확인 및 모달 표시
+            if (
+              userStats.consecutiveGoalDays &&
+              userStats.consecutiveGoalDays >= 10
+            ) {
+              const bonusExp = calculateBonusExperience(
+                userStats.consecutiveGoalDays,
+                userStats.todayGoal || 100
+              )
+              if (bonusExp > 0) {
+                // 보너스 모달 표시
+                setBonusInfo({
+                  consecutiveDays: userStats.consecutiveGoalDays,
+                  bonusExperience: bonusExp,
+                  dailyGoal: userStats.todayGoal || 100,
+                })
+                setShowBonusModal(true)
+              }
+            }
           }
         } catch (error) {
           console.error("오늘 경험치 로드 실패:", error)
@@ -71,6 +116,42 @@ export default function Home() {
       loadTodayExperience()
     }
   }, [user])
+
+  // 보너스 경험치 획득 시 모달 표시 (현재 사용하지 않음)
+  // const handleBonusEarned = (
+  //   consecutiveDays: number,
+  //   bonusExperience: number,
+  //   dailyGoal: number
+  // ) => {
+  //   setBonusInfo({ consecutiveDays, bonusExperience, dailyGoal })
+  //   setShowBonusModal(true)
+  // }
+
+  // 유저 순위 로드
+  useEffect(() => {
+    const loadUserRankings = async () => {
+      try {
+        setIsLoadingRankings(true)
+
+        // 디버깅: 모든 유저 조회
+        console.log("🔍 디버깅: 모든 유저 조회 시작")
+        const allUsers = await ApiClient.getAllUsers()
+        console.log("📊 모든 유저:", allUsers)
+
+        // 유저 순위 조회
+        const rankings = await ApiClient.getUserRankings()
+        console.log("🏆 유저 순위:", rankings)
+
+        setUserRankings(rankings)
+      } catch (error) {
+        console.error("유저 순위 로드 실패:", error)
+      } finally {
+        setIsLoadingRankings(false)
+      }
+    }
+
+    loadUserRankings()
+  }, [])
 
   // 로딩 중일 때는 로딩 스피너만 표시 (진짜 초기 로딩만)
   if (initialLoading) {
@@ -272,6 +353,11 @@ export default function Home() {
                           {consecutiveGoalDays}일
                         </div>
                         <div className='text-xs text-gray-600'>연속 달성</div>
+                        {consecutiveGoalDays >= 10 && (
+                          <div className='text-xs text-blue-600 mt-1 font-medium'>
+                            🎁 보너스!
+                          </div>
+                        )}
                       </div>
                       {/* 이번주 달성 현황 */}
                       <div className='text-center'>
@@ -282,6 +368,64 @@ export default function Home() {
                         <div className='text-xs text-gray-600'>이번주 달성</div>
                       </div>
                     </div>
+
+                    {/* 보너스 경험치 정보 */}
+                    {consecutiveGoalDays >= 10 && (
+                      <div className='mt-3 pt-3 border-t border-blue-100'>
+                        <div className='text-center'>
+                          <div className='text-sm font-medium text-blue-600 mb-1'>
+                            🎁 보너스 경험치 정보
+                          </div>
+                          <div className='text-xs text-gray-600 space-y-1'>
+                            {consecutiveGoalDays >= 30 ? (
+                              <div>
+                                30일 연속: +
+                                {Math.round(
+                                  500 *
+                                    Math.min(
+                                      Math.max(todayGoal / 100, 1.0),
+                                      3.0
+                                    )
+                                )}{" "}
+                                EXP
+                              </div>
+                            ) : consecutiveGoalDays >= 20 ? (
+                              <div>
+                                20일 연속: +
+                                {Math.round(
+                                  200 *
+                                    Math.min(
+                                      Math.max(todayGoal / 100, 1.0),
+                                      3.0
+                                    )
+                                )}{" "}
+                                EXP
+                              </div>
+                            ) : (
+                              <div>
+                                10일 연속: +
+                                {Math.round(
+                                  50 *
+                                    Math.min(
+                                      Math.max(todayGoal / 100, 1.0),
+                                      3.0
+                                    )
+                                )}{" "}
+                                EXP
+                              </div>
+                            )}
+                            <div className='text-blue-500'>
+                              목표 {todayGoal} EXP ×{" "}
+                              {Math.min(
+                                Math.max(todayGoal / 100, 1.0),
+                                3.0
+                              ).toFixed(1)}
+                              배
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -331,6 +475,95 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* 보너스 경험치 모달 */}
+            <BonusExperienceModal
+              isOpen={showBonusModal}
+              onClose={() => setShowBonusModal(false)}
+              consecutiveDays={bonusInfo.consecutiveDays}
+              bonusExperience={bonusInfo.bonusExperience}
+              dailyGoal={bonusInfo.dailyGoal}
+            />
+
+            {/* 유저 순위 */}
+            <div className='mb-6 sm:mb-8'>
+              <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6'>
+                🏆 유저 순위
+              </h2>
+              <div className='bg-white rounded-lg shadow-sm p-4 sm:p-6'>
+                {isLoadingRankings ? (
+                  <div className='flex items-center justify-center py-8'>
+                    <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500'></div>
+                    <span className='ml-2 text-gray-600'>
+                      순위를 불러오는 중...
+                    </span>
+                  </div>
+                ) : userRankings.length > 0 ? (
+                  <div className='space-y-3'>
+                    {/* 모든 순위를 동일한 UI로 표시 (5등까지만) */}
+                    {userRankings.slice(0, 5).map((user) => (
+                      <div
+                        key={user.userId}
+                        className={`flex items-center justify-between p-3 rounded-lg ${
+                          user.rank === 1
+                            ? "bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200"
+                            : user.rank === 2
+                            ? "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200"
+                            : user.rank === 3
+                            ? "bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200"
+                            : "bg-gray-50 border border-gray-100"
+                        }`}
+                      >
+                        <div className='flex items-center space-x-3'>
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              user.rank === 1
+                                ? "bg-yellow-400 text-white"
+                                : user.rank === 2
+                                ? "bg-gray-400 text-white"
+                                : user.rank === 3
+                                ? "bg-orange-400 text-white"
+                                : "bg-blue-400 text-white"
+                            }`}
+                          >
+                            {user.rank}
+                          </div>
+                          <div className='flex-1 min-w-0'>
+                            <div className='font-semibold text-gray-900 truncate'>
+                              {user.username}
+                            </div>
+                            <div className='text-xs text-gray-600 space-y-1'>
+                              <div className='flex items-center space-x-2'>
+                                <span>레벨 {user.level}</span>
+                                <span>•</span>
+                                <span>
+                                  {user.experience.toLocaleString()} EXP
+                                </span>
+                              </div>
+                              <div className='flex items-center space-x-2'>
+                                <span>{user.totalPlayed}문제</span>
+                                <span>•</span>
+                                <span className='text-green-600 font-medium'>
+                                  정답률 {user.accuracy}%
+                                </span>
+                                <span>•</span>
+                                <span className='text-blue-600 font-medium'>
+                                  {user.preferredGrade}급
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className='text-center py-8 text-gray-500'>
+                    아직 순위 데이터가 없습니다.
+                  </div>
+                )}
               </div>
             </div>
 
