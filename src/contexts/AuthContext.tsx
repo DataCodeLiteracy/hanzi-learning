@@ -61,8 +61,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await setDoc(userRef, newUser)
         return newUser
       } else {
-        // 기존 사용자인 경우 기존 데이터 반환
+        // 기존 사용자인 경우 기존 데이터 반환 (Firebase Authentication 정보 덮어쓰지 않음)
         const userData = userDoc.data() as User
+
+        // 이메일과 photoURL만 업데이트 (displayName은 유지)
+        const updatedUserData = {
+          ...userData,
+          email: firebaseUser.email || userData.email,
+          photoURL: firebaseUser.photoURL || userData.photoURL,
+          updatedAt: new Date().toISOString(),
+        }
+
+        // 변경사항이 있는 경우에만 업데이트
+        if (
+          updatedUserData.email !== userData.email ||
+          updatedUserData.photoURL !== userData.photoURL
+        ) {
+          await setDoc(userRef, updatedUserData, { merge: true })
+          return updatedUserData
+        }
 
         return userData
       }
@@ -79,7 +96,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userRef = doc(db, "users", firebaseUser.uid)
         const userDoc = await getDoc(userRef)
         if (userDoc.exists()) {
-          setUser(userDoc.data() as User)
+          const userData = userDoc.data() as User
+
+          // 이메일과 photoURL만 업데이트 (displayName은 유지)
+          const updatedUserData = {
+            ...userData,
+            email: firebaseUser.email || userData.email,
+            photoURL: firebaseUser.photoURL || userData.photoURL,
+            updatedAt: new Date().toISOString(),
+          }
+
+          // 변경사항이 있는 경우에만 업데이트
+          if (
+            updatedUserData.email !== userData.email ||
+            updatedUserData.photoURL !== userData.photoURL
+          ) {
+            await setDoc(userRef, updatedUserData, { merge: true })
+            setUser(updatedUserData)
+          } else {
+            setUser(userData)
+          }
         }
       } catch (error) {
         console.error("사용자 데이터 새로고침 에러:", error)

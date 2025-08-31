@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ApiClient } from "@/lib/apiClient"
-import { Hanzi, RelatedWord } from "@/types"
+import { Hanzi } from "@/types"
 import { ArrowLeft, BookOpen, ExternalLink, Edit, Plus } from "lucide-react"
 import Link from "next/link"
 
@@ -31,7 +31,7 @@ interface HanziItem {
 }
 
 export default function TextbookWordsPage() {
-  const { user, loading: authLoading, initialLoading } = useAuth()
+  const { user, initialLoading } = useAuth()
   const [textbookWords, setTextbookWords] = useState<TextbookWord[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedGrade, setSelectedGrade] = useState<number>(

@@ -4,12 +4,9 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { Timer, ArrowLeft } from "lucide-react"
+import { ArrowLeft, Trophy, RotateCcw, Play, Timer } from "lucide-react"
 import Link from "next/link"
-import {
-  calculateGameExperience,
-  calculateMemoryGameExperience,
-} from "@/lib/experienceSystem"
+import { calculateMemoryGameExperience } from "@/lib/experienceSystem"
 
 interface Card {
   id: string
@@ -22,13 +19,8 @@ interface Card {
 }
 
 export default function MemoryGame() {
-  const {
-    user,
-    loading: authLoading,
-    initialLoading,
-    isAuthenticated,
-    updateUserExperience,
-  } = useAuth()
+  const { user, initialLoading, isAuthenticated, updateUserExperience } =
+    useAuth()
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
   const [matchedPairs, setMatchedPairs] = useState<number>(0)

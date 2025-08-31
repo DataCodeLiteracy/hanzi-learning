@@ -21,13 +21,8 @@ interface Question {
 }
 
 export default function QuizGame() {
-  const {
-    user,
-    loading: authLoading,
-    initialLoading,
-    isAuthenticated,
-    updateUserExperience,
-  } = useAuth()
+  const { user, initialLoading, isAuthenticated, updateUserExperience } =
+    useAuth()
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
   const [correctAnswers, setCorrectAnswers] = useState<number>(0)

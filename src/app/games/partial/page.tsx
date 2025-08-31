@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
 import Link from "next/link"
-import { calculateGameExperience } from "@/lib/experienceSystem"
 import { ApiClient } from "@/lib/apiClient"
 
 interface PartialQuestion {
@@ -19,13 +18,8 @@ interface PartialQuestion {
 }
 
 export default function PartialGame() {
-  const {
-    user,
-    loading: authLoading,
-    initialLoading,
-    isAuthenticated,
-    updateUserExperience,
-  } = useAuth()
+  const { user, initialLoading, isAuthenticated, updateUserExperience } =
+    useAuth()
   const [questions, setQuestions] = useState<PartialQuestion[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
   const [correctAnswers, setCorrectAnswers] = useState<number>(0)
