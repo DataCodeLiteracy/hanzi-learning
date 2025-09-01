@@ -603,7 +603,7 @@ export class ApiClient {
     const today = new Date()
     const currentWeek = this.getWeekNumber(today)
 
-    // 이번주 시작일과 끝일 계산 (일요일 ~ 토요일)
+    // 이번주 시작일과 끝일 계산 (월요일 ~ 일요일)
     const weekStart = this.getWeekStart(today)
     const weekEnd = this.getWeekEnd(today)
 
@@ -689,14 +689,15 @@ export class ApiClient {
     return `${year}-${weekNumber.toString().padStart(2, "0")}`
   }
 
-  // 주 시작일 계산 (일요일)
+  // 주 시작일 계산 (월요일)
   private static getWeekStart(date: Date): Date {
     const day = date.getDay()
-    const diff = date.getDate() - day // 일요일이 0
+    // 월요일이 1, 일요일이 0이므로 월요일을 시작으로 설정
+    const diff = date.getDate() - (day === 0 ? 6 : day - 1)
     return new Date(date.getFullYear(), date.getMonth(), diff)
   }
 
-  // 주 끝일 계산 (토요일)
+  // 주 끝일 계산 (일요일)
   private static getWeekEnd(date: Date): Date {
     const weekStart = this.getWeekStart(date)
     const weekEnd = new Date(weekStart)
@@ -766,7 +767,7 @@ export class ApiClient {
           lastWeekNumber: currentWeek,
           updatedAt: new Date().toISOString(),
         })
-        console.log("새로운 주 시작: 주간 달성 초기화")
+        console.log("새로운 주 시작: 주간 달성 초기화 (월요일부터)")
       }
     } catch (error) {
       console.error("Error checking and resetting today's experience:", error)
