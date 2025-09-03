@@ -23,6 +23,20 @@ import {
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
+
+// 학습시간 포맷팅 함수
+const formatStudyTime = (seconds: number): string => {
+  if (seconds === 0) return "0분"
+
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+
+  if (hours > 0) {
+    return `${hours}시간 ${minutes}분`
+  } else {
+    return `${minutes}분`
+  }
+}
 import { ApiClient } from "@/lib/apiClient"
 import {
   GameStatisticsService,
@@ -53,6 +67,7 @@ export default function ProfilePage() {
     achievedDays: number
     totalDays: number
   }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
+  const [totalStudyTime, setTotalStudyTime] = useState<number>(0) // 총 학습시간 (초 단위)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -83,6 +98,7 @@ export default function ProfilePage() {
             setTodayGoal(goal)
             setInputGoal(goal.toString()) // inputGoal도 함께 설정
             setConsecutiveGoalDays(userStats.consecutiveGoalDays || 0)
+            setTotalStudyTime(userStats.totalStudyTime || 0)
             if (userStats.weeklyGoalAchievement) {
               setWeeklyGoalAchievement({
                 achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
@@ -306,7 +322,7 @@ export default function ProfilePage() {
 
               {/* 목표 달성 통계 */}
               <div className='mt-3 pt-3 border-t border-blue-200'>
-                <div className='grid grid-cols-2 gap-3'>
+                <div className='grid grid-cols-3 gap-3'>
                   {/* 연속 목표 달성일 */}
                   <div className='text-center'>
                     <div className='text-lg font-bold text-green-600'>
@@ -326,6 +342,13 @@ export default function ProfilePage() {
                       {weeklyGoalAchievement.totalDays}
                     </div>
                     <div className='text-xs text-gray-600'>이번주 달성</div>
+                  </div>
+                  {/* 누적 공부 시간 */}
+                  <div className='text-center'>
+                    <div className='text-lg font-bold text-orange-600'>
+                      {formatStudyTime(totalStudyTime)}
+                    </div>
+                    <div className='text-xs text-gray-600'>누적 공부 시간</div>
                   </div>
                 </div>
               </div>
@@ -470,22 +493,6 @@ export default function ProfilePage() {
                 >
                   <Settings className='h-4 w-4' />
                   <span>사용자 선호 급수 마이그레이션</span>
-                </button>
-
-                <button
-                  onClick={async () => {
-                    try {
-                      await ApiClient.syncAllUserStatisticsTotalExperience()
-                      alert("모든 사용자의 총 경험치 동기화가 완료되었습니다.")
-                    } catch (error) {
-                      console.error("총 경험치 동기화 실패:", error)
-                      alert("총 경험치 동기화에 실패했습니다.")
-                    }
-                  }}
-                  className='inline-flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors'
-                >
-                  <Settings className='h-4 w-4' />
-                  <span>총 경험치 동기화</span>
                 </button>
               </div>
             )}

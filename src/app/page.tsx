@@ -36,6 +36,7 @@ export default function Home() {
     achievedDays: number
     totalDays: number
   }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
+  const [totalStudyTime, setTotalStudyTime] = useState<number>(0) // 총 학습시간 (초 단위)
 
   // 보너스 경험치 모달 상태
   const [showBonusModal, setShowBonusModal] = useState(false)
@@ -54,6 +55,7 @@ export default function Home() {
       experience: number
       totalPlayed: number
       accuracy: number
+      totalStudyTime: number
       preferredGrade?: number
       rank: number
     }>
@@ -82,6 +84,7 @@ export default function Home() {
           if (userStats) {
             setTodayGoal(userStats.todayGoal || 100)
             setConsecutiveGoalDays(userStats.consecutiveGoalDays || 0)
+            setTotalStudyTime(userStats.totalStudyTime || 0)
             if (userStats.weeklyGoalAchievement) {
               setWeeklyGoalAchievement({
                 achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
@@ -246,6 +249,24 @@ export default function Home() {
     }
   }
 
+  // 학습시간을 읽기 쉬운 형식으로 변환
+  const formatStudyTime = (seconds: number | undefined): string => {
+    if (!seconds || seconds === 0) {
+      return "0초"
+    }
+
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+
+    if (hours > 0) {
+      return `${hours}시간 ${minutes}분`
+    } else if (minutes > 0) {
+      return `${minutes}분`
+    } else {
+      return `${seconds}초`
+    }
+  }
+
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 헤더 */}
@@ -346,7 +367,7 @@ export default function Home() {
 
                   {/* 목표 달성 통계 */}
                   <div className='mt-3 pt-3 border-t border-blue-200'>
-                    <div className='grid grid-cols-2 gap-3'>
+                    <div className='grid grid-cols-3 gap-2'>
                       {/* 연속 목표 달성일 */}
                       <div className='text-center'>
                         <div className='text-lg font-bold text-green-600'>
@@ -366,6 +387,15 @@ export default function Home() {
                           {weeklyGoalAchievement.totalDays}
                         </div>
                         <div className='text-xs text-gray-600'>이번주 달성</div>
+                      </div>
+                      {/* 누적 공부 시간 */}
+                      <div className='text-center'>
+                        <div className='text-lg font-bold text-orange-600'>
+                          {formatStudyTime(totalStudyTime)}
+                        </div>
+                        <div className='text-xs text-gray-600'>
+                          누적 공부 시간
+                        </div>
                       </div>
                     </div>
 
@@ -540,6 +570,10 @@ export default function Home() {
                                 <span>•</span>
                                 <span>
                                   {user.experience.toLocaleString()} EXP
+                                </span>
+                                <span>•</span>
+                                <span className='text-orange-600 font-medium'>
+                                  {formatStudyTime(user.totalStudyTime)}
                                 </span>
                               </div>
                               <div className='flex items-center space-x-2'>

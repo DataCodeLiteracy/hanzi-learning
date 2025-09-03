@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
+import { useTimeTracking } from "@/hooks/useTimeTracking"
 
 export default function HanziListPage() {
   const {
@@ -23,6 +24,25 @@ export default function HanziListPage() {
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
   const [noDataMessage, setNoDataMessage] = useState<string>("")
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
+
+  // 시간 추적 훅 (페이지 접속 시간 체크)
+  const { startSession, endSession, isActive, currentDuration, formatTime } =
+    useTimeTracking({
+      userId: user?.id || "",
+      type: "page",
+      activity: "hanzi-list",
+      autoStart: true, // 페이지 접속 시 자동 시작
+      autoEnd: true,
+    })
+
+  // 페이지를 떠날 때 시간 추적 종료
+  useEffect(() => {
+    return () => {
+      if (isActive) {
+        endSession()
+      }
+    }
+  }, [isActive, endSession])
   const [knownHanzi, setKnownHanzi] = useState<Set<string>>(new Set()) // 알고 있는 한자 ID들
   const [gradeDataCache, setGradeDataCache] = useState<Map<number, Hanzi[]>>(
     new Map()

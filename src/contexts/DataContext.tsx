@@ -149,7 +149,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         // 로컬 상태 즉시 업데이트 (간단한 방식)
         if (userStatistics) {
           const updatedStats = { ...userStatistics }
-          updatedStats.totalExperience += stats.experience || 0
           // totalSessions는 이제 API에서 직접 업데이트되므로 여기서는 제거
           // updatedStats.totalSessions += stats.totalPlayed || 0
           setUserStatistics(updatedStats)

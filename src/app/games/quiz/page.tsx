@@ -6,6 +6,7 @@ import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
 import Link from "next/link"
 import { ApiClient } from "@/lib/apiClient"
+import { useTimeTracking } from "@/hooks/useTimeTracking"
 // import { GameStatisticsService } from "@/lib/services/gameStatisticsService"
 // import { HanziStatisticsService } from "@/lib/services/hanziStatisticsService"
 
@@ -51,6 +52,16 @@ export default function QuizGame() {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
   const [isProcessingAnswer, setIsProcessingAnswer] = useState<boolean>(false) // 답변 처리 중 플래그
+
+  // 시간 추적 훅
+  const { startSession, endSession, isActive, currentDuration, formatTime } =
+    useTimeTracking({
+      userId: user?.id || "",
+      type: "game",
+      activity: "quiz",
+      autoStart: false,
+      autoEnd: true,
+    })
 
   // useState로 문제 풀기 카운팅 (값 유지 보장)
   const questionsAnsweredRef = useRef<number>(0)
@@ -125,6 +136,14 @@ export default function QuizGame() {
         // 사용자가 나가기로 확인했음을 표시
         setUserConfirmedExit(true)
 
+        // 게임 중단 시 시간 추적 종료 (먼저 호출)
+        const sessionDuration = endSession()
+        console.log(`🚪 퀴즈 게임 중단: ${sessionDuration}초 학습 시간 저장됨`)
+        console.log(`📊 현재 활성 세션 상태: ${isActive ? "활성" : "비활성"}`)
+
+        // 게임 중단 시 gameEnded를 true로 설정하여 useEffect 트리거
+        setGameEnded(true)
+
         // 모달 닫고 홈으로 이동
         setShowExitModal(false)
         window.location.href = "/"
@@ -138,6 +157,17 @@ export default function QuizGame() {
     } else {
       // 통계 업데이트가 필요없으면 바로 홈으로 이동
       setUserConfirmedExit(true)
+
+      // 시간 추적 종료 (먼저 호출)
+      const sessionDuration = endSession()
+      console.log(
+        `🚪 퀴즈 게임 중단 (문제 미풀이): ${sessionDuration}초 학습 시간 저장됨`
+      )
+      console.log(`📊 현재 활성 세션 상태: ${isActive ? "활성" : "비활성"}`)
+
+      // 게임 중단 시 gameEnded를 true로 설정하여 useEffect 트리거
+      setGameEnded(true)
+
       setShowExitModal(false)
       window.location.href = "/"
     }
@@ -293,6 +323,13 @@ export default function QuizGame() {
         setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
         setIsProcessingAnswer(false) // 답변 처리 플래그 리셋
         setUserConfirmedExit(false) // 나가기 확인 플래그 리셋
+
+        // 게임 시작 시 시간 추적 시작
+        if (user) {
+          startSession().catch((error: any) => {
+            console.error("시간 추적 시작 실패:", error)
+          })
+        }
       }, 1000)
     } catch (error) {
       console.error("게임 초기화 실패:", error)
@@ -498,6 +535,9 @@ export default function QuizGame() {
         .then(() => {
           console.log(`✅ 세션 완료 통계 업데이트 완료 - completedSessions +1`)
           setHasUpdatedStats(true)
+
+          // 게임 완료 시 시간 추적 종료
+          endSession()
         })
         .catch((error) => {
           console.error("세션 완료 통계 업데이트 실패:", error)
@@ -507,6 +547,11 @@ export default function QuizGame() {
         `🚫 중도 포기: 세션 완료 통계 업데이트 안함 (${questionsAnsweredRef.current}/${questions.length})`
       )
       setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
+
+      // 중도 포기 시 시간 추적은 이미 handleExitConfirm에서 처리됨
+      console.log(
+        `ℹ️ 중도 포기 시 시간 추적은 이미 handleExitConfirm에서 처리됨`
+      )
     } else {
       console.log(
         `❓ 조건 불만족: gameEnded=${gameEnded}, user=${!!user}, hasUpdatedStats=${hasUpdatedStats}, questionsAnswered=${
@@ -514,7 +559,7 @@ export default function QuizGame() {
         }, questions.length=${questions.length}`
       )
     }
-  }, [gameEnded, user, hasUpdatedStats])
+  }, [gameEnded, user, hasUpdatedStats, questions.length])
 
   const getQuestionText = (question: Question) => {
     return question.questionType === "meaning"
@@ -747,6 +792,11 @@ export default function QuizGame() {
               <div className='text-sm text-gray-700 font-medium'>
                 문제: {currentQuestionIndex + 1}/{questionCount}
               </div>
+              {isActive && (
+                <div className='text-sm text-blue-600 font-medium'>
+                  학습 시간: {formatTime(currentDuration)}
+                </div>
+              )}
             </div>
           </div>
         </div>

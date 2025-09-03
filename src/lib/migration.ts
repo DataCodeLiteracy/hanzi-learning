@@ -50,7 +50,6 @@ export async function migrateUserData(
       createdAt: string
       updatedAt: string
       statistics?: {
-        totalExperience: number
         totalSessions: number
         quizStats?: {
           totalPlayed: number

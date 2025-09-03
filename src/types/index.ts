@@ -95,7 +95,6 @@ export interface QuizQuestion {
 export interface UserStatistics {
   id?: string
   userId: string
-  totalExperience: number
   totalSessions: number
   todayExperience: number // 오늘 달성한 경험치
   todayGoal?: number // 오늘의 학습 목표 (기본값: 100)
@@ -119,6 +118,9 @@ export interface UserStatistics {
     achievedDays: number // 이번달 달성한 날 수
     totalDays: number // 이번달 총 날 수
   }
+
+  // 총 학습시간 (초 단위)
+  totalStudyTime?: number
 
   lastPlayedAt: string
   updatedAt: string

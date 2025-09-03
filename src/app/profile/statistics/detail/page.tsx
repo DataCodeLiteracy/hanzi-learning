@@ -51,14 +51,7 @@ export default function DetailStatisticsPage() {
           stats = await ApiClient.getUserStatistics(user.id)
         }
 
-        // totalExperience를 users 컬렉션과 동기화
-        if (stats && stats.totalExperience !== user.experience) {
-          console.log(
-            `동기화 필요: userStatistics.totalExperience(${stats.totalExperience}) !== user.experience(${user.experience})`
-          )
-          await ApiClient.syncUserStatisticsTotalExperience(user.id)
-          stats = await ApiClient.getUserStatistics(user.id)
-        }
+        // userStatistics는 이제 totalExperience 필드가 없으므로 동기화 불필요
 
         setUserStatistics(stats)
       } catch (error) {
@@ -217,7 +210,7 @@ export default function DetailStatisticsPage() {
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <div className='text-center p-4 bg-blue-50 rounded-lg'>
                   <div className='text-2xl font-bold text-blue-600'>
-                    {userStatistics.totalExperience}
+                    {user.experience.toLocaleString()}
                   </div>
                   <div className='text-sm text-gray-600'>총 경험치</div>
                 </div>

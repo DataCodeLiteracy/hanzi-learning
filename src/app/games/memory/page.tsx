@@ -7,6 +7,7 @@ import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, Trophy, RotateCcw, Play, Timer } from "lucide-react"
 import Link from "next/link"
 import { calculateMemoryGameExperience } from "@/lib/experienceSystem"
+import { useTimeTracking } from "@/hooks/useTimeTracking"
 
 interface Card {
   id: string
@@ -59,6 +60,16 @@ export default function MemoryGame() {
   const [earnedExperience, setEarnedExperience] = useState<number>(0) // 획득한 경험치
   const [hasUpdatedStats, setHasUpdatedStats] = useState<boolean>(false) // 게임 완료 후 통계 업데이트 여부
   const [isLargeScreen, setIsLargeScreen] = useState(false) // 390px 이상 화면 여부
+
+  // 시간 추적 훅
+  const { startSession, endSession, isActive, currentDuration, formatTime } =
+    useTimeTracking({
+      userId: user?.id || "",
+      type: "game",
+      activity: "memory",
+      autoStart: false,
+      autoEnd: true,
+    })
 
   // 8급 데이터 기본 로딩 (컴포넌트 마운트 시)
   useEffect(() => {
@@ -481,6 +492,9 @@ export default function MemoryGame() {
               completedSessions: 1, // 세션 1회 완료
             })
 
+            // 게임 완료 시 시간 추적 종료
+            endSession()
+
             console.log("✅ 카드 뒤집기 통계 업데이트 완료")
           } catch (error) {
             console.error("경험치 저장 실패:", error)
@@ -506,11 +520,27 @@ export default function MemoryGame() {
   // 게임 시작 처리
   const handleStartGame = () => {
     setShowGameSettings(false)
+    // 게임 시작 시 시간 추적 시작
+    if (user) {
+      startSession().catch((error: any) => {
+        console.error("시간 추적 시작 실패:", error)
+      })
+    }
   }
 
   // 게임 설정으로 돌아가기
   const handleBackToSettings = () => {
     console.log(`🔄 게임 설정으로 돌아가기 - 모든 상태 리셋`)
+
+    // 게임 중단 시 시간 추적 종료
+    if (isActive) {
+      const sessionDuration = endSession()
+      console.log(
+        `🚪 카드 뒤집기 게임 중단: ${sessionDuration}초 학습 시간 저장됨`
+      )
+      console.log(`📊 현재 활성 세션 상태: ${isActive ? "활성" : "비활성"}`)
+    }
+
     setShowGameSettings(true)
     setCards([])
     setFlippedCards([])
@@ -996,6 +1026,11 @@ export default function MemoryGame() {
                   매칭된 쌍: {matchedPairs}/
                   {(gridSize.cols * gridSize.rows) / 2}
                 </p>
+                {isActive && (
+                  <p className='text-sm text-blue-600 mt-2'>
+                    학습 시간: {formatTime(currentDuration)}
+                  </p>
+                )}
               </div>
 
               <div

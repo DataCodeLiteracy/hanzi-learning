@@ -7,6 +7,7 @@ import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
 import { ArrowLeft, BookOpen, ExternalLink, Edit, Plus } from "lucide-react"
 import Link from "next/link"
+import { useTimeTracking } from "@/hooks/useTimeTracking"
 
 interface TextbookWord {
   word: string
@@ -43,6 +44,25 @@ export default function TextbookWordsPage() {
   } | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
+
+  // 시간 추적 훅 (페이지 접속 시간 체크)
+  const { startSession, endSession, isActive, currentDuration, formatTime } =
+    useTimeTracking({
+      userId: user?.id || "",
+      type: "page",
+      activity: "textbook-words",
+      autoStart: true, // 페이지 접속 시 자동 시작
+      autoEnd: true,
+    })
+
+  // 페이지를 떠날 때 시간 추적 종료
+  useEffect(() => {
+    return () => {
+      if (isActive) {
+        endSession()
+      }
+    }
+  }, [isActive, endSession])
 
   // 뜻 등록 관련 상태
   const [showMeaningModal, setShowMeaningModal] = useState(false)

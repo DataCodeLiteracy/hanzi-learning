@@ -252,6 +252,80 @@ export class ApiClient {
     return results.length > 0 ? results[0] : null
   }
 
+  // 사용자 총 학습시간 업데이트
+  static async updateTotalStudyTime(
+    userId: string,
+    additionalTime: number
+  ): Promise<void> {
+    try {
+      console.log(`🕐 총 학습시간 업데이트: +${additionalTime}초`)
+
+      const userStats = await this.getUserStatistics(userId)
+
+      if (userStats) {
+        // 기존 통계 업데이트
+        const currentTotalTime = userStats.totalStudyTime || 0
+        const newTotalTime = currentTotalTime + additionalTime
+
+        console.log(
+          `📊 학습시간 업데이트: ${currentTotalTime}초 → ${newTotalTime}초`
+        )
+
+        await this.updateDocument("userStatistics", userStats.id!, {
+          totalStudyTime: newTotalTime,
+        })
+
+        console.log(`✅ 총 학습시간 업데이트 완료: ${newTotalTime}초`)
+      } else {
+        // 새로운 userStatistics 생성
+        console.log(`📝 새로운 userStatistics 생성 (학습시간 포함)`)
+        await this.createDocument("userStatistics", {
+          userId,
+          totalStudyTime: additionalTime,
+          totalSessions: 0,
+          todayExperience: 0,
+          todayGoal: 100,
+          lastResetDate: new Date().toDateString(),
+          lastPlayedAt: new Date().toISOString(),
+          goalAchievementHistory: [],
+          consecutiveGoalDays: 0,
+          weeklyGoalAchievement: {
+            currentWeek: this.getWeekNumber(new Date()),
+            achievedDays: 0,
+            totalDays: 7,
+          },
+          monthlyGoalAchievement: {
+            currentMonth: new Date().toISOString().slice(0, 7),
+            achievedDays: 0,
+            totalDays: new Date(
+              new Date().getFullYear(),
+              new Date().getMonth() + 1,
+              0
+            ).getDate(),
+          },
+        })
+
+        console.log(
+          `✅ 새로운 userStatistics 생성 완료: totalStudyTime=${additionalTime}초`
+        )
+      }
+    } catch (error) {
+      console.error("총 학습시간 업데이트 실패:", error)
+      throw error
+    }
+  }
+
+  // 사용자 총 학습시간 조회
+  static async getTotalStudyTime(userId: string): Promise<number> {
+    try {
+      const userStats = await this.getUserStatistics(userId)
+      return userStats?.totalStudyTime || 0
+    } catch (error) {
+      console.error("총 학습시간 조회 실패:", error)
+      return 0
+    }
+  }
+
   // 사용자 경험치 업데이트
   static async updateUserExperience(
     userId: string,
@@ -401,7 +475,6 @@ export class ApiClient {
         await setDoc(newStatsRef, {
           id: newStatsRef.id,
           userId,
-          totalExperience: 0,
           totalSessions: 0,
           todayExperience: 0,
           todayGoal: goal,
@@ -679,7 +752,7 @@ export class ApiClient {
   }
 
   // 주차 번호 계산 (YYYY-WW 형식)
-  private static getWeekNumber(date: Date): string {
+  static getWeekNumber(date: Date): string {
     const year = date.getFullYear()
     const startOfYear = new Date(year, 0, 1)
     const days = Math.floor(
@@ -1242,7 +1315,6 @@ export class ApiClient {
         await setDoc(newStatsRef, {
           id: newStatsRef.id,
           userId,
-          totalExperience: 0,
           totalSessions: sessionsToAdd,
           todayExperience: 0,
           createdAt: new Date().toISOString(),
@@ -1699,7 +1771,6 @@ export class ApiClient {
       await setDoc(newStatsRef, {
         id: newStatsRef.id,
         userId,
-        totalExperience: userData.experience || 0,
         totalSessions: totalSessions,
         todayExperience: 0, // 새로운 사용자는 0으로 시작
         todayGoal: 100, // 기본 목표값
@@ -1762,67 +1833,6 @@ export class ApiClient {
   }
 
   /**
-   * userStatistics의 totalExperience를 users 컬렉션과 동기화
-   */
-  static async syncUserStatisticsTotalExperience(
-    userId: string
-  ): Promise<void> {
-    try {
-      // 사용자 정보 조회
-      const userRef = doc(db, "users", userId)
-      const userDoc = await getDoc(userRef)
-
-      if (!userDoc.exists()) {
-        console.log("User not found:", userId)
-        return
-      }
-
-      const userData = userDoc.data()
-      const userStats = await this.getUserStatistics(userId)
-
-      if (userStats) {
-        // 기존 통계 업데이트
-        const userStatsRef = doc(db, "userStatistics", userStats.id!)
-        await updateDoc(userStatsRef, {
-          totalExperience: userData.experience || 0,
-          updatedAt: new Date().toISOString(),
-        })
-      } else {
-        // 새로운 userStatistics 생성 (initializeUserStatistics 호출)
-        await this.initializeUserStatistics(userId)
-      }
-    } catch (error) {
-      console.error("Error syncing user statistics totalExperience:", error)
-      throw new Error("사용자 통계 동기화에 실패했습니다.")
-    }
-  }
-
-  /**
-   * 모든 사용자의 totalExperience 동기화 (마이그레이션용)
-   */
-  static async syncAllUserStatisticsTotalExperience(): Promise<void> {
-    try {
-      const usersRef = collection(db, "users")
-      const usersSnapshot = await getDocs(usersRef)
-
-      const syncPromises: Promise<void>[] = []
-
-      for (const userDoc of usersSnapshot.docs) {
-        const userId = userDoc.id
-        syncPromises.push(this.syncUserStatisticsTotalExperience(userId))
-      }
-
-      await Promise.all(syncPromises)
-      console.log(
-        `UserStatistics totalExperience sync completed for ${syncPromises.length} users`
-      )
-    } catch (error) {
-      console.error("Error syncing all user statistics totalExperience:", error)
-      throw error
-    }
-  }
-
-  /**
    * 유저 레벨 순위 조회 (상위 20명) - 모든 사용자 포함
    */
   static async getUserRankings(): Promise<
@@ -1833,6 +1843,7 @@ export class ApiClient {
       experience: number
       totalPlayed: number
       accuracy: number
+      totalStudyTime: number
       rank: number
     }>
   > {
@@ -1851,7 +1862,18 @@ export class ApiClient {
         `📊 gameStatistics에서 ${gameStatsSnapshot.docs.length}개 문서 발견`
       )
 
-      // 3. gameStatistics 데이터를 userId별로 그룹화 (게임 타입별로 분리)
+      // 3. userStatistics 데이터를 userId별로 조회하는 함수
+      const getUserStudyTime = async (userId: string): Promise<number> => {
+        try {
+          const userStats = await this.getUserStatistics(userId)
+          return userStats?.totalStudyTime || 0
+        } catch (error) {
+          console.log(`⚠️ ${userId}의 userStatistics 조회 실패:`, error)
+          return 0
+        }
+      }
+
+      // 4. gameStatistics 데이터를 userId별로 그룹화 (게임 타입별로 분리)
       const userStatsMap = new Map()
       const processedDocs = new Set() // 중복 문서 확인용
 
@@ -1902,7 +1924,7 @@ export class ApiClient {
 
       console.log(`📊 그룹화된 게임 통계:`, userStatsMap)
 
-      // 4. 모든 사용자를 순위에 포함
+      // 6. 모든 사용자를 순위에 포함
       const userRankings: Array<{
         userId: string
         username: string
@@ -1910,6 +1932,7 @@ export class ApiClient {
         experience: number
         totalPlayed: number
         accuracy: number
+        totalStudyTime: number
         preferredGrade: number
         rank: number
       }> = []
@@ -1960,10 +1983,13 @@ export class ApiClient {
           const accuracy =
             gameCount > 0 ? Math.round(totalAccuracy / gameCount) : 0
 
+          // userStatistics에서 totalStudyTime 개별 조회
+          const totalStudyTime = await getUserStudyTime(userId)
+
           console.log(
             `📊 ${username} 정답률 계산: ${gameCount}개 게임, 총 정답률 ${totalAccuracy.toFixed(
               1
-            )}, 평균 ${accuracy}%`
+            )}, 평균 ${accuracy}%, 학습시간 ${totalStudyTime}초`
           )
 
           // 모든 사용자를 순위에 포함 (경험치가 0이어도 포함)
@@ -1974,12 +2000,13 @@ export class ApiClient {
             experience: totalExp,
             totalPlayed: userStats.totalPlayed,
             accuracy: accuracy,
+            totalStudyTime: totalStudyTime,
             preferredGrade: userData.preferredGrade || 8,
             rank: 0, // 임시로 0 설정
           })
 
           console.log(
-            `✅ 유저 추가: ${username} (레벨${level}, ${totalExp}EXP, ${userStats.totalPlayed}문제, 정답률${accuracy}%)`
+            `✅ 유저 추가: ${username} (레벨${level}, ${totalExp}EXP, ${userStats.totalPlayed}문제, 정답률${accuracy}%, 학습시간${totalStudyTime}초)`
           )
         } catch (userError) {
           console.log(`⚠️ 유저 ${userDoc.id} 정보 처리 실패:`, userError)
@@ -2002,7 +2029,7 @@ export class ApiClient {
           .slice(0, 5)
           .map(
             (u) =>
-              `${u.rank}위: ${u.username} (레벨${u.level}, ${u.experience}EXP, ${u.totalPlayed}문제, 정답률${u.accuracy}%, ${u.preferredGrade}급)`
+              `${u.rank}위: ${u.username} (레벨${u.level}, ${u.experience}EXP, ${u.totalPlayed}문제, 정답률${u.accuracy}%, ${u.preferredGrade}급, 학습시간${u.totalStudyTime}초)`
           )
       )
 
