@@ -367,7 +367,7 @@ export default function Home() {
 
                   {/* 목표 달성 통계 */}
                   <div className='mt-3 pt-3 border-t border-blue-200'>
-                    <div className='grid grid-cols-3 gap-2'>
+                    <div className='flex justify-around items-center'>
                       {/* 연속 목표 달성일 */}
                       <div className='text-center'>
                         <div className='text-lg font-bold text-green-600'>

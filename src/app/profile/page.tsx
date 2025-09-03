@@ -199,7 +199,7 @@ export default function ProfilePage() {
       <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
         <div className='space-y-6'>
           {/* 사용자 정보 카드 */}
-          <div className='bg-white rounded-lg shadow-lg p-6'>
+          <div className='bg-white rounded-lg shadow-lg p-3'>
             <div className='flex items-center space-x-4 mb-6'>
               {user?.photoURL ? (
                 <img
@@ -322,7 +322,7 @@ export default function ProfilePage() {
 
               {/* 목표 달성 통계 */}
               <div className='mt-3 pt-3 border-t border-blue-200'>
-                <div className='grid grid-cols-3 gap-3'>
+                <div className='flex justify-around items-center'>
                   {/* 연속 목표 달성일 */}
                   <div className='text-center'>
                     <div className='text-lg font-bold text-green-600'>
