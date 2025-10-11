@@ -575,7 +575,10 @@ export default function PartialGame() {
           }
 
           // 경험치 결과 모달 표시
-          setEarnedExperience(perfectBonus)
+          const wrongAnswers = questionCount - correctAnswers - dontKnowCount
+          const totalExperience =
+            correctAnswers + dontKnowCount - wrongAnswers + perfectBonus
+          setEarnedExperience(totalExperience)
           setShowExperienceModal(true)
 
           // 다음 급수 권장 모달 체크
