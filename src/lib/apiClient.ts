@@ -190,25 +190,16 @@ export class ApiClient {
   // 등급별 한자 조회
   static async getHanziByGrade(grade: number): Promise<Hanzi[]> {
     try {
-      console.log(`🔍 ${grade}급 한자 조회 시작...`)
       const gradeConstraint = where("grade", "==", grade)
-      console.log(`🔍 쿼리 제약조건: grade == ${grade}`)
 
       const results = await this.queryDocuments<Hanzi>("hanzi", [
         gradeConstraint,
       ])
-      console.log(`✅ ${grade}급 한자 조회 결과: ${results.length}개`)
 
       // gradeNumber 순서대로 정렬
       const sortedResults = results.sort(
         (a, b) => (a.gradeNumber || 0) - (b.gradeNumber || 0)
       )
-      console.log(`📊 ${grade}급 한자 정렬 완료: ${sortedResults.length}개`)
-
-      // 결과 상세 로깅
-      if (sortedResults.length > 0) {
-        console.log(`📝 첫 번째 결과:`, sortedResults[0])
-      }
 
       return sortedResults
     } catch (error) {
@@ -221,17 +212,7 @@ export class ApiClient {
   // 모든 한자 조회 (테스트용)
   static async getAllHanzi(): Promise<Hanzi[]> {
     try {
-      console.log(`🔍 모든 한자 조회 시작...`)
       const results = await this.queryDocuments<Hanzi>("hanzi", [])
-      console.log(`✅ 모든 한자 조회 결과: ${results.length}개`)
-
-      // 급수별 통계
-      const gradeStats: { [key: number]: number } = {}
-      results.forEach((hanzi) => {
-        const grade = hanzi.grade
-        gradeStats[grade] = (gradeStats[grade] || 0) + 1
-      })
-      console.log(`📊 급수별 통계:`, gradeStats)
 
       return results
     } catch (error) {
@@ -275,10 +256,8 @@ export class ApiClient {
           totalStudyTime: newTotalTime,
         })
 
-        console.log(`✅ 총 학습시간 업데이트 완료: ${newTotalTime}초`)
       } else {
         // 새로운 userStatistics 생성
-        console.log(`📝 새로운 userStatistics 생성 (학습시간 포함)`)
         await this.createDocument("userStatistics", {
           userId,
           totalStudyTime: additionalTime,
@@ -1242,17 +1221,7 @@ export class ApiClient {
     }
   ): Promise<void> {
     try {
-      console.log(`🔧 updateGameStatisticsNew 호출됨:`)
-      console.log(`  - userId: ${userId}`)
-      console.log(`  - gameType: ${gameType}`)
-      console.log(`  - stats:`, stats)
 
-      // completedSessions 업데이트 시 특별 로그
-      if (stats.completedSessions && stats.completedSessions > 0) {
-        console.log(
-          `🎯 completedSessions 업데이트 감지: +${stats.completedSessions}`
-        )
-      }
 
       // 기존 통계 찾기
       const gameStatsRef = collection(db, "gameStatistics")
@@ -1300,14 +1269,6 @@ export class ApiClient {
         const newTotalSessions =
           existingData.totalSessions + (stats.totalSessions || 0)
 
-        console.log(`📊 기존 게임 통계 업데이트:`)
-        console.log(
-          `  - 기존 completedSessions: ${existingData.completedSessions || 0}`
-        )
-        console.log(
-          `  - 추가할 completedSessions: ${stats.completedSessions || 0}`
-        )
-        console.log(`  - 새로운 completedSessions: ${newCompletedSessions}`)
 
         const updatedData = {
           ...existingData,
@@ -1344,32 +1305,19 @@ export class ApiClient {
     sessionsToAdd: number
   ): Promise<void> {
     try {
-      console.log(`🔧 updateUserStatisticsTotalSessions 호출됨:`)
-      console.log(`  - userId: ${userId}`)
-      console.log(`  - sessionsToAdd: ${sessionsToAdd}`)
 
       const userStats = await this.getUserStatistics(userId)
 
       if (userStats) {
         // 기존 통계 업데이트
-        console.log(`📊 기존 userStatistics 업데이트:`)
-        console.log(`  - 기존 totalSessions: ${userStats.totalSessions || 0}`)
-        console.log(`  - 추가할 sessionsToAdd: ${sessionsToAdd}`)
-        console.log(
-          `  - 새로운 totalSessions: ${
-            (userStats.totalSessions || 0) + sessionsToAdd
-          }`
-        )
 
         const userStatsRef = doc(db, "userStatistics", userStats.id!)
         await updateDoc(userStatsRef, {
           totalSessions: (userStats.totalSessions || 0) + sessionsToAdd,
           updatedAt: new Date().toISOString(),
         })
-        console.log(`✅ userStatistics totalSessions 업데이트 완료`)
       } else {
         // 새로운 userStatistics 생성
-        console.log(`📝 새로운 userStatistics 생성`)
         const newStatsRef = doc(collection(db, "userStatistics"))
         await setDoc(newStatsRef, {
           id: newStatsRef.id,
@@ -1912,14 +1860,10 @@ export class ApiClient {
       // 1. 모든 사용자 조회 (users 컬렉션)
       const usersRef = collection(db, "users")
       const usersSnapshot = await getDocs(usersRef)
-      console.log(`📊 users에서 ${usersSnapshot.docs.length}명의 사용자 발견`)
 
       // 2. gameStatistics 컬렉션에서 데이터 조회
       const gameStatsRef = collection(db, "gameStatistics")
       const gameStatsSnapshot = await getDocs(gameStatsRef)
-      console.log(
-        `📊 gameStatistics에서 ${gameStatsSnapshot.docs.length}개 문서 발견`
-      )
 
       // 3. userStatistics 데이터를 userId별로 조회하는 함수
       const getUserStudyTime = async (userId: string): Promise<number> => {
@@ -1981,7 +1925,6 @@ export class ApiClient {
         }
       }
 
-      console.log(`📊 그룹화된 게임 통계:`, userStatsMap)
 
       // 6. 모든 사용자를 순위에 포함
       const userRankings: Array<{
@@ -2072,7 +2015,6 @@ export class ApiClient {
         }
       }
 
-      console.log(`✅ ${userRankings.length}명의 유저 데이터 수집 완료`)
 
       // 경험치 기준으로 내림차순 정렬
       userRankings.sort((a, b) => b.experience - a.experience)
@@ -2153,21 +2095,14 @@ export class ApiClient {
       // 1. users 컬렉션 확인
       const usersRef = collection(db, "users")
       const usersSnapshot = await getDocs(usersRef)
-      console.log(`📊 users 컬렉션: ${usersSnapshot.docs.length}개 문서`)
 
       // 2. userStatistics 컬렉션도 확인
       const userStatsRef = collection(db, "userStatistics")
       const userStatsSnapshot = await getDocs(userStatsRef)
-      console.log(
-        `📊 userStatistics 컬렉션: ${userStatsSnapshot.docs.length}개 문서`
-      )
 
       // 3. gameStatistics 컬렉션도 확인
       const gameStatsRef = collection(db, "gameStatistics")
       const gameStatsSnapshot = await getDocs(gameStatsRef)
-      console.log(
-        `📊 gameStatistics 컬렉션: ${gameStatsSnapshot.docs.length}개 문서`
-      )
 
       const users: Array<{
         userId: string
@@ -2199,13 +2134,8 @@ export class ApiClient {
       // userStatistics 컬렉션에서도 데이터 수집 시도
       for (const statDoc of userStatsSnapshot.docs) {
         const statData = statDoc.data()
-        console.log(`📊 userStatistics 문서:`, {
-          id: statDoc.id,
-          data: statData,
-        })
       }
 
-      console.log(`✅ 최종 수집된 유저: ${users.length}명`)
       return users
     } catch (error) {
       console.error("Error getting all users:", error)

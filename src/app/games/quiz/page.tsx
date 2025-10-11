@@ -78,7 +78,8 @@ export default function QuizGame() {
   // 완벽한 게임 보상 계산 함수
   const calculatePerfectGameBonus = async (
     questionCount: number,
-    dontKnowCount: number
+    dontKnowCount: number,
+    correctAnswers: number
   ): Promise<number> => {
     // 학습 완료도 체크 (80% 이상 완료 시 보너스 제한)
     if (user) {
@@ -103,6 +104,11 @@ export default function QuizGame() {
 
     // 모르겠음을 선택한 경우: 완벽한 게임이 아니므로 추가 보상 없음
     if (dontKnowCount > 0) {
+      return 0
+    }
+
+    // 오답이 있는 경우: 완벽한 게임이 아니므로 추가 보상 없음
+    if (correctAnswers < questionCount) {
       return 0
     }
 
@@ -196,7 +202,6 @@ export default function QuizGame() {
         // 게임 중단 시 시간 추적 종료 (먼저 호출)
         const sessionDuration = endSession()
         console.log(`🚪 퀴즈 게임 중단: ${sessionDuration}초 학습 시간 저장됨`)
-        console.log(`📊 현재 활성 세션 상태: ${isActive ? "활성" : "비활성"}`)
 
         // 게임 중단 시 gameEnded를 true로 설정하여 useEffect 트리거
         setGameEnded(true)
@@ -220,7 +225,6 @@ export default function QuizGame() {
       console.log(
         `🚪 퀴즈 게임 중단 (문제 미풀이): ${sessionDuration}초 학습 시간 저장됨`
       )
-      console.log(`📊 현재 활성 세션 상태: ${isActive ? "활성" : "비활성"}`)
 
       // 게임 중단 시 gameEnded를 true로 설정하여 useEffect 트리거
       setGameEnded(true)
@@ -474,33 +478,19 @@ export default function QuizGame() {
           questions.length
         }, questionsAnswered: ${questionsAnsweredRef.current}`
       )
-      console.log(`📊 현재 questionsAnswered: ${questionsAnsweredRef.current}`)
       console.log(
-        `🎯 questionsAnswered 값 확인: ${questionsAnsweredRef.current}`
-      )
-      console.log(
-        `⭐ 경험치 ${
-          experienceToAdd >= 0 ? "+" : ""
-        }${experienceToAdd} EXP (총 ${earnedExperience + experienceToAdd} EXP)`
+        `⭐ 경험치 ${experienceToAdd >= 0 ? "+" : ""}${experienceToAdd} EXP`
       )
 
       // 즉시 통계 업데이트 (문제 풀 때마다)
       if (user) {
         try {
-          console.log(`📊 즉시 통계 업데이트 시작:`)
-          console.log(`  - totalPlayed: +1`)
-          console.log(`  - correctAnswers: ${correct ? "+1" : "+0"}`)
-          console.log(`  - wrongAnswers: ${correct ? "+0" : "+1"}`)
-          console.log(`  - completedSessions: +0 (문제 풀 때마다는 0)`)
-
           await ApiClient.updateGameStatisticsNew(user.id, "quiz", {
             totalPlayed: 1, // 1문제씩 즉시 추가
             correctAnswers: correct ? 1 : 0,
             wrongAnswers: correct ? 0 : 1,
             completedSessions: 0, // 문제 풀 때마다는 0
           })
-
-          console.log(`✅ 즉시 통계 업데이트 완료!`)
         } catch (error) {
           console.error("즉시 통계 업데이트 실패:", error)
         }
@@ -564,15 +554,36 @@ export default function QuizGame() {
             `🎯 마지막 문제 완료! 총 답변: ${questionsAnsweredRef.current}개`
           )
           console.log(`🏁 gameEnded를 true로 설정합니다.`)
+          setGameEnded(true) // 즉시 게임 종료 상태 설정
 
           // 완벽한 게임 보너스 계산 및 적용
           const perfectBonus = await calculatePerfectGameBonus(
             questions.length,
-            dontKnowCount
+            dontKnowCount,
+            correctAnswers
           )
+
+          // 🔍 디버깅: 게임 완료 시 경험치 상태 확인
+          console.log("🔍 === 퀴즈 게임 완료 디버깅 ===")
+          console.log(`📊 게임 결과:`)
+          console.log(`  - 총 문제 수: ${questions.length}`)
+          console.log(`  - 정답 수: ${correctAnswers}`)
+          console.log(
+            `  - 오답 수: ${questions.length - correctAnswers - dontKnowCount}`
+          )
+          console.log(`  - 모르겠음 수: ${dontKnowCount}`)
+          console.log(`  - 완벽한 게임 보너스: ${perfectBonus}`)
+          console.log(`  - 현재 earnedExperience 상태: ${earnedExperience}`)
+
           if (perfectBonus > 0) {
             console.log(`🎁 완벽한 게임 보너스! +${perfectBonus} EXP`)
-            setEarnedExperience((prev) => prev + perfectBonus)
+            setEarnedExperience((prev) => {
+              const newValue = prev + perfectBonus
+              console.log(
+                `  - earnedExperience 업데이트: ${prev} + ${perfectBonus} = ${newValue}`
+              )
+              return newValue
+            })
 
             // 추가 경험치를 사용자에게 적용
             if (user) {
@@ -580,6 +591,11 @@ export default function QuizGame() {
               ApiClient.updateTodayExperience(user.id, perfectBonus)
             }
           }
+
+          console.log(
+            `  - 최종 earnedExperience: ${earnedExperience + perfectBonus}`
+          )
+          console.log("🔍 === 디버깅 끝 ===")
 
           // 다음 급수 권장 모달 체크
           if (user) {
@@ -602,10 +618,6 @@ export default function QuizGame() {
 
           setSelectedAnswer(null)
           setIsCorrect(null)
-          // questionsAnswered 업데이트 후 gameEnded 설정
-          setTimeout(() => {
-            setGameEnded(true)
-          }, 100)
         }
         setIsProcessingAnswer(false) // 처리 완료
       }, 2500) // 2.5초 후 자동 이동
@@ -630,18 +642,6 @@ export default function QuizGame() {
 
   // 게임 종료 시 최종 통계 업데이트는 불필요 (이미 각 문제마다 즉시 업데이트됨)
   useEffect(() => {
-    console.log(`🔍 게임 종료 useEffect 트리거됨:`)
-    console.log(`  - gameEnded: ${gameEnded}`)
-    console.log(`  - user: ${user ? "있음" : "없음"}`)
-    console.log(`  - hasUpdatedStats: ${hasUpdatedStats}`)
-    console.log(`  - questionsAnswered: ${questionsAnsweredRef.current}`)
-    console.log(`  - questions.length: ${questions.length}`)
-    console.log(
-      `  - 조건 확인: gameEnded=${gameEnded}, user=${!!user}, hasUpdatedStats=${hasUpdatedStats}, questionsAnswered=${
-        questionsAnsweredRef.current
-      }, questions.length=${questions.length}`
-    )
-
     // 모든 문제를 풀었을 때만 세션 완료로 인정
     if (
       gameEnded &&
@@ -649,15 +649,11 @@ export default function QuizGame() {
       !hasUpdatedStats &&
       questionsAnsweredRef.current === questions.length
     ) {
-      console.log(`🎯 게임 완료! 세션 완료 통계 업데이트`)
-      console.log(`📊 completedSessions +1 업데이트 시작`)
-
       // 세션 완료 통계 업데이트
       ApiClient.updateGameStatisticsNew(user.id, "quiz", {
         completedSessions: 1, // 세션 1회 완료
       })
         .then(() => {
-          console.log(`✅ 세션 완료 통계 업데이트 완료 - completedSessions +1`)
           setHasUpdatedStats(true)
 
           // 게임 완료 시 시간 추적 종료
@@ -1200,10 +1196,6 @@ export default function QuizGame() {
 
                 {/* 관련 단어 섹션 */}
                 {(() => {
-                  console.log(
-                    "Quiz 틀렸을 때 - Related words:",
-                    currentQuestion.relatedWords
-                  )
                   return (
                     currentQuestion.relatedWords &&
                     currentQuestion.relatedWords.length > 0

@@ -574,11 +574,22 @@ export default function PartialGame() {
             }
           }
 
+          // 🔍 디버깅: 게임 완료 시 경험치 상태 확인
+          console.log('🔍 === 부분 맞추기 게임 완료 디버깅 ===')
+          console.log(`📊 게임 결과:`)
+          console.log(`  - 총 문제 수: ${questionCount}`)
+          console.log(`  - 정답 수: ${correctAnswers}`)
+          console.log(`  - 오답 수: ${questionCount - correctAnswers - dontKnowCount}`)
+          console.log(`  - 모르겠음 수: ${dontKnowCount}`)
+          console.log(`  - 완벽한 게임 보너스: ${perfectBonus}`)
+          
           // 경험치 결과 모달 표시
           const wrongAnswers = questionCount - correctAnswers - dontKnowCount
           const totalExperience =
             correctAnswers + dontKnowCount - wrongAnswers + perfectBonus
+          console.log(`  - 계산된 총 경험치: ${correctAnswers} + ${dontKnowCount} - ${wrongAnswers} + ${perfectBonus} = ${totalExperience}`)
           setEarnedExperience(totalExperience)
+          console.log('🔍 === 디버깅 끝 ===')
           setShowExperienceModal(true)
 
           // 다음 급수 권장 모달 체크
