@@ -193,7 +193,12 @@ export default function MemoryGame() {
         break
       case "medium":
         // 타일 수에 따라 시간과 횟수 조정
-        if (totalPairs <= 8) {
+        if (totalPairs <= 6) {
+          setTimeLimit(180) // 3x4: 3분
+          setFlipLimit(totalPairs * 3)
+          setRemainingTime(180)
+          setRemainingFlips(totalPairs * 3)
+        } else if (totalPairs <= 8) {
           setTimeLimit(300) // 4x4: 5분
           setFlipLimit(totalPairs * 3)
           setRemainingTime(300)
@@ -209,7 +214,7 @@ export default function MemoryGame() {
           setRemainingTime(480)
           setRemainingFlips(totalPairs * 3)
         } else {
-          setTimeLimit(600) // 4x8: 10분
+          setTimeLimit(600) // 5x6: 10분
           setFlipLimit(totalPairs * 3)
           setRemainingTime(600)
           setRemainingFlips(totalPairs * 3)
@@ -217,7 +222,12 @@ export default function MemoryGame() {
         break
       case "hard":
         // 타일 수에 따라 시간과 횟수 조정
-        if (totalPairs <= 8) {
+        if (totalPairs <= 6) {
+          setTimeLimit(120) // 3x4: 2분
+          setFlipLimit(totalPairs * 2)
+          setRemainingTime(120)
+          setRemainingFlips(totalPairs * 2)
+        } else if (totalPairs <= 8) {
           setTimeLimit(180) // 4x4: 3분
           setFlipLimit(totalPairs * 2)
           setRemainingTime(180)
@@ -233,7 +243,7 @@ export default function MemoryGame() {
           setRemainingTime(300)
           setRemainingFlips(totalPairs * 2)
         } else {
-          setTimeLimit(360) // 4x8: 6분
+          setTimeLimit(360) // 5x6: 6분
           setFlipLimit(totalPairs * 2)
           setRemainingTime(360)
           setRemainingFlips(totalPairs * 2)
@@ -609,7 +619,9 @@ export default function MemoryGame() {
   const getCardSize = () => {
     const baseSize = isLargeScreen ? 80 : 70
 
-    if (gridSize.cols === 4) {
+    if (gridSize.cols === 3) {
+      return isLargeScreen ? 90 : 85 // 3x4는 카드가 적으므로 더 크게
+    } else if (gridSize.cols === 4) {
       return baseSize
     } else if (gridSize.cols === 5) {
       return isLargeScreen ? 70 : 65 // 390px에서는 70px, 375px에서는 65px
@@ -620,7 +632,15 @@ export default function MemoryGame() {
 
   // 컨테이너 최대 너비 계산 함수
   const getContainerMaxWidth = () => {
-    return isLargeScreen ? "390px" : "375px"
+    if (gridSize.cols === 3) {
+      return isLargeScreen ? "320px" : "300px" // 3x4는 3열이므로 더 좁게
+    } else if (gridSize.cols === 4) {
+      return isLargeScreen ? "390px" : "375px"
+    } else if (gridSize.cols === 5) {
+      return isLargeScreen ? "400px" : "380px" // 5x6는 5열이므로 더 넓게
+    } else {
+      return isLargeScreen ? "420px" : "400px" // 6x6 등 더 큰 그리드
+    }
   }
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
@@ -726,17 +746,20 @@ export default function MemoryGame() {
       {/* 헤더 */}
       <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center py-4'>
+          <div className='flex justify-between items-center py-3'>
             <div className='flex items-center space-x-4'>
               <Link href='/' className='text-blue-600 hover:text-blue-700'>
                 <ArrowLeft className='h-5 w-5' />
               </Link>
-              <h1 className='text-2xl font-bold text-gray-900'>카드 뒤집기</h1>
+              <h1 className='text-xl font-bold text-gray-900'>카드 뒤집기</h1>
             </div>
             {!showGameSettings && (
-              <div className='flex items-center space-x-4'>
-                <div className='text-sm text-gray-600'>
-                  매칭: {matchedPairs}/{(gridSize.cols * gridSize.rows) / 2}
+              <div className='flex items-center space-x-6'>
+                <div className='text-center'>
+                  <div className='text-sm text-gray-600'>매칭</div>
+                  <div className='text-lg font-bold text-green-600'>
+                    {matchedPairs}/{(gridSize.cols * gridSize.rows) / 2}
+                  </div>
                 </div>
               </div>
             )}
@@ -745,7 +768,7 @@ export default function MemoryGame() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <main className='max-w-4xl mx-auto px-0 sm:px-6 lg:px-8 py-8 pt-20'>
+      <main className='max-w-4xl mx-auto px-0 sm:px-6 lg:px-8 py-8 pt-16'>
         {/* 게임 설정 화면 */}
         {showGameSettings && (
           <div className='text-center py-8'>
@@ -835,21 +858,34 @@ export default function MemoryGame() {
                 </label>
                 <div className='grid grid-cols-2 gap-2'>
                   {[
+                    { cols: 3, rows: 4, label: "3 x 4 (6쌍)" },
                     { cols: 4, rows: 4, label: "4 x 4 (8쌍)" },
                     { cols: 4, rows: 5, label: "4 x 5 (10쌍)" },
                     { cols: 4, rows: 6, label: "4 x 6 (12쌍)" },
-                    { cols: 5, rows: 5, label: "5 x 5 (12쌍)" },
+                    { cols: 4, rows: 7, label: "4 x 7 (14쌍)" },
                     { cols: 5, rows: 6, label: "5 x 6 (15쌍)" },
                   ].map((size) => {
                     const totalPairs = Math.floor((size.cols * size.rows) / 2)
                     const mediumTime =
-                      totalPairs <= 8
+                      totalPairs <= 6
+                        ? "3분"
+                        : totalPairs <= 8
                         ? "5분"
                         : totalPairs <= 12
                         ? "7분"
+                        : totalPairs <= 14
+                        ? "8분"
                         : "10분"
                     const hardTime =
-                      totalPairs <= 8 ? "3분" : totalPairs <= 12 ? "4분" : "6분"
+                      totalPairs <= 6
+                        ? "2분"
+                        : totalPairs <= 8
+                        ? "3분"
+                        : totalPairs <= 12
+                        ? "4분"
+                        : totalPairs <= 14
+                        ? "5분"
+                        : "6분"
 
                     return (
                       <button
@@ -946,7 +982,7 @@ export default function MemoryGame() {
                   width: "100%",
                   maxWidth: getContainerMaxWidth(),
                   margin: "0 auto",
-                  gap: `${gridSize.cols === 4 ? "8px" : "6px"}`, // 4x4는 8px, 5x5는 6px
+                  gap: `${gridSize.cols === 3 ? "10px" : gridSize.cols === 4 ? "8px" : "6px"}`, // 3x4는 10px, 4x4는 8px, 5x6는 6px
                 }}
               >
                 {cards.map((card) => (
@@ -1039,7 +1075,7 @@ export default function MemoryGame() {
                   width: "100%",
                   maxWidth: getContainerMaxWidth(),
                   margin: "0 auto",
-                  gap: `${gridSize.cols === 4 ? "8px" : "6px"}`, // 4x4는 8px, 5x5는 6px
+                  gap: `${gridSize.cols === 3 ? "10px" : gridSize.cols === 4 ? "8px" : "6px"}`, // 3x4는 10px, 4x4는 8px, 5x6는 6px
                 }}
               >
                 {cards.map((card, index) => (

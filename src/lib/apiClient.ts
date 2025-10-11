@@ -1031,6 +1031,62 @@ export class ApiClient {
     }
   }
 
+  // 급수별 한자 학습 완료도 체크
+  static async checkGradeCompletionStatus(
+    userId: string,
+    grade: number
+  ): Promise<{
+    totalHanzi: number
+    completedHanzi: number
+    completionRate: number
+    isFullyCompleted: boolean
+    isEligibleForBonus: boolean
+  }> {
+    try {
+      // 해당 급수의 한자들 조회
+      const gradeHanzi = await this.getHanziByGrade(grade)
+      const totalHanzi = gradeHanzi.length
+
+      // 새로운 구조의 한자 통계 조회
+      const hanziStats = await this.getHanziStatisticsNew(userId)
+
+      // 각 한자의 통계 매핑
+      const hanziStatsMap = new Map()
+      hanziStats.forEach((stat) => {
+        hanziStatsMap.set(stat.hanziId, stat)
+      })
+
+      // 50번 이상 정답을 맞춘 한자 수 계산
+      let completedHanzi = 0
+      let eligibleForBonus = 0
+
+      gradeHanzi.forEach((hanzi) => {
+        const stats = hanziStatsMap.get(hanzi.id)
+        if (stats && stats.correctAnswers >= 50) {
+          completedHanzi++
+        }
+        if (stats && stats.correctAnswers >= 100) {
+          eligibleForBonus++
+        }
+      })
+
+      const completionRate = totalHanzi > 0 ? (completedHanzi / totalHanzi) * 100 : 0
+      const isFullyCompleted = eligibleForBonus === totalHanzi
+      const isEligibleForBonus = completionRate >= 80
+
+      return {
+        totalHanzi,
+        completedHanzi,
+        completionRate,
+        isFullyCompleted,
+        isEligibleForBonus,
+      }
+    } catch (error) {
+      console.error("Error checking grade completion status:", error)
+      throw new Error("급수별 학습 완료도 체크에 실패했습니다.")
+    }
+  }
+
   // 우선순위 기반 한자 선택
   static async getPrioritizedHanzi(
     userId: string,
@@ -1102,14 +1158,17 @@ export class ApiClient {
       // 학습 완료된 한자들을 랜덤하게 섞기
       const shuffledCompleted = completedHanzi.sort(() => Math.random() - 0.5)
 
-      // 15% 비율로 학습 완료된 한자 선택 (최소 1개는 보장)
-      const completedCount = Math.max(1, Math.floor(count * 0.15))
+      // 10% 비율로 학습 완료된 한자 선택 (최소 0개, 최대 2개)
+      const completedCount = Math.min(2, Math.floor(count * 0.1))
       const incompleteCount = count - completedCount
 
-      // 미완료 한자에서 필요한 개수만큼 선택 (부족하면 전체 사용)
-      const selectedIncomplete = sortedIncomplete.slice(
+      // 미완료 한자에서 필요한 개수만큼 선택 (상위 50%에서 랜덤 선택)
+      const topHalf = Math.ceil(sortedIncomplete.length / 2)
+      const topHalfHanzi = sortedIncomplete.slice(0, topHalf)
+      const shuffledTopHalf = topHalfHanzi.sort(() => Math.random() - 0.5)
+      const selectedIncomplete = shuffledTopHalf.slice(
         0,
-        Math.min(incompleteCount, sortedIncomplete.length)
+        Math.min(incompleteCount, shuffledTopHalf.length)
       )
 
       // 학습 완료된 한자에서 필요한 개수만큼 선택 (부족하면 전체 사용)

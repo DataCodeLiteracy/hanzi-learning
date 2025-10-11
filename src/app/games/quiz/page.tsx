@@ -7,6 +7,8 @@ import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
 import Link from "next/link"
 import { ApiClient } from "@/lib/apiClient"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
+import NextGradeModal from "@/components/NextGradeModal"
+import { RelatedWord } from "@/types"
 // import { GameStatisticsService } from "@/lib/services/gameStatisticsService"
 // import { HanziStatisticsService } from "@/lib/services/hanziStatisticsService"
 
@@ -19,6 +21,7 @@ interface Question {
   correctAnswer: string
   questionType: "meaning" | "sound"
   hanziId?: string // 한자 ID 추가
+  relatedWords?: RelatedWord[] // 관련 단어 추가
 }
 
 export default function QuizGame() {
@@ -69,8 +72,62 @@ export default function QuizGame() {
   // 경험치 누적 (정답/오답 모두 1EXP)
   const [earnedExperience, setEarnedExperience] = useState<number>(0)
 
+  // 모르겠음 선택 횟수 추적
+  const [dontKnowCount, setDontKnowCount] = useState<number>(0)
+
+  // 완벽한 게임 보상 계산 함수
+  const calculatePerfectGameBonus = async (
+    questionCount: number,
+    dontKnowCount: number
+  ): Promise<number> => {
+    // 학습 완료도 체크 (80% 이상 완료 시 보너스 제한)
+    if (user) {
+      try {
+        const completionStatus = await ApiClient.checkGradeCompletionStatus(
+          user.id,
+          selectedGrade
+        )
+        if (completionStatus.isEligibleForBonus) {
+          console.log(
+            `🚫 학습 완료도 80% 이상으로 추가 보상 제한됨 (${completionStatus.completionRate.toFixed(
+              1
+            )}%)`
+          )
+          return 0
+        }
+      } catch (error) {
+        console.error("학습 완료도 체크 실패:", error)
+        // 에러 시에는 보너스 지급 (기존 로직 유지)
+      }
+    }
+
+    // 모르겠음을 선택한 경우: 완벽한 게임이 아니므로 추가 보상 없음
+    if (dontKnowCount > 0) {
+      return 0
+    }
+
+    // 모르겠음 없이 모든 문제를 정답으로 맞춘 경우: 추가 보상만 지급 (기본 경험치는 이미 각 문제마다 지급됨)
+    const bonusMap: { [key: number]: number } = {
+      5: 1,
+      10: 2,
+      15: 3,
+      20: 5,
+      25: 9,
+      30: 12,
+      35: 15,
+      40: 20,
+      45: 25,
+      50: 30,
+    }
+
+    return bonusMap[questionCount] || 0
+  }
+
   // 뒤로가기 확인 모달 상태
   const [showExitModal, setShowExitModal] = useState<boolean>(false)
+
+  // 다음 급수 권장 모달 상태
+  const [showNextGradeModal, setShowNextGradeModal] = useState<boolean>(false)
 
   // 사용자가 나가기로 확인했는지 플래그
   const [userConfirmedExit, setUserConfirmedExit] = useState<boolean>(false)
@@ -295,6 +352,9 @@ export default function QuizGame() {
           allOptions.push(...additionalWrongAnswers)
         }
 
+        // "모르겠음" 옵션 추가하여 5지선다로 변경
+        allOptions.push("모르겠음")
+
         return {
           id: hanzi.id,
           hanzi: hanzi.character,
@@ -306,6 +366,7 @@ export default function QuizGame() {
             (questionType === "meaning" ? hanzi.meaning : hanzi.sound),
           questionType: questionType as "meaning" | "sound",
           hanziId: hanzi.id, // 한자 ID 추가
+          relatedWords: hanzi.relatedWords, // 관련 단어 추가
         }
       })
 
@@ -386,12 +447,27 @@ export default function QuizGame() {
       setSelectedAnswer(answer)
       const currentQuestion = questions[currentQuestionIndex]
       const correct = answer === currentQuestion.correctAnswer
+      const isDontKnow = answer === "모르겠음"
 
-      setIsCorrect(correct)
+      // 모르겠음을 선택한 경우 isCorrect를 null로 설정 (정답도 오답도 아님)
+      setIsCorrect(isDontKnow ? null : correct)
       questionsAnsweredRef.current = questionsAnsweredRef.current + 1 // 답변 카운트 증가
 
-      // 정답/오답 모두 1EXP 추가
-      setEarnedExperience((prev) => prev + 1)
+      // 경험치 계산 로직 변경
+      let experienceToAdd = 0
+      if (isDontKnow) {
+        // 모르겠음 선택 시 +1 경험치
+        experienceToAdd = 1
+        setDontKnowCount((prev) => prev + 1)
+      } else if (correct) {
+        // 정답 시 +1 경험치
+        experienceToAdd = 1
+      } else {
+        // 틀린 답안 시 -1 경험치 (차감)
+        experienceToAdd = -1
+      }
+
+      setEarnedExperience((prev) => prev + experienceToAdd)
 
       console.log(
         `🔢 문제 답변: ${currentQuestionIndex + 1}/${
@@ -402,7 +478,11 @@ export default function QuizGame() {
       console.log(
         `🎯 questionsAnswered 값 확인: ${questionsAnsweredRef.current}`
       )
-      console.log(`⭐ 경험치 획득: +1 EXP (총 ${earnedExperience + 1} EXP)`)
+      console.log(
+        `⭐ 경험치 ${
+          experienceToAdd >= 0 ? "+" : ""
+        }${experienceToAdd} EXP (총 ${earnedExperience + experienceToAdd} EXP)`
+      )
 
       // 즉시 통계 업데이트 (문제 풀 때마다)
       if (user) {
@@ -427,28 +507,36 @@ export default function QuizGame() {
       }
 
       // 즉시 경험치 추가
-      if (user) {
+      if (user && experienceToAdd !== 0) {
         try {
           console.log(
-            `💰 경험치 업데이트 시작: ${correct ? "정답" : "오답"} → +1 EXP`
+            `💰 경험치 업데이트 시작: ${
+              isDontKnow ? "모르겠음" : correct ? "정답" : "오답"
+            } → ${experienceToAdd >= 0 ? "+" : ""}${experienceToAdd} EXP`
           )
-          await updateUserExperience(1)
-          // 오늘 경험치도 함께 업데이트
-          await ApiClient.updateTodayExperience(
-            user.id,
-            1,
-            (consecutiveDays, bonusExperience, dailyGoal) => {
-              // 보너스 경험치 획득 시 모달 표시
-              if (bonusExperience > 0) {
-                // 간단한 알림으로 표시 (게임 페이지에서는 모달 대신)
-                alert(
-                  `🎁 보너스 경험치 획득!\n연속 ${consecutiveDays}일 달성으로 +${bonusExperience} EXP를 획득했습니다!`
-                )
+          await updateUserExperience(experienceToAdd)
+          // 오늘 경험치도 함께 업데이트 (경험치가 양수일 때만)
+          if (experienceToAdd > 0) {
+            await ApiClient.updateTodayExperience(
+              user.id,
+              experienceToAdd,
+              (consecutiveDays, bonusExperience, dailyGoal) => {
+                // 보너스 경험치 획득 시 모달 표시
+                if (bonusExperience > 0) {
+                  // 간단한 알림으로 표시 (게임 페이지에서는 모달 대신)
+                  alert(
+                    `🎁 보너스 경험치 획득!\n연속 ${consecutiveDays}일 달성으로 +${bonusExperience} EXP를 획득했습니다!`
+                  )
+                }
               }
-            }
-          )
+            )
+          }
           console.log(
-            `⭐ 즉시 경험치 추가 완료: +1 EXP (${correct ? "정답" : "오답"})`
+            `⭐ 즉시 경험치 추가 완료: ${
+              experienceToAdd >= 0 ? "+" : ""
+            }${experienceToAdd} EXP (${
+              isDontKnow ? "모르겠음" : correct ? "정답" : "오답"
+            })`
           )
         } catch (error) {
           console.error("즉시 경험치 추가 실패:", error)
@@ -465,7 +553,7 @@ export default function QuizGame() {
       }
 
       // 정답/오답 모달 2.5초간 표시 후 자동으로 다음 문제로 이동
-      setTimeout(() => {
+      setTimeout(async () => {
         if (currentQuestionIndex < questions.length - 1) {
           setCurrentQuestionIndex((prev) => prev + 1)
           setSelectedAnswer(null)
@@ -476,6 +564,42 @@ export default function QuizGame() {
             `🎯 마지막 문제 완료! 총 답변: ${questionsAnsweredRef.current}개`
           )
           console.log(`🏁 gameEnded를 true로 설정합니다.`)
+
+          // 완벽한 게임 보너스 계산 및 적용
+          const perfectBonus = await calculatePerfectGameBonus(
+            questions.length,
+            dontKnowCount
+          )
+          if (perfectBonus > 0) {
+            console.log(`🎁 완벽한 게임 보너스! +${perfectBonus} EXP`)
+            setEarnedExperience((prev) => prev + perfectBonus)
+
+            // 추가 경험치를 사용자에게 적용
+            if (user) {
+              updateUserExperience(perfectBonus)
+              ApiClient.updateTodayExperience(user.id, perfectBonus)
+            }
+          }
+
+          // 다음 급수 권장 모달 체크
+          if (user) {
+            try {
+              const completionStatus =
+                await ApiClient.checkGradeCompletionStatus(
+                  user.id,
+                  selectedGrade
+                )
+              if (completionStatus.isFullyCompleted) {
+                console.log(
+                  `🎯 모든 한자 100번 이상 완료! 다음 급수 권장 모달 표시`
+                )
+                setShowNextGradeModal(true)
+              }
+            } catch (error) {
+              console.error("다음 급수 체크 실패:", error)
+            }
+          }
+
           setSelectedAnswer(null)
           setIsCorrect(null)
           // questionsAnswered 업데이트 후 gameEnded 설정
@@ -612,19 +736,22 @@ export default function QuizGame() {
         {/* 헤더 */}
         <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
           <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-            <div className='flex justify-between items-center py-4'>
+            <div className='flex justify-between items-center py-3'>
               <div className='flex items-center space-x-4'>
-                <Link href='/' className='text-blue-600 hover:text-blue-700'>
+                <button
+                  onClick={() => (window.location.href = "/")}
+                  className='text-blue-600 hover:text-blue-700'
+                >
                   <ArrowLeft className='h-5 w-5' />
-                </Link>
-                <h1 className='text-2xl font-bold text-gray-900'>퀴즈</h1>
+                </button>
+                <h1 className='text-xl font-bold text-gray-900'>퀴즈</h1>
               </div>
             </div>
           </div>
         </header>
 
         {/* 메인 컨텐츠 */}
-        <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
+        <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16'>
           <div className='bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto'>
             <h2 className='text-3xl font-bold text-gray-900 mb-6 text-center'>
               퀴즈 설정
@@ -632,7 +759,7 @@ export default function QuizGame() {
 
             {/* 급수 선택 */}
             <div className='mb-6'>
-              <label className='block text-sm font-semibold text-gray-700 mb-2'>
+              <label className='block text-base font-semibold text-gray-700 mb-2'>
                 급수 선택
               </label>
               <select
@@ -657,19 +784,19 @@ export default function QuizGame() {
               {isLoadingGrade && (
                 <div className='mt-2 flex items-center space-x-2'>
                   <LoadingSpinner message='' />
-                  <span className='text-sm text-gray-600'>
+                  <span className='text-base text-gray-600'>
                     급수 데이터를 불러오는 중...
                   </span>
                 </div>
               )}
 
               {gradeHanzi.length > 0 ? (
-                <p className='mt-2 text-sm text-gray-600'>
+                <p className='mt-2 text-base text-gray-600'>
                   해당 급수에 {gradeHanzi.length}개의 한자가 있습니다.
                 </p>
               ) : (
                 !isLoadingGrade && (
-                  <p className='mt-2 text-sm text-red-600 font-medium'>
+                  <p className='mt-2 text-base text-red-600 font-medium'>
                     해당 급수에 데이터가 없습니다.
                   </p>
                 )
@@ -678,7 +805,7 @@ export default function QuizGame() {
 
             {/* 문제 수 선택 */}
             <div className='mb-6'>
-              <label className='block text-sm font-semibold text-gray-700 mb-2'>
+              <label className='block text-base font-semibold text-gray-700 mb-2'>
                 문제 수 선택
               </label>
               <select
@@ -765,15 +892,11 @@ export default function QuizGame() {
       {/* 헤더 */}
       <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center py-4'>
+          <div className='flex justify-between items-center py-3'>
             <div className='flex items-center space-x-4'>
               <button
                 onClick={() => {
-                  if (
-                    questionsAnsweredRef.current > 0 &&
-                    !gameEnded &&
-                    !hasUpdatedStats
-                  ) {
+                  if (!gameEnded && !hasUpdatedStats && questions.length > 0) {
                     setShowExitModal(true)
                   } else {
                     window.location.href = "/"
@@ -783,27 +906,37 @@ export default function QuizGame() {
               >
                 <ArrowLeft className='h-5 w-5' />
               </button>
-              <h1 className='text-2xl font-bold text-gray-900'>퀴즈</h1>
+              <h1 className='text-xl font-bold text-gray-900'>퀴즈</h1>
             </div>
-            <div className='flex items-center space-x-4'>
-              <div className='text-sm text-gray-700 font-medium'>
-                정답: {correctAnswers}
-              </div>
-              <div className='text-sm text-gray-700 font-medium'>
-                문제: {currentQuestionIndex + 1}/{questionCount}
-              </div>
-              {isActive && (
-                <div className='text-sm text-blue-600 font-medium'>
-                  학습 시간: {formatTime(currentDuration)}
+            <div className='flex items-center space-x-6'>
+              <div className='text-center'>
+                <div className='text-sm text-gray-600'>정답</div>
+                <div className='text-lg font-bold text-green-600'>
+                  {correctAnswers}
                 </div>
-              )}
+              </div>
+              <div className='text-center'>
+                <div className='text-sm text-gray-600'>문제</div>
+                <div className='text-lg font-bold text-blue-600'>
+                  {currentQuestionIndex + 1}/{questionCount}
+                </div>
+              </div>
+              <div className='text-center'>
+                <div className='text-sm text-gray-600'>시간</div>
+                <div className='text-lg font-bold text-purple-600'>
+                  {Math.floor(currentDuration / 60)
+                    .toString()
+                    .padStart(2, "0")}
+                  :{(currentDuration % 60).toString().padStart(2, "0")}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* 메인 컨텐츠 */}
-      <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
+      <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16'>
         {!gameEnded ? (
           <div className='space-y-8'>
             {/* 문제 */}
@@ -815,7 +948,7 @@ export default function QuizGame() {
                 <div className='text-8xl font-bold text-blue-600 mb-4'>
                   {currentQuestion.hanzi}
                 </div>
-                <div className='text-sm text-gray-700 font-semibold'>
+                <div className='text-base text-gray-700 font-semibold'>
                   {currentQuestion.questionType === "meaning"
                     ? "뜻을 선택하세요"
                     : "음을 선택하세요"}
@@ -823,14 +956,14 @@ export default function QuizGame() {
               </div>
 
               {/* 보기 */}
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 gap-3'>
                 {currentQuestion.options.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => handleAnswerSelect(option)}
                     disabled={selectedAnswer !== null}
                     className={`
-                      p-4 rounded-lg border-2 transition-all duration-200 text-left
+                      p-3 rounded-lg border-2 transition-all duration-200 text-left
                       ${
                         selectedAnswer === null
                           ? "border-gray-300 hover:border-blue-500 hover:bg-blue-50"
@@ -847,21 +980,26 @@ export default function QuizGame() {
                           ? "cursor-default"
                           : "cursor-pointer"
                       }
+                      ${
+                        option === "모르겠음"
+                          ? "bg-gray-100 border-gray-400"
+                          : ""
+                      }
                     `}
                   >
                     <div className='flex items-center space-x-3'>
-                      <div className='w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold'>
+                      <div className='w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-base font-bold'>
                         {String.fromCharCode(65 + index)}
                       </div>
-                      <span className='text-lg font-semibold text-gray-900'>
+                      <span className='text-base font-semibold text-gray-900'>
                         {option}
                       </span>
                       {selectedAnswer !== null && (
                         <div className='ml-auto'>
                           {option === currentQuestion.correctAnswer ? (
-                            <CheckCircle className='h-6 w-6 text-green-600' />
+                            <CheckCircle className='h-5 w-5 text-green-600' />
                           ) : selectedAnswer === option ? (
-                            <XCircle className='h-6 w-6 text-red-600' />
+                            <XCircle className='h-5 w-5 text-red-600' />
                           ) : null}
                         </div>
                       )}
@@ -874,11 +1012,18 @@ export default function QuizGame() {
               {selectedAnswer !== null && (
                 <div className='mt-6 p-4 rounded-lg bg-blue-50 border border-blue-200'>
                   <div className='flex items-center justify-center space-x-2'>
-                    {isCorrect ? (
+                    {isCorrect === true ? (
                       <>
                         <CheckCircle className='h-5 w-5 text-green-600' />
                         <span className='text-green-600 font-semibold'>
                           정답입니다!
+                        </span>
+                      </>
+                    ) : isCorrect === null ? (
+                      <>
+                        <CheckCircle className='h-5 w-5 text-blue-600' />
+                        <span className='text-blue-600 font-semibold'>
+                          정답을 확인해보세요
                         </span>
                       </>
                     ) : (
@@ -890,7 +1035,7 @@ export default function QuizGame() {
                       </>
                     )}
                   </div>
-                  <div className='text-sm text-gray-900 mt-2 font-semibold'>
+                  <div className='text-base text-gray-900 mt-2 font-semibold'>
                     정답: {currentQuestion.correctAnswer}
                   </div>
                 </div>
@@ -914,7 +1059,7 @@ export default function QuizGame() {
                 <p className='text-lg text-gray-700 font-medium'>
                   획득 경험치:{" "}
                   <span className='font-bold text-green-600'>
-                    {questionsAnsweredRef.current}EXP
+                    {earnedExperience}EXP
                   </span>
                 </p>
                 <p className='text-gray-700 font-medium'>
@@ -926,6 +1071,77 @@ export default function QuizGame() {
                 <p className='text-gray-700 font-medium'>
                   문제 수: {questionCount}개
                 </p>
+
+                {/* 경험치 상세 정보 */}
+                <div className='bg-gray-50 rounded-lg p-4 mt-4'>
+                  <h3 className='text-base font-semibold text-gray-700 mb-2'>
+                    경험치 상세
+                  </h3>
+                  <div className='space-y-1 text-base'>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-600'>
+                        정답 ({correctAnswers}개):
+                      </span>
+                      <span className='text-green-600 font-medium'>
+                        +{correctAnswers} EXP
+                      </span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-gray-600'>
+                        오답 ({questionCount - correctAnswers - dontKnowCount}
+                        개):
+                      </span>
+                      <span className='text-red-600 font-medium'>
+                        -{questionCount - correctAnswers - dontKnowCount} EXP
+                      </span>
+                    </div>
+                    {dontKnowCount > 0 && (
+                      <div className='flex justify-between'>
+                        <span className='text-gray-600'>
+                          모르겠음 ({dontKnowCount}개):
+                        </span>
+                        <span className='text-blue-600 font-medium'>
+                          +{dontKnowCount} EXP
+                        </span>
+                      </div>
+                    )}
+                    {dontKnowCount === 0 &&
+                      correctAnswers === questionCount && (
+                        <div className='flex justify-between'>
+                          <span className='text-gray-600'>
+                            완벽한 게임 보너스:
+                          </span>
+                          <span className='text-purple-600 font-medium'>
+                            +
+                            {(() => {
+                              const bonusMap: { [key: number]: number } = {
+                                5: 1,
+                                10: 2,
+                                15: 3,
+                                20: 5,
+                                25: 9,
+                                30: 12,
+                                35: 15,
+                                40: 20,
+                                45: 25,
+                                50: 30,
+                              }
+                              return bonusMap[questionCount] || 0
+                            })()}{" "}
+                            EXP
+                          </span>
+                        </div>
+                      )}
+                    <div className='border-t pt-1 mt-2'>
+                      <div className='flex justify-between font-semibold'>
+                        <span className='text-gray-800'>총 경험치:</span>
+                        <span className='text-green-600'>
+                          +{earnedExperience} EXP
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className='flex justify-center space-x-4 px-4'>
                 <button
@@ -952,38 +1168,137 @@ export default function QuizGame() {
         )}
 
         {/* 틀렸을 때 정답 모달 */}
-        {selectedAnswer !== null && !isCorrect && (
+        {selectedAnswer !== null && isCorrect === false && (
           <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
-            <div className='bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center'>
-              <div className='mb-6'>
-                <XCircle className='h-16 w-16 text-red-500 mx-auto mb-4' />
-                <h3 className='text-2xl font-bold text-gray-900 mb-2'>
+            <div className='bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 text-center'>
+              <div className='mb-4'>
+                <XCircle className='h-12 w-12 text-red-500 mx-auto mb-3' />
+                <h3 className='text-xl font-bold text-gray-900 mb-2'>
                   틀렸습니다
                 </h3>
-                <p className='text-gray-600'>정답을 확인해보세요</p>
+                <p className='text-gray-600 text-base'>정답을 확인해보세요</p>
               </div>
 
-              <div className='bg-gray-50 rounded-lg p-6 mb-6'>
-                <div className='text-6xl font-bold text-blue-600 mb-6'>
+              <div className='bg-gray-50 rounded-lg p-4 mb-4'>
+                <div className='text-5xl font-bold text-blue-600 mb-4'>
                   {currentQuestion.hanzi}
                 </div>
-                <div className='space-y-3'>
-                  <div className='text-xl text-gray-700'>
+                <div className='space-y-2 mb-4'>
+                  <div className='text-lg text-gray-700'>
                     <span className='text-gray-500 font-medium'>뜻:</span>
                     <span className='font-bold text-green-600 ml-2'>
                       {currentQuestion.meaning}
                     </span>
                   </div>
-                  <div className='text-xl text-gray-700'>
+                  <div className='text-lg text-gray-700'>
                     <span className='text-gray-500 font-medium'>음:</span>
                     <span className='font-bold text-green-600 ml-2'>
                       {currentQuestion.sound}
                     </span>
                   </div>
                 </div>
+
+                {/* 관련 단어 섹션 */}
+                {(() => {
+                  console.log(
+                    "Quiz 틀렸을 때 - Related words:",
+                    currentQuestion.relatedWords
+                  )
+                  return (
+                    currentQuestion.relatedWords &&
+                    currentQuestion.relatedWords.length > 0
+                  )
+                })() && (
+                  <div className='border-t pt-3'>
+                    <h4 className='text-base font-semibold text-gray-700 mb-2'>
+                      관련 단어
+                    </h4>
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+                      {currentQuestion.relatedWords
+                        ?.slice(0, 4)
+                        .map((word, index) => (
+                          <div
+                            key={index}
+                            className='bg-white rounded-md p-2 text-base'
+                          >
+                            <div className='font-medium text-gray-900'>
+                              {word.hanzi}
+                            </div>
+                            <div className='text-gray-600'>{word.korean}</div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className='text-sm text-gray-500'>
+              <div className='text-xs text-gray-500'>
+                잠시 후 다음 문제로 넘어갑니다...
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 모르겠음 선택 시 모달 */}
+        {selectedAnswer !== null && isCorrect === null && (
+          <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
+            <div className='bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 text-center'>
+              <div className='mb-4'>
+                <CheckCircle className='h-12 w-12 text-blue-500 mx-auto mb-3' />
+                <h3 className='text-xl font-bold text-gray-900 mb-2'>
+                  정답을 확인해보세요
+                </h3>
+                <p className='text-gray-600 text-base'>
+                  이 한자를 기억해두세요
+                </p>
+              </div>
+
+              <div className='bg-gray-50 rounded-lg p-4 mb-4'>
+                <div className='text-5xl font-bold text-blue-600 mb-4'>
+                  {currentQuestion.hanzi}
+                </div>
+                <div className='space-y-2 mb-4'>
+                  <div className='text-lg text-gray-700'>
+                    <span className='text-gray-500 font-medium'>뜻:</span>
+                    <span className='font-bold text-green-600 ml-2'>
+                      {currentQuestion.meaning}
+                    </span>
+                  </div>
+                  <div className='text-lg text-gray-700'>
+                    <span className='text-gray-500 font-medium'>음:</span>
+                    <span className='font-bold text-green-600 ml-2'>
+                      {currentQuestion.sound}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 관련 단어 섹션 */}
+                {currentQuestion.relatedWords &&
+                  currentQuestion.relatedWords.length > 0 && (
+                    <div className='border-t pt-3'>
+                      <h4 className='text-base font-semibold text-gray-700 mb-2'>
+                        관련 단어
+                      </h4>
+                      <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+                        {currentQuestion.relatedWords
+                          ?.slice(0, 4)
+                          .map((word, index) => (
+                            <div
+                              key={index}
+                              className='bg-white rounded-md p-2 text-base'
+                            >
+                              <div className='font-medium text-gray-900'>
+                                {word.hanzi}
+                              </div>
+                              <div className='text-gray-600'>{word.korean}</div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+              </div>
+
+              <div className='text-xs text-gray-500'>
                 잠시 후 다음 문제로 넘어갑니다...
               </div>
             </div>
@@ -991,38 +1306,63 @@ export default function QuizGame() {
         )}
 
         {/* 맞았을 때 성공 모달 */}
-        {selectedAnswer !== null && isCorrect && (
+        {selectedAnswer !== null && isCorrect === true && (
           <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
-            <div className='bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center'>
-              <div className='mb-6'>
-                <CheckCircle className='h-16 w-16 text-green-500 mx-auto mb-4' />
-                <h3 className='text-2xl font-bold text-gray-900 mb-2'>
+            <div className='bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 text-center'>
+              <div className='mb-4'>
+                <CheckCircle className='h-12 w-12 text-green-500 mx-auto mb-3' />
+                <h3 className='text-xl font-bold text-gray-900 mb-2'>
                   정답입니다!
                 </h3>
-                <p className='text-green-600'>잘 하셨습니다!</p>
+                <p className='text-green-600 text-base'>잘 하셨습니다!</p>
               </div>
 
-              <div className='bg-gray-50 rounded-lg p-6 mb-6'>
-                <div className='text-6xl font-bold text-blue-600 mb-6'>
+              <div className='bg-gray-50 rounded-lg p-4 mb-4'>
+                <div className='text-5xl font-bold text-blue-600 mb-4'>
                   {currentQuestion.hanzi}
                 </div>
-                <div className='space-y-3'>
-                  <div className='text-xl text-gray-700'>
+                <div className='space-y-2 mb-4'>
+                  <div className='text-lg text-gray-700'>
                     <span className='text-gray-500 font-medium'>뜻:</span>
                     <span className='font-bold text-green-600 ml-2'>
                       {currentQuestion.meaning}
                     </span>
                   </div>
-                  <div className='text-xl text-gray-700'>
+                  <div className='text-lg text-gray-700'>
                     <span className='text-gray-500 font-medium'>음:</span>
                     <span className='font-bold text-green-600 ml-2'>
                       {currentQuestion.sound}
                     </span>
                   </div>
                 </div>
+
+                {/* 관련 단어 섹션 */}
+                {currentQuestion.relatedWords &&
+                  currentQuestion.relatedWords.length > 0 && (
+                    <div className='border-t pt-3'>
+                      <h4 className='text-base font-semibold text-gray-700 mb-2'>
+                        관련 단어
+                      </h4>
+                      <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+                        {currentQuestion.relatedWords
+                          ?.slice(0, 4)
+                          .map((word, index) => (
+                            <div
+                              key={index}
+                              className='bg-white rounded-md p-2 text-base'
+                            >
+                              <div className='font-medium text-gray-900'>
+                                {word.hanzi}
+                              </div>
+                              <div className='text-gray-600'>{word.korean}</div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
               </div>
 
-              <div className='text-sm text-gray-500'>
+              <div className='text-xs text-gray-500'>
                 잠시 후 다음 문제로 넘어갑니다...
               </div>
             </div>
@@ -1043,10 +1383,10 @@ export default function QuizGame() {
                 <p className='font-medium'>
                   현재까지 {questionsAnsweredRef.current}문제를 풀었습니다.
                 </p>
-                <p className='text-sm'>
+                <p className='text-base'>
                   게임을 중단하면 진행 상황이 저장되지 않습니다.
                 </p>
-                <p className='text-sm font-semibold text-red-600'>
+                <p className='text-base font-semibold text-red-600'>
                   정말 나가시겠습니까?
                 </p>
               </div>
@@ -1069,6 +1409,20 @@ export default function QuizGame() {
           </div>
         </div>
       )}
+
+      {/* 다음 급수 권장 모달 */}
+      <NextGradeModal
+        isOpen={showNextGradeModal}
+        onClose={() => setShowNextGradeModal(false)}
+        currentGrade={selectedGrade}
+        nextGrade={selectedGrade - 1}
+        onProceedToNext={() => {
+          setSelectedGrade(selectedGrade - 1)
+          setShowNextGradeModal(false)
+          // 게임 재시작
+          initializeGame()
+        }}
+      />
     </div>
   )
 }

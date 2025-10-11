@@ -150,16 +150,22 @@ export default function WritingGame() {
       {/* 헤더 */}
       <header className='bg-white shadow-sm'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center py-4'>
+          <div className='flex justify-between items-center py-3'>
             <div className='flex items-center space-x-4'>
               <Link href='/' className='text-blue-600 hover:text-blue-700'>
                 <ArrowLeft className='h-5 w-5' />
               </Link>
-              <h1 className='text-2xl font-bold text-gray-900'>쓰기 연습</h1>
+              <h1 className='text-xl font-bold text-gray-900'>쓰기 연습</h1>
             </div>
-            <div className='flex items-center space-x-4'>
-              <div className='text-sm text-gray-600'>완료: 0/0</div>
-              <div className='text-sm text-gray-600'>문제: 1/0</div>
+            <div className='flex items-center space-x-6'>
+              <div className='text-center'>
+                <div className='text-sm text-gray-600'>완료</div>
+                <div className='text-lg font-bold text-green-600'>0/0</div>
+              </div>
+              <div className='text-center'>
+                <div className='text-sm text-gray-600'>문제</div>
+                <div className='text-lg font-bold text-blue-600'>1/0</div>
+              </div>
             </div>
           </div>
         </div>
