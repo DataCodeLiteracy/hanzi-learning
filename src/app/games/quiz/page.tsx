@@ -75,6 +75,10 @@ export default function QuizGame() {
   // 모르겠음 선택 횟수 추적
   const [dontKnowCount, setDontKnowCount] = useState<number>(0)
 
+  // 보너스 경험치 추적
+  const [bonusExperience, setBonusExperience] = useState<number>(0)
+
+
   // 완벽한 게임 보상 계산 함수
   const calculatePerfectGameBonus = async (
     questionCount: number,
@@ -466,11 +470,13 @@ export default function QuizGame() {
       } else if (correct) {
         // 정답 시 +1 경험치
         experienceToAdd = 1
+        setCorrectAnswers((prev) => prev + 1)
       } else {
         // 틀린 답안 시 -1 경험치 (차감)
         experienceToAdd = -1
       }
 
+      // 문제별 경험치 즉시 누적
       setEarnedExperience((prev) => prev + experienceToAdd)
 
       console.log(
@@ -504,6 +510,7 @@ export default function QuizGame() {
               isDontKnow ? "모르겠음" : correct ? "정답" : "오답"
             } → ${experienceToAdd >= 0 ? "+" : ""}${experienceToAdd} EXP`
           )
+          // 문제별 경험치 즉시 반영 (정답 +1, 오답 -1, 모르겠음 +1)
           await updateUserExperience(experienceToAdd)
           // 오늘 경험치도 함께 업데이트 (경험치가 양수일 때만)
           if (experienceToAdd > 0) {
@@ -534,6 +541,11 @@ export default function QuizGame() {
       }
 
       if (correct) {
+        setCorrectAnswers((prev) => prev + 1)
+        // 문제별로 한자별 통계 업데이트
+        addQuestionExperience()
+      } else if (isDontKnow) {
+        // 모르겠음 선택 시에도 정답으로 간주 (경험치는 +1)
         setCorrectAnswers((prev) => prev + 1)
         // 문제별로 한자별 통계 업데이트
         addQuestionExperience()
@@ -568,33 +580,31 @@ export default function QuizGame() {
           console.log(`📊 게임 결과:`)
           console.log(`  - 총 문제 수: ${questions.length}`)
           console.log(`  - 정답 수: ${correctAnswers}`)
-          console.log(
-            `  - 오답 수: ${questions.length - correctAnswers - dontKnowCount}`
-          )
+          const wrongAnswers = questions.length - correctAnswers
+          console.log(`  - 오답 수: ${wrongAnswers}`)
           console.log(`  - 모르겠음 수: ${dontKnowCount}`)
           console.log(`  - 완벽한 게임 보너스: ${perfectBonus}`)
           console.log(`  - 현재 earnedExperience 상태: ${earnedExperience}`)
 
-          if (perfectBonus > 0) {
-            console.log(`🎁 완벽한 게임 보너스! +${perfectBonus} EXP`)
-            setEarnedExperience((prev) => {
-              const newValue = prev + perfectBonus
-              console.log(
-                `  - earnedExperience 업데이트: ${prev} + ${perfectBonus} = ${newValue}`
-              )
-              return newValue
-            })
-
-            // 추가 경험치를 사용자에게 적용
-            if (user) {
-              updateUserExperience(perfectBonus)
-              ApiClient.updateTodayExperience(user.id, perfectBonus)
+          // 완벽한 게임 보너스 계산 및 추가
+          const isPerfectGame = dontKnowCount === 0 && correctAnswers === questionCount
+          let actualBonus = 0
+          
+          if (isPerfectGame) {
+            const bonusMap: { [key: number]: number } = {
+              5: 1, 10: 2, 15: 3, 20: 5, 25: 9, 30: 12, 35: 15, 40: 20, 45: 25, 50: 30,
+            }
+            actualBonus = bonusMap[questionCount] || 0
+            
+            if (actualBonus > 0 && user) {
+              console.log(`🎁 완벽한 게임 보너스 ${actualBonus} EXP 추가`)
+              setBonusExperience(actualBonus)
+              setEarnedExperience((prev) => prev + actualBonus)
+              updateUserExperience(actualBonus)
+              ApiClient.updateTodayExperience(user.id, actualBonus)
             }
           }
 
-          console.log(
-            `  - 최종 earnedExperience: ${earnedExperience + perfectBonus}`
-          )
           console.log("🔍 === 디버깅 끝 ===")
 
           // 다음 급수 권장 모달 체크
@@ -1101,33 +1111,16 @@ export default function QuizGame() {
                         </span>
                       </div>
                     )}
-                    {dontKnowCount === 0 &&
-                      correctAnswers === questionCount && (
-                        <div className='flex justify-between'>
-                          <span className='text-gray-600'>
-                            완벽한 게임 보너스:
-                          </span>
-                          <span className='text-purple-600 font-medium'>
-                            +
-                            {(() => {
-                              const bonusMap: { [key: number]: number } = {
-                                5: 1,
-                                10: 2,
-                                15: 3,
-                                20: 5,
-                                25: 9,
-                                30: 12,
-                                35: 15,
-                                40: 20,
-                                45: 25,
-                                50: 30,
-                              }
-                              return bonusMap[questionCount] || 0
-                            })()}{" "}
-                            EXP
-                          </span>
-                        </div>
-                      )}
+                    {bonusExperience > 0 && (
+                      <div className='flex justify-between'>
+                        <span className='text-gray-600'>
+                          완벽한 게임 보너스:
+                        </span>
+                        <span className='text-purple-600 font-medium'>
+                          +{bonusExperience} EXP
+                        </span>
+                      </div>
+                    )}
                     <div className='border-t pt-1 mt-2'>
                       <div className='flex justify-between font-semibold'>
                         <span className='text-gray-800'>총 경험치:</span>
@@ -1142,22 +1135,26 @@ export default function QuizGame() {
               <div className='flex justify-center space-x-4 px-4'>
                 <button
                   onClick={() => {
+                    setGameEnded(false)
+                    setCorrectAnswers(0)
+                    setDontKnowCount(0)
+                    setEarnedExperience(0)
+                    setHasUpdatedStats(false)
+                    questionsAnsweredRef.current = 0
                     setShowSettings(true)
-                    questionsAnsweredRef.current = 0 // 답한 문제 수 리셋
-                    setEarnedExperience(0) // 경험치 리셋
-                    setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
-                    setUserConfirmedExit(false) // 나가기 확인 플래그 리셋
                   }}
                   className='flex-1 max-w-xs px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
                 >
                   <span>다시 하기</span>
                 </button>
-                <Link
-                  href='/'
-                  className='flex-1 max-w-xs px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-center'
+                <button
+                  onClick={() => {
+                    window.location.href = "/"
+                  }}
+                  className='flex-1 max-w-xs px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium'
                 >
                   홈으로
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -1230,6 +1227,7 @@ export default function QuizGame() {
             </div>
           </div>
         )}
+
 
         {/* 모르겠음 선택 시 모달 */}
         {selectedAnswer !== null && isCorrect === null && (
@@ -1402,6 +1400,7 @@ export default function QuizGame() {
         </div>
       )}
 
+
       {/* 다음 급수 권장 모달 */}
       <NextGradeModal
         isOpen={showNextGradeModal}
@@ -1415,6 +1414,7 @@ export default function QuizGame() {
           initializeGame()
         }}
       />
+
     </div>
   )
 }
