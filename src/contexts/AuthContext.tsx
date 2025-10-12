@@ -8,7 +8,15 @@ import {
   onAuthStateChanged,
 } from "firebase/auth"
 import { auth, googleProvider, db } from "@/lib/firebase"
-import { doc, setDoc, getDoc } from "firebase/firestore"
+import {
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore"
 import { User } from "@/types"
 import { calculateLevel } from "@/lib/experienceSystem"
 import { ApiClient } from "@/lib/apiClient"
@@ -38,11 +46,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Firestore에서 사용자 정보 저장/업데이트
   const saveUserToFirestore = async (firebaseUser: FirebaseUser) => {
     try {
-      const userRef = doc(db, "users", firebaseUser.uid)
-      const userDoc = await getDoc(userRef)
+      // 1. 먼저 이메일로 기존 사용자 데이터 찾기
+      const usersRef = collection(db, "users")
+      const q = query(usersRef, where("email", "==", firebaseUser.email))
+      const querySnapshot = await getDocs(q)
 
-      if (!userDoc.exists()) {
-        // 새 사용자인 경우 Firestore에 저장
+      if (!querySnapshot.empty) {
+        // 기존 사용자 발견 - 기존 데이터 사용
+        const existingUserDoc = querySnapshot.docs[0]
+        const existingUserData = existingUserDoc.data() as User
+
+        console.log("🔄 기존 사용자 발견:", existingUserData.email)
+
+        // 이메일과 photoURL만 업데이트
+        const updatedUserData = {
+          ...existingUserData,
+          email: firebaseUser.email || existingUserData.email,
+          photoURL: firebaseUser.photoURL || existingUserData.photoURL,
+          updatedAt: new Date().toISOString(),
+        }
+
+        // 변경사항이 있는 경우에만 업데이트
+        if (
+          updatedUserData.email !== existingUserData.email ||
+          updatedUserData.photoURL !== existingUserData.photoURL
+        ) {
+          await setDoc(doc(db, "users", existingUserDoc.id), updatedUserData, {
+            merge: true,
+          })
+          return updatedUserData
+        }
+
+        return existingUserData
+      } else {
+        // 새 사용자인 경우 - Firebase UID로 새 문서 생성
+        console.log("🆕 새 사용자:", firebaseUser.email)
+
+        const userRef = doc(db, "users", firebaseUser.uid)
         const isAdmin = false // 새 사용자는 기본적으로 관리자가 아님
 
         const newUser: User = {
@@ -60,28 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         await setDoc(userRef, newUser)
         return newUser
-      } else {
-        // 기존 사용자인 경우 기존 데이터 반환 (Firebase Authentication 정보 덮어쓰지 않음)
-        const userData = userDoc.data() as User
-
-        // 이메일과 photoURL만 업데이트 (displayName은 유지)
-        const updatedUserData = {
-          ...userData,
-          email: firebaseUser.email || userData.email,
-          photoURL: firebaseUser.photoURL || userData.photoURL,
-          updatedAt: new Date().toISOString(),
-        }
-
-        // 변경사항이 있는 경우에만 업데이트
-        if (
-          updatedUserData.email !== userData.email ||
-          updatedUserData.photoURL !== userData.photoURL
-        ) {
-          await setDoc(userRef, updatedUserData, { merge: true })
-          return updatedUserData
-        }
-
-        return userData
       }
     } catch (error) {
       console.error("사용자 정보 저장 에러:", error)
@@ -227,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => unsubscribe()
-  }, [hasInitialized, user])
+  }, [hasInitialized])
 
   const signIn = async () => {
     try {

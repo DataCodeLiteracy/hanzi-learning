@@ -16,7 +16,7 @@ export default function LoadingSpinner({
   }
 
   return (
-    <div className='flex flex-col items-center justify-center py-8'>
+    <div className='flex flex-col items-center justify-center min-h-screen'>
       <Loader2
         className={`${sizeClasses[size]} text-blue-500 animate-spin mb-4`}
       />

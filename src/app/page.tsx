@@ -130,31 +130,31 @@ export default function Home() {
   //   setShowBonusModal(true)
   // }
 
-  // 유저 순위 로드
-  useEffect(() => {
-    const loadUserRankings = async () => {
-      try {
-        setIsLoadingRankings(true)
+  // 유저 순위 로드 (임시 주석처리 - 무한루프 방지)
+  // useEffect(() => {
+  //   const loadUserRankings = async () => {
+  //     try {
+  //       setIsLoadingRankings(true)
 
-        // 디버깅: 모든 유저 조회
-        console.log("🔍 디버깅: 모든 유저 조회 시작")
-        const allUsers = await ApiClient.getAllUsers()
-        console.log("📊 모든 유저:", allUsers)
+  //       // 디버깅: 모든 유저 조회
+  //       console.log("🔍 디버깅: 모든 유저 조회 시작")
+  //       const allUsers = await ApiClient.getAllUsers()
+  //       console.log("📊 모든 유저:", allUsers)
 
-        // 유저 순위 조회
-        const rankings = await ApiClient.getUserRankings()
-        console.log("🏆 유저 순위:", rankings)
+  //       // 유저 순위 조회
+  //       const rankings = await ApiClient.getUserRankings()
+  //       console.log("🏆 유저 순위:", rankings)
 
-        setUserRankings(rankings)
-      } catch (error) {
-        console.error("유저 순위 로드 실패:", error)
-      } finally {
-        setIsLoadingRankings(false)
-      }
-    }
+  //       setUserRankings(rankings)
+  //     } catch (error) {
+  //       console.error("유저 순위 로드 실패:", error)
+  //     } finally {
+  //       setIsLoadingRankings(false)
+  //     }
+  //   }
 
-    loadUserRankings()
-  }, [])
+  //   loadUserRankings()
+  // }, [])
 
   // 로딩 중일 때는 로딩 스피너만 표시 (진짜 초기 로딩만)
   if (initialLoading) {
@@ -517,8 +517,8 @@ export default function Home() {
               dailyGoal={bonusInfo.dailyGoal}
             />
 
-            {/* 유저 순위 */}
-            <div className='mb-6 sm:mb-8'>
+            {/* 유저 순위 (임시 주석처리 - 무한루프 방지) */}
+            {/* <div className='mb-6 sm:mb-8'>
               <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6'>
                 🏆 유저 순위
               </h2>
@@ -532,7 +532,6 @@ export default function Home() {
                   </div>
                 ) : userRankings.length > 0 ? (
                   <div className='space-y-3'>
-                    {/* 모든 순위를 동일한 UI로 표시 (5등까지만) */}
                     {userRankings.slice(0, 5).map((user) => (
                       <div
                         key={user.userId}
@@ -599,7 +598,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
-            </div>
+            </div> */}
 
             {/* 게임 선택 */}
             <div>

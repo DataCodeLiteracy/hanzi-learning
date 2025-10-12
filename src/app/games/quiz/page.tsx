@@ -1,43 +1,33 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { ArrowLeft, CheckCircle, XCircle, Play } from "lucide-react"
 import Link from "next/link"
 import { ApiClient } from "@/lib/apiClient"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import NextGradeModal from "@/components/NextGradeModal"
-import { RelatedWord } from "@/types"
-// import { GameStatisticsService } from "@/lib/services/gameStatisticsService"
-// import { HanziStatisticsService } from "@/lib/services/hanziStatisticsService"
+import { useGameLogic, GameQuestion } from "@/hooks/useGameLogic"
+import GameSettings from "@/components/game/GameSettings"
+import GameHeader from "@/components/game/GameHeader"
+import GameCompletionCard from "@/components/game/GameCompletionCard"
+import AnswerModal from "@/components/game/AnswerModal"
+import ExitModal from "@/components/game/ExitModal"
+import { CheckCircle, XCircle } from "lucide-react"
 
-interface Question {
-  id: string
-  hanzi: string
-  meaning: string
-  sound: string
-  options: string[]
-  correctAnswer: string
+interface QuizQuestion extends GameQuestion {
   questionType: "meaning" | "sound"
-  hanziId?: string // 한자 ID 추가
-  relatedWords?: RelatedWord[] // 관련 단어 추가
 }
 
 export default function QuizGame() {
-  const { user, initialLoading, isAuthenticated, updateUserExperience } =
-    useAuth()
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
-  const [correctAnswers, setCorrectAnswers] = useState<number>(0)
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
-  const [gameEnded, setGameEnded] = useState<boolean>(false)
-  const [showSettings, setShowSettings] = useState<boolean>(true)
+  const { user, initialLoading, isAuthenticated } = useAuth()
+
+  // 게임 설정
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
   )
   const [questionCount, setQuestionCount] = useState<number>(10)
+  const [showSettings, setShowSettings] = useState<boolean>(true)
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
   const [noDataMessage, setNoDataMessage] = useState<string>("")
@@ -51,96 +41,58 @@ export default function QuizGame() {
       grade: number
     }[]
   >([])
-  const [hasUpdatedStats, setHasUpdatedStats] = useState<boolean>(false)
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
-  const [isProcessingAnswer, setIsProcessingAnswer] = useState<boolean>(false) // 답변 처리 중 플래그
-
-  // 시간 추적 훅
-  const { startSession, endSession, isActive, currentDuration, formatTime } =
-    useTimeTracking({
-      userId: user?.id || "",
-      type: "game",
-      activity: "quiz",
-      autoStart: false,
-      autoEnd: true,
-    })
-
-  // useState로 문제 풀기 카운팅 (값 유지 보장)
-  const questionsAnsweredRef = useRef<number>(0)
-
-  // 경험치 누적 (정답/오답 모두 1EXP)
-  const [earnedExperience, setEarnedExperience] = useState<number>(0)
-
-  // 모르겠음 선택 횟수 추적
-  const [dontKnowCount, setDontKnowCount] = useState<number>(0)
-
-  // 보너스 경험치 추적
-  const [bonusExperience, setBonusExperience] = useState<number>(0)
-
-
-  // 완벽한 게임 보상 계산 함수
-  const calculatePerfectGameBonus = async (
-    questionCount: number,
-    dontKnowCount: number,
-    correctAnswers: number
-  ): Promise<number> => {
-    // 학습 완료도 체크 (80% 이상 완료 시 보너스 제한)
-    if (user) {
-      try {
-        const completionStatus = await ApiClient.checkGradeCompletionStatus(
-          user.id,
-          selectedGrade
-        )
-        if (completionStatus.isEligibleForBonus) {
-          console.log(
-            `🚫 학습 완료도 80% 이상으로 추가 보상 제한됨 (${completionStatus.completionRate.toFixed(
-              1
-            )}%)`
-          )
-          return 0
-        }
-      } catch (error) {
-        console.error("학습 완료도 체크 실패:", error)
-        // 에러 시에는 보너스 지급 (기존 로직 유지)
-      }
-    }
-
-    // 모르겠음을 선택한 경우: 완벽한 게임이 아니므로 추가 보상 없음
-    if (dontKnowCount > 0) {
-      return 0
-    }
-
-    // 오답이 있는 경우: 완벽한 게임이 아니므로 추가 보상 없음
-    if (correctAnswers < questionCount) {
-      return 0
-    }
-
-    // 모르겠음 없이 모든 문제를 정답으로 맞춘 경우: 추가 보상만 지급 (기본 경험치는 이미 각 문제마다 지급됨)
-    const bonusMap: { [key: number]: number } = {
-      5: 1,
-      10: 2,
-      15: 3,
-      20: 5,
-      25: 9,
-      30: 12,
-      35: 15,
-      40: 20,
-      45: 25,
-      50: 30,
-    }
-
-    return bonusMap[questionCount] || 0
-  }
-
-  // 뒤로가기 확인 모달 상태
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false)
   const [showExitModal, setShowExitModal] = useState<boolean>(false)
-
-  // 다음 급수 권장 모달 상태
   const [showNextGradeModal, setShowNextGradeModal] = useState<boolean>(false)
 
-  // 사용자가 나가기로 확인했는지 플래그
-  const [userConfirmedExit, setUserConfirmedExit] = useState<boolean>(false)
+  // 게임 로직 훅
+  const gameLogic = useGameLogic({
+    selectedGrade,
+    questionCount,
+    gameType: "quiz",
+  })
+
+  // 게임 생성 완료 후 상태 강제 업데이트
+  useEffect(() => {
+    console.log(
+      `🔄 useEffect 트리거: questions.length=${gameLogic.questions.length}, isGenerating=${isGenerating}`
+    )
+    if (gameLogic.questions.length > 0 && isGenerating) {
+      console.log(`🔄 게임 생성 완료 감지, 상태 강제 업데이트`)
+      setShowSettings(false)
+      setIsGenerating(false)
+    }
+  }, [gameLogic.questions.length, isGenerating])
+
+  // setQuestions 호출 후 강제 리렌더링
+  useEffect(() => {
+    if (gameLogic.questions.length > 0) {
+      console.log(
+        `🎮 questions 상태 업데이트 감지: ${gameLogic.questions.length}개`
+      )
+      setForceUpdate((prev) => prev + 1)
+    }
+  }, [gameLogic.questions.length])
+
+  // 강제 리렌더링을 위한 useEffect
+  useEffect(() => {
+    console.log(
+      `🔄 컴포넌트 리렌더링: showSettings=${showSettings}, isGenerating=${isGenerating}, questions=${gameLogic.questions.length}`
+    )
+  }, [showSettings, isGenerating, gameLogic.questions.length])
+
+  // 강제 리렌더링을 위한 상태
+  const [forceUpdate, setForceUpdate] = useState(0)
+
+  // 시간 추적 훅
+  const { startSession, endSession, currentDuration } = useTimeTracking({
+    userId: user?.id || "",
+    type: "game",
+    activity: "quiz",
+    autoStart: false,
+    autoEnd: true,
+  })
 
   // 8급 데이터 기본 로딩
   useEffect(() => {
@@ -159,83 +111,67 @@ export default function QuizGame() {
     loadInitialData()
   }, [])
 
-  // 뒤로가기 감지 및 모달 표시 (beforeunload 제거, popstate만 유지)
+  // 뒤로가기 감지 및 모달 표시
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
-      console.log(
-        `🚨 popstate 이벤트 발생: questionsAnswered = ${questionsAnsweredRef.current}`
-      )
       if (
-        questionsAnsweredRef.current > 0 &&
-        !gameEnded &&
-        !hasUpdatedStats &&
-        !userConfirmedExit
+        gameLogic.questionsAnsweredRef.current > 0 &&
+        !gameLogic.gameEnded &&
+        !gameLogic.hasUpdatedStats &&
+        !gameLogic.userConfirmedExit
       ) {
         e.preventDefault()
         setShowExitModal(true)
-        // 브라우저 뒤로가기 방지
         window.history.pushState(null, "", window.location.pathname)
       }
     }
 
-    // 브라우저 뒤로가기 감지만 (beforeunload 제거)
     window.addEventListener("popstate", handlePopState)
-
-    // 초기 히스토리 상태 추가
     window.history.pushState(null, "", window.location.pathname)
 
     return () => {
       window.removeEventListener("popstate", handlePopState)
     }
-  }, [gameEnded, hasUpdatedStats, userConfirmedExit])
+  }, [
+    gameLogic.gameEnded,
+    gameLogic.hasUpdatedStats,
+    gameLogic.userConfirmedExit,
+  ])
 
-  // 뒤로가기 확인 및 통계 업데이트는 불필요 (이미 각 문제마다 즉시 업데이트됨)
+  // 사용자 정보 로드 후 선호 급수 반영
+  useEffect(() => {
+    if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
+      setSelectedGrade(user.preferredGrade)
+      handleGradeChange(user.preferredGrade)
+    }
+  }, [user])
+
+  // 게임 종료 시 세션 완료 통계 업데이트
+  useEffect(() => {
+    gameLogic.handleGameEnd()
+  }, [gameLogic.gameEnded])
+
+  // 뒤로가기 확인 처리
   const handleExitConfirm = async () => {
-    if (questionsAnsweredRef.current > 0 && !gameEnded && user) {
-      try {
-        console.log(`🚪 게임 중단 확인:`)
-        console.log(`  - questionsAnswered: ${questionsAnsweredRef.current}`)
-        console.log(`  - earnedExperience: ${earnedExperience}`)
-        console.log(
-          `ℹ️ 각 문제마다 즉시 통계와 경험치가 업데이트되었으므로 추가 업데이트 불필요`
-        )
-
-        // 사용자가 나가기로 확인했음을 표시
-        setUserConfirmedExit(true)
-
-        // 게임 중단 시 시간 추적 종료 (먼저 호출)
-        const sessionDuration = endSession()
-        console.log(`🚪 퀴즈 게임 중단: ${sessionDuration}초 학습 시간 저장됨`)
-
-        // 게임 중단 시 gameEnded를 true로 설정하여 useEffect 트리거
-        setGameEnded(true)
-
-        // 모달 닫고 홈으로 이동
-        setShowExitModal(false)
-        window.location.href = "/"
-      } catch (error) {
-        console.error("게임 중단 처리 실패:", error)
-        // 에러가 발생해도 홈으로 이동
-        setUserConfirmedExit(true)
-        setShowExitModal(false)
-        window.location.href = "/"
-      }
+    if (
+      gameLogic.questionsAnsweredRef.current > 0 &&
+      !gameLogic.gameEnded &&
+      user
+    ) {
+      gameLogic.setUserConfirmedExit(true)
+      const sessionDuration = endSession()
+      console.log(`🚪 퀴즈 게임 중단: ${sessionDuration}초 학습 시간 저장됨`)
+      gameLogic.setGameEnded(true)
     } else {
-      // 통계 업데이트가 필요없으면 바로 홈으로 이동
-      setUserConfirmedExit(true)
-
-      // 시간 추적 종료 (먼저 호출)
+      gameLogic.setUserConfirmedExit(true)
       const sessionDuration = endSession()
       console.log(
         `🚪 퀴즈 게임 중단 (문제 미풀이): ${sessionDuration}초 학습 시간 저장됨`
       )
-
-      // 게임 중단 시 gameEnded를 true로 설정하여 useEffect 트리거
-      setGameEnded(true)
-
-      setShowExitModal(false)
-      window.location.href = "/"
+      gameLogic.setGameEnded(true)
     }
+    setShowExitModal(false)
+    window.location.href = "/"
   }
 
   const handleExitCancel = () => {
@@ -250,9 +186,34 @@ export default function QuizGame() {
     }
   }, [user])
 
+  // 게임 종료 시 다음 급수 권장 모달 체크
+  useEffect(() => {
+    if (gameLogic.gameEnded) {
+      checkNextGradeModal()
+    }
+  }, [gameLogic.gameEnded])
+
+  // 다음 급수 권장 모달 체크
+  const checkNextGradeModal = async () => {
+    if (user) {
+      try {
+        const completionStatus = await ApiClient.checkGradeCompletionStatus(
+          user.id,
+          selectedGrade
+        )
+        if (completionStatus.isFullyCompleted) {
+          console.log(`🎯 모든 한자 100번 이상 완료! 다음 급수 권장 모달 표시`)
+          setShowNextGradeModal(true)
+        }
+      } catch (error) {
+        console.error("다음 급수 체크 실패:", error)
+      }
+    }
+  }
+
   // 급수 변경 시 데이터 업데이트
   const handleGradeChange = async (grade: number) => {
-    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
+    if (grade === selectedGrade) return
 
     setSelectedGrade(grade)
     setIsLoadingGrade(true)
@@ -287,10 +248,15 @@ export default function QuizGame() {
     }
   }
 
-  // 게임 초기화 함수 정의
+  // 게임 초기화 함수
   const initializeGame = async () => {
-    // 선택된 급수의 한자 수 확인
+    console.log(`🚀 initializeGame 호출됨`)
+    console.log(
+      `📊 현재 상태: gradeHanzi.length=${gradeHanzi.length}, questionCount=${questionCount}, user=${user?.id}`
+    )
+
     if (gradeHanzi.length === 0) {
+      console.log(`❌ 급수 데이터 없음`)
       setNoDataMessage(
         `선택한 급수(${
           selectedGrade === 5.5
@@ -306,8 +272,8 @@ export default function QuizGame() {
       return
     }
 
-    // 문제 수보다 한자가 적은 경우 확인
     if (gradeHanzi.length < questionCount) {
+      console.log(`❌ 한자 개수 부족: ${gradeHanzi.length} < ${questionCount}`)
       setNoDataMessage(
         `선택한 급수에 ${questionCount}개보다 적은 한자가 있습니다. (${gradeHanzi.length}개)`
       )
@@ -315,91 +281,124 @@ export default function QuizGame() {
       return
     }
 
+    console.log(`✅ 게임 생성 조건 만족, isGenerating=true 설정`)
     setIsGenerating(true)
+    console.log(
+      `🎮 퀴즈 게임 생성 시작 - 사용자: ${user?.id}, 급수: ${selectedGrade}, 문제수: ${questionCount}`
+    )
 
     try {
-      // 우선순위 기반으로 한자 선택
+      console.log(`🔄 API 호출 시작: getPrioritizedHanzi`)
+      console.log(
+        `📤 요청 파라미터: userId=${
+          user!.id
+        }, grade=${selectedGrade}, count=${questionCount}`
+      )
+
       const selectedHanzi = await ApiClient.getPrioritizedHanzi(
         user!.id,
         selectedGrade,
         questionCount
       )
+      console.log(`📝 API 응답 받음: ${selectedHanzi.length}개`, selectedHanzi)
 
-      // 문제 생성
-      const generatedQuestions = selectedHanzi.map((hanzi) => {
-        const questionType = Math.random() > 0.5 ? "meaning" : "sound"
-        const correctAnswer =
-          questionType === "meaning" ? hanzi.meaning : hanzi.sound
+      console.log(
+        `🔧 문제 생성 시작: ${selectedHanzi.length}개 한자로 문제 만들기`
+      )
+      const generatedQuestions: QuizQuestion[] = selectedHanzi.map(
+        (hanzi, index) => {
+          console.log(`📝 문제 ${index + 1} 생성 중: ${hanzi.character}`)
+          const questionType = Math.random() > 0.5 ? "meaning" : "sound"
+          const correctAnswer =
+            questionType === "meaning" ? hanzi.meaning : hanzi.sound
+          console.log(`🎯 문제 유형: ${questionType}, 정답: ${correctAnswer}`)
 
-        // 다른 한자들에서 오답 생성 (같은 급수 내에서, 중복 제거)
-        const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
-        const wrongAnswers = otherHanzi
-          .sort(() => Math.random() - 0.5)
-          .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
-          .filter((answer) => answer !== correctAnswer) // 정답과 다른 답안만 선택
-          .filter((answer, index, arr) => arr.indexOf(answer) === index) // 중복 제거
-          .slice(0, 3) // 3개만 선택
-
-        // 정답과 오답을 섞어서 4지선다 생성 (중복 없는지 한번 더 확인)
-        const allOptions = [correctAnswer, ...wrongAnswers]
-          .filter(
-            (option) =>
-              option !== undefined && option !== null && option.trim() !== ""
-          ) // 빈 값 제거
-          .filter((option, index, arr) => arr.indexOf(option) === index) // 중복 제거
-          .sort(() => Math.random() - 0.5) as string[]
-
-        // 만약 4개가 안 되면 추가 오답 생성
-        if (allOptions.length < 4) {
-          const additionalWrongAnswers = otherHanzi
+          const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
+          const wrongAnswers = otherHanzi
+            .sort(() => Math.random() - 0.5)
             .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
-            .filter((answer) => !allOptions.includes(answer)) // 이미 있는 답안 제외
-            .filter((answer, index, arr) => arr.indexOf(answer) === index) // 중복 제거
-            .slice(0, 4 - allOptions.length) // 부족한 만큼 추가
+            .filter((answer) => answer !== correctAnswer)
+            .filter((answer, index, arr) => arr.indexOf(answer) === index)
+            .slice(0, 3)
 
-          allOptions.push(...additionalWrongAnswers)
+          const allOptions = [correctAnswer, ...wrongAnswers]
+            .filter(
+              (option) =>
+                option !== undefined && option !== null && option.trim() !== ""
+            )
+            .filter((option, index, arr) => arr.indexOf(option) === index)
+            .sort(() => Math.random() - 0.5) as string[]
+
+          if (allOptions.length < 4) {
+            const additionalWrongAnswers = otherHanzi
+              .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
+              .filter((answer) => !allOptions.includes(answer))
+              .filter((answer, index, arr) => arr.indexOf(answer) === index)
+              .slice(0, 4 - allOptions.length)
+
+            allOptions.push(...additionalWrongAnswers)
+          }
+
+          allOptions.push("모르겠음")
+
+          return {
+            id: hanzi.id,
+            hanzi: hanzi.character,
+            meaning: hanzi.meaning,
+            sound: hanzi.sound || hanzi.pinyin || "",
+            options: allOptions,
+            correctAnswer:
+              correctAnswer ||
+              (questionType === "meaning" ? hanzi.meaning : hanzi.sound),
+            questionType: questionType as "meaning" | "sound",
+            hanziId: hanzi.id,
+            relatedWords: hanzi.relatedWords,
+          }
         }
+      )
 
-        // "모르겠음" 옵션 추가하여 5지선다로 변경
-        allOptions.push("모르겠음")
+      // 게임 초기화
+      console.log(`✅ 퀴즈 문제 생성 완료: ${generatedQuestions.length}개`)
+      console.log(`🎮 게임 로직에 문제 설정 중...`)
+      gameLogic.setQuestions(generatedQuestions)
+      console.log(`🎮 setQuestions 호출 완료`)
 
-        return {
-          id: hanzi.id,
-          hanzi: hanzi.character,
-          meaning: hanzi.meaning,
-          sound: hanzi.sound || hanzi.pinyin || "",
-          options: allOptions,
-          correctAnswer:
-            correctAnswer ||
-            (questionType === "meaning" ? hanzi.meaning : hanzi.sound),
-          questionType: questionType as "meaning" | "sound",
-          hanziId: hanzi.id, // 한자 ID 추가
-          relatedWords: hanzi.relatedWords, // 관련 단어 추가
-        }
-      })
-
+      // setQuestions 호출 후 상태 확인
       setTimeout(() => {
-        setQuestions(generatedQuestions)
-        setCurrentQuestionIndex(0)
-        setCorrectAnswers(0)
-        questionsAnsweredRef.current = 0 // 답한 문제 수 리셋
-        setEarnedExperience(0) // 경험치 리셋
-        setSelectedAnswer(null)
-        setIsCorrect(null)
-        setGameEnded(false)
+        if (gameLogic.questions.length > 0) {
+          setShowSettings(false)
+          setIsGenerating(false)
+        }
+      }, 100)
+
+      console.log(`🎮 게임 초기화 중...`)
+      gameLogic.initializeGame()
+      console.log(`✅ 게임 초기화 완료!`)
+
+      // 상태 강제 업데이트
+      console.log(`🔄 상태 강제 업데이트 시작`)
+
+      // 즉시 상태 업데이트
+      setShowSettings(false)
+      setIsGenerating(false)
+      setForceUpdate((prev) => prev + 1)
+
+      // 추가 강제 업데이트
+      setTimeout(() => {
+        console.log(`🔄 추가 상태 업데이트`)
         setShowSettings(false)
         setIsGenerating(false)
-        setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
-        setIsProcessingAnswer(false) // 답변 처리 플래그 리셋
-        setUserConfirmedExit(false) // 나가기 확인 플래그 리셋
+        setForceUpdate((prev) => prev + 1)
+      }, 0)
 
-        // 게임 시작 시 시간 추적 시작
-        if (user) {
-          startSession().catch((error: any) => {
-            console.error("시간 추적 시작 실패:", error)
-          })
-        }
-      }, 1000)
+      console.log(`✅ 상태 업데이트 완료`)
+
+      if (user) {
+        console.log(`⏰ 시간 추적 시작...`)
+        startSession().catch((error: any) => {
+          console.error("시간 추적 시작 실패:", error)
+        })
+      }
     } catch (error) {
       console.error("게임 초기화 실패:", error)
       setIsGenerating(false)
@@ -408,296 +407,13 @@ export default function QuizGame() {
     }
   }
 
-  // 문제별 경험치 추가 및 한자별 통계 업데이트 (정답시)
-  const addQuestionExperience = async () => {
-    if (!user) return
-    try {
-      await updateUserExperience(1) // 1 EXP 추가 (새로고침 없이)
-
-      // 현재 문제의 한자 통계 업데이트 (현재 비활성화)
-      // const currentQuestion = questions[currentQuestionIndex]
-      // if (currentQuestion && currentQuestion.hanziId) {
-      //   await HanziStatisticsService.updateHanziStatistics(
-      //     user.id,
-      //     currentQuestion.hanziId,
-      //     "quiz",
-      //     true // 정답이므로 true
-      //   )
-      // }
-    } catch (error) {
-      console.error("경험치 추가 실패:", error)
-    }
-  }
-
-  // 한자별 통계 업데이트 (오답시) - 현재 비활성화
-  // const updateHanziStats = async (isCorrect: boolean) => {
-  //   if (!user) return
-  //   try {
-  //     const currentQuestion = questions[currentQuestionIndex]
-  //     if (currentQuestion && currentQuestion.hanziId) {
-  //       await HanziStatisticsService.updateHanziStatistics(
-  //         user.id,
-  //         currentQuestion.hanziId,
-  //         "quiz",
-  //         isCorrect
-  //       )
-  //     }
-  //   } catch (error) {
-  //     console.error("한자 통계 업데이트 실패:", error)
-  //   }
-  // }
-
-  const handleAnswerSelect = useCallback(
-    async (answer: string) => {
-      if (selectedAnswer !== null || isProcessingAnswer) return // 이미 답을 선택했거나 처리 중이면 무시
-
-      setIsProcessingAnswer(true) // 처리 시작
-      setSelectedAnswer(answer)
-      const currentQuestion = questions[currentQuestionIndex]
-      const correct = answer === currentQuestion.correctAnswer
-      const isDontKnow = answer === "모르겠음"
-
-      // 모르겠음을 선택한 경우 isCorrect를 null로 설정 (정답도 오답도 아님)
-      setIsCorrect(isDontKnow ? null : correct)
-      questionsAnsweredRef.current = questionsAnsweredRef.current + 1 // 답변 카운트 증가
-
-      // 경험치 계산 로직 변경
-      let experienceToAdd = 0
-      if (isDontKnow) {
-        // 모르겠음 선택 시 +1 경험치
-        experienceToAdd = 1
-        setDontKnowCount((prev) => prev + 1)
-      } else if (correct) {
-        // 정답 시 +1 경험치
-        experienceToAdd = 1
-        setCorrectAnswers((prev) => prev + 1)
-      } else {
-        // 틀린 답안 시 -1 경험치 (차감)
-        experienceToAdd = -1
-      }
-
-      // 문제별 경험치 즉시 누적
-      setEarnedExperience((prev) => prev + experienceToAdd)
-
-      console.log(
-        `🔢 문제 답변: ${currentQuestionIndex + 1}/${
-          questions.length
-        }, questionsAnswered: ${questionsAnsweredRef.current}`
-      )
-      console.log(
-        `⭐ 경험치 ${experienceToAdd >= 0 ? "+" : ""}${experienceToAdd} EXP`
-      )
-
-      // 즉시 통계 업데이트 (문제 풀 때마다)
-      if (user) {
-        try {
-          await ApiClient.updateGameStatisticsNew(user.id, "quiz", {
-            totalPlayed: 1, // 1문제씩 즉시 추가
-            correctAnswers: correct ? 1 : 0,
-            wrongAnswers: correct ? 0 : 1,
-            completedSessions: 0, // 문제 풀 때마다는 0
-          })
-        } catch (error) {
-          console.error("즉시 통계 업데이트 실패:", error)
-        }
-      }
-
-      // 즉시 경험치 추가
-      if (user && experienceToAdd !== 0) {
-        try {
-          console.log(
-            `💰 경험치 업데이트 시작: ${
-              isDontKnow ? "모르겠음" : correct ? "정답" : "오답"
-            } → ${experienceToAdd >= 0 ? "+" : ""}${experienceToAdd} EXP`
-          )
-          // 문제별 경험치 즉시 반영 (정답 +1, 오답 -1, 모르겠음 +1)
-          await updateUserExperience(experienceToAdd)
-          // 오늘 경험치도 함께 업데이트 (경험치가 양수일 때만)
-          if (experienceToAdd > 0) {
-            await ApiClient.updateTodayExperience(
-              user.id,
-              experienceToAdd,
-              (consecutiveDays, bonusExperience, dailyGoal) => {
-                // 보너스 경험치 획득 시 모달 표시
-                if (bonusExperience > 0) {
-                  // 간단한 알림으로 표시 (게임 페이지에서는 모달 대신)
-                  alert(
-                    `🎁 보너스 경험치 획득!\n연속 ${consecutiveDays}일 달성으로 +${bonusExperience} EXP를 획득했습니다!`
-                  )
-                }
-              }
-            )
-          }
-          console.log(
-            `⭐ 즉시 경험치 추가 완료: ${
-              experienceToAdd >= 0 ? "+" : ""
-            }${experienceToAdd} EXP (${
-              isDontKnow ? "모르겠음" : correct ? "정답" : "오답"
-            })`
-          )
-        } catch (error) {
-          console.error("즉시 경험치 추가 실패:", error)
-        }
-      }
-
-      if (correct) {
-        setCorrectAnswers((prev) => prev + 1)
-        // 문제별로 한자별 통계 업데이트
-        addQuestionExperience()
-      } else if (isDontKnow) {
-        // 모르겠음 선택 시에도 정답으로 간주 (경험치는 +1)
-        setCorrectAnswers((prev) => prev + 1)
-        // 문제별로 한자별 통계 업데이트
-        addQuestionExperience()
-      } else {
-        // 틀렸을 때 한자별 통계 업데이트 (틀린 답)
-        // updateHanziStats(false)
-      }
-
-      // 정답/오답 모달 2.5초간 표시 후 자동으로 다음 문제로 이동
-      setTimeout(async () => {
-        if (currentQuestionIndex < questions.length - 1) {
-          setCurrentQuestionIndex((prev) => prev + 1)
-          setSelectedAnswer(null)
-          setIsCorrect(null)
-        } else {
-          // 마지막 문제인 경우 게임 종료 및 팝업 상태 초기화
-          console.log(
-            `🎯 마지막 문제 완료! 총 답변: ${questionsAnsweredRef.current}개`
-          )
-          console.log(`🏁 gameEnded를 true로 설정합니다.`)
-          setGameEnded(true) // 즉시 게임 종료 상태 설정
-
-          // 완벽한 게임 보너스 계산 및 적용
-          const perfectBonus = await calculatePerfectGameBonus(
-            questions.length,
-            dontKnowCount,
-            correctAnswers
-          )
-
-          // 🔍 디버깅: 게임 완료 시 경험치 상태 확인
-          console.log("🔍 === 퀴즈 게임 완료 디버깅 ===")
-          console.log(`📊 게임 결과:`)
-          console.log(`  - 총 문제 수: ${questions.length}`)
-          console.log(`  - 정답 수: ${correctAnswers}`)
-          const wrongAnswers = questions.length - correctAnswers
-          console.log(`  - 오답 수: ${wrongAnswers}`)
-          console.log(`  - 모르겠음 수: ${dontKnowCount}`)
-          console.log(`  - 완벽한 게임 보너스: ${perfectBonus}`)
-          console.log(`  - 현재 earnedExperience 상태: ${earnedExperience}`)
-
-          // 완벽한 게임 보너스 계산 및 추가
-          const isPerfectGame = dontKnowCount === 0 && correctAnswers === questionCount
-          let actualBonus = 0
-          
-          if (isPerfectGame) {
-            const bonusMap: { [key: number]: number } = {
-              5: 1, 10: 2, 15: 3, 20: 5, 25: 9, 30: 12, 35: 15, 40: 20, 45: 25, 50: 30,
-            }
-            actualBonus = bonusMap[questionCount] || 0
-            
-            if (actualBonus > 0 && user) {
-              console.log(`🎁 완벽한 게임 보너스 ${actualBonus} EXP 추가`)
-              setBonusExperience(actualBonus)
-              setEarnedExperience((prev) => prev + actualBonus)
-              updateUserExperience(actualBonus)
-              ApiClient.updateTodayExperience(user.id, actualBonus)
-            }
-          }
-
-          console.log("🔍 === 디버깅 끝 ===")
-
-          // 다음 급수 권장 모달 체크
-          if (user) {
-            try {
-              const completionStatus =
-                await ApiClient.checkGradeCompletionStatus(
-                  user.id,
-                  selectedGrade
-                )
-              if (completionStatus.isFullyCompleted) {
-                console.log(
-                  `🎯 모든 한자 100번 이상 완료! 다음 급수 권장 모달 표시`
-                )
-                setShowNextGradeModal(true)
-              }
-            } catch (error) {
-              console.error("다음 급수 체크 실패:", error)
-            }
-          }
-
-          setSelectedAnswer(null)
-          setIsCorrect(null)
-        }
-        setIsProcessingAnswer(false) // 처리 완료
-      }, 2500) // 2.5초 후 자동 이동
-    },
-    [
-      questions,
-      currentQuestionIndex,
-      selectedAnswer,
-      isProcessingAnswer,
-      setSelectedAnswer,
-      setIsCorrect,
-      setCurrentQuestionIndex,
-      setGameEnded,
-      setIsProcessingAnswer,
-      addQuestionExperience,
-      // updateHanziStats,
-      user,
-      updateUserExperience,
-      earnedExperience,
-    ]
-  )
-
-  // 게임 종료 시 최종 통계 업데이트는 불필요 (이미 각 문제마다 즉시 업데이트됨)
-  useEffect(() => {
-    // 모든 문제를 풀었을 때만 세션 완료로 인정
-    if (
-      gameEnded &&
-      user &&
-      !hasUpdatedStats &&
-      questionsAnsweredRef.current === questions.length
-    ) {
-      // 세션 완료 통계 업데이트
-      ApiClient.updateGameStatisticsNew(user.id, "quiz", {
-        completedSessions: 1, // 세션 1회 완료
-      })
-        .then(() => {
-          setHasUpdatedStats(true)
-
-          // 게임 완료 시 시간 추적 종료
-          endSession()
-        })
-        .catch((error) => {
-          console.error("세션 완료 통계 업데이트 실패:", error)
-        })
-    } else if (gameEnded && questionsAnsweredRef.current !== questions.length) {
-      console.log(
-        `🚫 중도 포기: 세션 완료 통계 업데이트 안함 (${questionsAnsweredRef.current}/${questions.length})`
-      )
-      setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
-
-      // 중도 포기 시 시간 추적은 이미 handleExitConfirm에서 처리됨
-      console.log(
-        `ℹ️ 중도 포기 시 시간 추적은 이미 handleExitConfirm에서 처리됨`
-      )
-    } else {
-      console.log(
-        `❓ 조건 불만족: gameEnded=${gameEnded}, user=${!!user}, hasUpdatedStats=${hasUpdatedStats}, questionsAnswered=${
-          questionsAnsweredRef.current
-        }, questions.length=${questions.length}`
-      )
-    }
-  }, [gameEnded, user, hasUpdatedStats, questions.length])
-
-  const getQuestionText = (question: Question) => {
+  const getQuestionText = (question: QuizQuestion) => {
     return question.questionType === "meaning"
       ? `"${question.hanzi}"의 뜻은 무엇일까요?`
       : `"${question.hanzi}"의 음은 무엇일까요?`
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  // 로딩 상태 처리
   if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
@@ -706,7 +422,6 @@ export default function QuizGame() {
     )
   }
 
-  // 초기 데이터 로딩 중
   if (isLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
@@ -715,7 +430,6 @@ export default function QuizGame() {
     )
   }
 
-  // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
   if (isAuthenticated && !user) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
@@ -735,151 +449,9 @@ export default function QuizGame() {
     return <LoadingSpinner message='한자 데이터를 불러오는 중...' />
   }
 
-  // 설정 화면
-  if (showSettings) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
-        {/* 헤더 */}
-        <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
-          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-            <div className='flex justify-between items-center py-3'>
-              <div className='flex items-center space-x-4'>
-                <button
-                  onClick={() => (window.location.href = "/")}
-                  className='text-blue-600 hover:text-blue-700'
-                >
-                  <ArrowLeft className='h-5 w-5' />
-                </button>
-                <h1 className='text-xl font-bold text-gray-900'>퀴즈</h1>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* 메인 컨텐츠 */}
-        <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16'>
-          <div className='bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto'>
-            <h2 className='text-3xl font-bold text-gray-900 mb-6 text-center'>
-              퀴즈 설정
-            </h2>
-
-            {/* 급수 선택 */}
-            <div className='mb-6'>
-              <label className='block text-base font-semibold text-gray-700 mb-2'>
-                급수 선택
-              </label>
-              <select
-                value={selectedGrade}
-                onChange={(e) => handleGradeChange(Number(e.target.value))}
-                disabled={isLoadingGrade}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
-              >
-                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
-                  <option key={grade} value={grade} className='font-medium'>
-                    {grade === 5.5
-                      ? "준5급"
-                      : grade === 4.5
-                      ? "준4급"
-                      : grade === 3.5
-                      ? "준3급"
-                      : `${grade}급`}
-                  </option>
-                ))}
-              </select>
-
-              {isLoadingGrade && (
-                <div className='mt-2 flex items-center space-x-2'>
-                  <LoadingSpinner message='' />
-                  <span className='text-base text-gray-600'>
-                    급수 데이터를 불러오는 중...
-                  </span>
-                </div>
-              )}
-
-              {gradeHanzi.length > 0 ? (
-                <p className='mt-2 text-base text-gray-600'>
-                  해당 급수에 {gradeHanzi.length}개의 한자가 있습니다.
-                </p>
-              ) : (
-                !isLoadingGrade && (
-                  <p className='mt-2 text-base text-red-600 font-medium'>
-                    해당 급수에 데이터가 없습니다.
-                  </p>
-                )
-              )}
-            </div>
-
-            {/* 문제 수 선택 */}
-            <div className='mb-6'>
-              <label className='block text-base font-semibold text-gray-700 mb-2'>
-                문제 수 선택
-              </label>
-              <select
-                value={questionCount}
-                onChange={(e) => setQuestionCount(Number(e.target.value))}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
-              >
-                {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((count) => (
-                  <option key={count} value={count} className='font-medium'>
-                    {count}문제
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 퀴즈 생성 버튼 */}
-            <button
-              onClick={initializeGame}
-              disabled={isGenerating || gradeHanzi.length === 0}
-              className='w-full flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed'
-            >
-              {isGenerating ? (
-                <>
-                  <LoadingSpinner message='' />
-                  <span>퀴즈 생성 중...</span>
-                </>
-              ) : gradeHanzi.length === 0 ? (
-                <>
-                  <span>데이터 없음</span>
-                </>
-              ) : (
-                <>
-                  <Play className='h-5 w-5' />
-                  <span>퀴즈 시작</span>
-                </>
-              )}
-            </button>
-          </div>
-        </main>
-
-        {/* 데이터 없음 모달 */}
-        {showNoDataModal && (
-          <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-            <div className='bg-white rounded-lg p-6 max-w-md mx-4'>
-              <div className='text-center'>
-                <div className='text-red-500 text-4xl mb-4'>⚠️</div>
-                <h3 className='text-lg font-semibold text-gray-900 mb-2'>
-                  데이터 부족
-                </h3>
-                <p className='text-gray-700 mb-6 font-medium'>
-                  {noDataMessage}
-                </p>
-                <button
-                  onClick={() => setShowNoDataModal(false)}
-                  className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // 퀴즈 생성 중
+  // 게임 생성 중
   if (isGenerating) {
+    console.log(`⏳ 로딩 스피너 표시 중...`)
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='퀴즈를 생성하는 중...' />
@@ -887,63 +459,81 @@ export default function QuizGame() {
     )
   }
 
-  if (questions.length === 0) {
+  // 설정 화면
+  if (showSettings) {
+    console.log(`🎮 설정 화면 렌더링: isGenerating=${isGenerating}`)
+    return (
+      <GameSettings
+        gameType='quiz'
+        selectedGrade={selectedGrade}
+        questionCount={questionCount}
+        gradeHanzi={gradeHanzi}
+        isLoadingGrade={isLoadingGrade}
+        isGenerating={isGenerating}
+        showNoDataModal={showNoDataModal}
+        noDataMessage={noDataMessage}
+        onGradeChange={handleGradeChange}
+        onQuestionCountChange={setQuestionCount}
+        onStartGame={initializeGame}
+        onCloseNoDataModal={() => setShowNoDataModal(false)}
+      />
+    )
+  }
+
+  if (gameLogic.questions.length === 0) {
     return <LoadingSpinner message='퀴즈를 준비하는 중...' />
   }
 
-  const currentQuestion = questions[currentQuestionIndex]
+  const currentQuestion = gameLogic.questions[
+    gameLogic.currentQuestionIndex
+  ] as QuizQuestion
+
+  console.log(
+    `🎮 게임 화면 렌더링: showSettings=${showSettings}, isGenerating=${isGenerating}, gameEnded=${gameLogic.gameEnded}`
+  )
+  console.log(
+    `🎮 현재 문제: ${currentQuestion?.hanzi || "없음"}, 인덱스: ${
+      gameLogic.currentQuestionIndex
+    }`
+  )
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 헤더 */}
-      <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center py-3'>
-            <div className='flex items-center space-x-4'>
-              <button
-                onClick={() => {
-                  if (!gameEnded && !hasUpdatedStats && questions.length > 0) {
-                    setShowExitModal(true)
-                  } else {
-                    window.location.href = "/"
-                  }
-                }}
-                className='text-blue-600 hover:text-blue-700'
-              >
-                <ArrowLeft className='h-5 w-5' />
-              </button>
-              <h1 className='text-xl font-bold text-gray-900'>퀴즈</h1>
-            </div>
-            <div className='flex items-center space-x-6'>
-              <div className='text-center'>
-                <div className='text-sm text-gray-600'>정답</div>
-                <div className='text-lg font-bold text-green-600'>
-                  {correctAnswers}
-                </div>
-              </div>
-              <div className='text-center'>
-                <div className='text-sm text-gray-600'>문제</div>
-                <div className='text-lg font-bold text-blue-600'>
-                  {currentQuestionIndex + 1}/{questionCount}
-                </div>
-              </div>
-              <div className='text-center'>
-                <div className='text-sm text-gray-600'>시간</div>
-                <div className='text-lg font-bold text-purple-600'>
-                  {Math.floor(currentDuration / 60)
-                    .toString()
-                    .padStart(2, "0")}
-                  :{(currentDuration % 60).toString().padStart(2, "0")}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <GameHeader
+        gameType='quiz'
+        correctAnswers={gameLogic.gameStats.correctAnswers}
+        currentQuestionIndex={gameLogic.currentQuestionIndex}
+        questionCount={questionCount}
+        currentDuration={currentDuration}
+        onBackClick={() => {
+          if (
+            !gameLogic.gameEnded &&
+            !gameLogic.hasUpdatedStats &&
+            gameLogic.questions.length > 0
+          ) {
+            setShowExitModal(true)
+          } else {
+            window.location.href = "/"
+          }
+        }}
+      />
 
       {/* 메인 컨텐츠 */}
       <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16'>
-        {!gameEnded ? (
+        {gameLogic.gameEnded ? (
+          <GameCompletionCard
+            gameType='quiz'
+            questionCount={questionCount}
+            gameStats={gameLogic.gameStats}
+            userExperience={user?.experience || 0}
+            onRestart={() => {
+              setShowSettings(true)
+              gameLogic.initializeGame()
+            }}
+            onGoHome={() => (window.location.href = "/")}
+          />
+        ) : (
           <div className='space-y-8'>
             {/* 문제 */}
             <div className='bg-white rounded-lg shadow-lg p-8 text-center'>
@@ -966,14 +556,14 @@ export default function QuizGame() {
                 {currentQuestion.options.map((option, index) => (
                   <button
                     key={index}
-                    onClick={() => handleAnswerSelect(option)}
-                    disabled={selectedAnswer !== null}
+                    onClick={() => gameLogic.handleAnswerSelect(option)}
+                    disabled={gameLogic.selectedAnswer !== null}
                     className={`
                       p-3 rounded-lg border-2 transition-all duration-200 text-left
                       ${
-                        selectedAnswer === null
+                        gameLogic.selectedAnswer === null
                           ? "border-gray-300 hover:border-blue-500 hover:bg-blue-50"
-                          : selectedAnswer === option
+                          : gameLogic.selectedAnswer === option
                           ? option === currentQuestion.correctAnswer
                             ? "border-green-500 bg-green-100"
                             : "border-red-500 bg-red-100"
@@ -982,7 +572,7 @@ export default function QuizGame() {
                           : "border-gray-300 bg-gray-50"
                       }
                       ${
-                        selectedAnswer !== null
+                        gameLogic.selectedAnswer !== null
                           ? "cursor-default"
                           : "cursor-pointer"
                       }
@@ -1000,11 +590,11 @@ export default function QuizGame() {
                       <span className='text-base font-semibold text-gray-900'>
                         {option}
                       </span>
-                      {selectedAnswer !== null && (
+                      {gameLogic.selectedAnswer !== null && (
                         <div className='ml-auto'>
                           {option === currentQuestion.correctAnswer ? (
                             <CheckCircle className='h-5 w-5 text-green-600' />
-                          ) : selectedAnswer === option ? (
+                          ) : gameLogic.selectedAnswer === option ? (
                             <XCircle className='h-5 w-5 text-red-600' />
                           ) : null}
                         </div>
@@ -1015,17 +605,17 @@ export default function QuizGame() {
               </div>
 
               {/* 정답 표시 */}
-              {selectedAnswer !== null && (
+              {gameLogic.selectedAnswer !== null && (
                 <div className='mt-6 p-4 rounded-lg bg-blue-50 border border-blue-200'>
                   <div className='flex items-center justify-center space-x-2'>
-                    {isCorrect === true ? (
+                    {gameLogic.isCorrect === true ? (
                       <>
                         <CheckCircle className='h-5 w-5 text-green-600' />
                         <span className='text-green-600 font-semibold'>
                           정답입니다!
                         </span>
                       </>
-                    ) : isCorrect === null ? (
+                    ) : gameLogic.isCorrect === null ? (
                       <>
                         <CheckCircle className='h-5 w-5 text-blue-600' />
                         <span className='text-blue-600 font-semibold'>
@@ -1048,358 +638,46 @@ export default function QuizGame() {
               )}
             </div>
           </div>
-        ) : (
-          /* 게임 종료 화면 */
-          <div className='text-center py-12'>
-            <div className='bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto'>
-              <h2 className='text-3xl font-bold text-gray-900 mb-4'>
-                퀴즈 완료!
-              </h2>
-              <div className='space-y-4 mb-6'>
-                <p className='text-lg text-gray-700 font-medium'>
-                  정답 개수:{" "}
-                  <span className='font-bold text-blue-600'>
-                    {correctAnswers}
-                  </span>
-                </p>
-                <p className='text-lg text-gray-700 font-medium'>
-                  획득 경험치:{" "}
-                  <span className='font-bold text-green-600'>
-                    {earnedExperience}EXP
-                  </span>
-                </p>
-                <p className='text-gray-700 font-medium'>
-                  정답률:{" "}
-                  <span className='font-bold text-green-600'>
-                    {Math.round((correctAnswers / questionCount) * 100)}%
-                  </span>
-                </p>
-                <p className='text-gray-700 font-medium'>
-                  문제 수: {questionCount}개
-                </p>
-
-                {/* 경험치 상세 정보 */}
-                <div className='bg-gray-50 rounded-lg p-4 mt-4'>
-                  <h3 className='text-base font-semibold text-gray-700 mb-2'>
-                    경험치 상세
-                  </h3>
-                  <div className='space-y-1 text-base'>
-                    <div className='flex justify-between'>
-                      <span className='text-gray-600'>
-                        정답 ({correctAnswers}개):
-                      </span>
-                      <span className='text-green-600 font-medium'>
-                        +{correctAnswers} EXP
-                      </span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span className='text-gray-600'>
-                        오답 ({questionCount - correctAnswers - dontKnowCount}
-                        개):
-                      </span>
-                      <span className='text-red-600 font-medium'>
-                        -{questionCount - correctAnswers - dontKnowCount} EXP
-                      </span>
-                    </div>
-                    {dontKnowCount > 0 && (
-                      <div className='flex justify-between'>
-                        <span className='text-gray-600'>
-                          모르겠음 ({dontKnowCount}개):
-                        </span>
-                        <span className='text-blue-600 font-medium'>
-                          +{dontKnowCount} EXP
-                        </span>
-                      </div>
-                    )}
-                    {bonusExperience > 0 && (
-                      <div className='flex justify-between'>
-                        <span className='text-gray-600'>
-                          완벽한 게임 보너스:
-                        </span>
-                        <span className='text-purple-600 font-medium'>
-                          +{bonusExperience} EXP
-                        </span>
-                      </div>
-                    )}
-                    <div className='border-t pt-1 mt-2'>
-                      <div className='flex justify-between font-semibold'>
-                        <span className='text-gray-800'>총 경험치:</span>
-                        <span className='text-green-600'>
-                          +{earnedExperience} EXP
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className='flex justify-center space-x-4 px-4'>
-                <button
-                  onClick={() => {
-                    setGameEnded(false)
-                    setCorrectAnswers(0)
-                    setDontKnowCount(0)
-                    setEarnedExperience(0)
-                    setHasUpdatedStats(false)
-                    questionsAnsweredRef.current = 0
-                    setShowSettings(true)
-                  }}
-                  className='flex-1 max-w-xs px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
-                >
-                  <span>다시 하기</span>
-                </button>
-                <button
-                  onClick={() => {
-                    window.location.href = "/"
-                  }}
-                  className='flex-1 max-w-xs px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium'
-                >
-                  홈으로
-                </button>
-              </div>
-            </div>
-          </div>
         )}
+
+        {/* 정답 모달 */}
+        <AnswerModal
+          isOpen={
+            gameLogic.selectedAnswer !== null && gameLogic.isCorrect === true
+          }
+          question={currentQuestion}
+          selectedAnswer={gameLogic.selectedAnswer}
+          isCorrect={gameLogic.isCorrect}
+        />
 
         {/* 틀렸을 때 정답 모달 */}
-        {selectedAnswer !== null && isCorrect === false && (
-          <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
-            <div className='bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 text-center'>
-              <div className='mb-4'>
-                <XCircle className='h-12 w-12 text-red-500 mx-auto mb-3' />
-                <h3 className='text-xl font-bold text-gray-900 mb-2'>
-                  틀렸습니다
-                </h3>
-                <p className='text-gray-600 text-base'>정답을 확인해보세요</p>
-              </div>
-
-              <div className='bg-gray-50 rounded-lg p-4 mb-4'>
-                <div className='text-5xl font-bold text-blue-600 mb-4'>
-                  {currentQuestion.hanzi}
-                </div>
-                <div className='space-y-2 mb-4'>
-                  <div className='text-lg text-gray-700'>
-                    <span className='text-gray-500 font-medium'>뜻:</span>
-                    <span className='font-bold text-green-600 ml-2'>
-                      {currentQuestion.meaning}
-                    </span>
-                  </div>
-                  <div className='text-lg text-gray-700'>
-                    <span className='text-gray-500 font-medium'>음:</span>
-                    <span className='font-bold text-green-600 ml-2'>
-                      {currentQuestion.sound}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 관련 단어 섹션 */}
-                {(() => {
-                  return (
-                    currentQuestion.relatedWords &&
-                    currentQuestion.relatedWords.length > 0
-                  )
-                })() && (
-                  <div className='border-t pt-3'>
-                    <h4 className='text-base font-semibold text-gray-700 mb-2'>
-                      관련 단어
-                    </h4>
-                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-                      {currentQuestion.relatedWords
-                        ?.slice(0, 4)
-                        .map((word, index) => (
-                          <div
-                            key={index}
-                            className='bg-white rounded-md p-2 text-base'
-                          >
-                            <div className='font-medium text-gray-900'>
-                              {word.hanzi}
-                            </div>
-                            <div className='text-gray-600'>{word.korean}</div>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className='text-xs text-gray-500'>
-                잠시 후 다음 문제로 넘어갑니다...
-              </div>
-            </div>
-          </div>
-        )}
-
+        <AnswerModal
+          isOpen={
+            gameLogic.selectedAnswer !== null && gameLogic.isCorrect === false
+          }
+          question={currentQuestion}
+          selectedAnswer={gameLogic.selectedAnswer}
+          isCorrect={gameLogic.isCorrect}
+        />
 
         {/* 모르겠음 선택 시 모달 */}
-        {selectedAnswer !== null && isCorrect === null && (
-          <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
-            <div className='bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 text-center'>
-              <div className='mb-4'>
-                <CheckCircle className='h-12 w-12 text-blue-500 mx-auto mb-3' />
-                <h3 className='text-xl font-bold text-gray-900 mb-2'>
-                  정답을 확인해보세요
-                </h3>
-                <p className='text-gray-600 text-base'>
-                  이 한자를 기억해두세요
-                </p>
-              </div>
-
-              <div className='bg-gray-50 rounded-lg p-4 mb-4'>
-                <div className='text-5xl font-bold text-blue-600 mb-4'>
-                  {currentQuestion.hanzi}
-                </div>
-                <div className='space-y-2 mb-4'>
-                  <div className='text-lg text-gray-700'>
-                    <span className='text-gray-500 font-medium'>뜻:</span>
-                    <span className='font-bold text-green-600 ml-2'>
-                      {currentQuestion.meaning}
-                    </span>
-                  </div>
-                  <div className='text-lg text-gray-700'>
-                    <span className='text-gray-500 font-medium'>음:</span>
-                    <span className='font-bold text-green-600 ml-2'>
-                      {currentQuestion.sound}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 관련 단어 섹션 */}
-                {currentQuestion.relatedWords &&
-                  currentQuestion.relatedWords.length > 0 && (
-                    <div className='border-t pt-3'>
-                      <h4 className='text-base font-semibold text-gray-700 mb-2'>
-                        관련 단어
-                      </h4>
-                      <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-                        {currentQuestion.relatedWords
-                          ?.slice(0, 4)
-                          .map((word, index) => (
-                            <div
-                              key={index}
-                              className='bg-white rounded-md p-2 text-base'
-                            >
-                              <div className='font-medium text-gray-900'>
-                                {word.hanzi}
-                              </div>
-                              <div className='text-gray-600'>{word.korean}</div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-              </div>
-
-              <div className='text-xs text-gray-500'>
-                잠시 후 다음 문제로 넘어갑니다...
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 맞았을 때 성공 모달 */}
-        {selectedAnswer !== null && isCorrect === true && (
-          <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
-            <div className='bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 text-center'>
-              <div className='mb-4'>
-                <CheckCircle className='h-12 w-12 text-green-500 mx-auto mb-3' />
-                <h3 className='text-xl font-bold text-gray-900 mb-2'>
-                  정답입니다!
-                </h3>
-                <p className='text-green-600 text-base'>잘 하셨습니다!</p>
-              </div>
-
-              <div className='bg-gray-50 rounded-lg p-4 mb-4'>
-                <div className='text-5xl font-bold text-blue-600 mb-4'>
-                  {currentQuestion.hanzi}
-                </div>
-                <div className='space-y-2 mb-4'>
-                  <div className='text-lg text-gray-700'>
-                    <span className='text-gray-500 font-medium'>뜻:</span>
-                    <span className='font-bold text-green-600 ml-2'>
-                      {currentQuestion.meaning}
-                    </span>
-                  </div>
-                  <div className='text-lg text-gray-700'>
-                    <span className='text-gray-500 font-medium'>음:</span>
-                    <span className='font-bold text-green-600 ml-2'>
-                      {currentQuestion.sound}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 관련 단어 섹션 */}
-                {currentQuestion.relatedWords &&
-                  currentQuestion.relatedWords.length > 0 && (
-                    <div className='border-t pt-3'>
-                      <h4 className='text-base font-semibold text-gray-700 mb-2'>
-                        관련 단어
-                      </h4>
-                      <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-                        {currentQuestion.relatedWords
-                          ?.slice(0, 4)
-                          .map((word, index) => (
-                            <div
-                              key={index}
-                              className='bg-white rounded-md p-2 text-base'
-                            >
-                              <div className='font-medium text-gray-900'>
-                                {word.hanzi}
-                              </div>
-                              <div className='text-gray-600'>{word.korean}</div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-              </div>
-
-              <div className='text-xs text-gray-500'>
-                잠시 후 다음 문제로 넘어갑니다...
-              </div>
-            </div>
-          </div>
-        )}
+        <AnswerModal
+          isOpen={
+            gameLogic.selectedAnswer !== null && gameLogic.isCorrect === null
+          }
+          question={currentQuestion}
+          selectedAnswer={gameLogic.selectedAnswer}
+          isCorrect={gameLogic.isCorrect}
+        />
       </main>
 
       {/* 뒤로가기 확인 모달 */}
-      {showExitModal && (
-        <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
-          <div className='bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center'>
-            <div className='mb-6'>
-              <div className='text-yellow-500 text-4xl mb-4'>⚠️</div>
-              <h3 className='text-2xl font-bold text-gray-900 mb-4'>
-                게임을 중단하시겠습니까?
-              </h3>
-              <div className='space-y-3 text-gray-700'>
-                <p className='font-medium'>
-                  현재까지 {questionsAnsweredRef.current}문제를 풀었습니다.
-                </p>
-                <p className='text-base'>
-                  게임을 중단하면 진행 상황이 저장되지 않습니다.
-                </p>
-                <p className='text-base font-semibold text-red-600'>
-                  정말 나가시겠습니까?
-                </p>
-              </div>
-            </div>
-
-            <div className='flex justify-center space-x-4'>
-              <button
-                onClick={handleExitCancel}
-                className='px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium'
-              >
-                계속하기
-              </button>
-              <button
-                onClick={handleExitConfirm}
-                className='px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium'
-              >
-                나가기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <ExitModal
+        isOpen={showExitModal}
+        questionsAnswered={gameLogic.questionsAnsweredRef.current}
+        onConfirm={handleExitConfirm}
+        onCancel={handleExitCancel}
+      />
 
       {/* 다음 급수 권장 모달 */}
       <NextGradeModal
@@ -1410,11 +688,9 @@ export default function QuizGame() {
         onProceedToNext={() => {
           setSelectedGrade(selectedGrade - 1)
           setShowNextGradeModal(false)
-          // 게임 재시작
           initializeGame()
         }}
       />
-
     </div>
   )
 }
