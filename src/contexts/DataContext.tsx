@@ -68,7 +68,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const hanziData = await ApiClient.getHanziByGrade(selectedGrade)
       setHanziList(hanziData)
     } catch (error) {
-      console.error("한자 데이터 로드 에러:", error)
     } finally {
       setIsLoading(false)
     }
@@ -83,14 +82,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       // userStatistics가 없으면 초기화
       if (!stats) {
-        console.log("UserStatistics not found, initializing...")
         await ApiClient.initializeUserStatistics(user.id)
         stats = await ApiClient.getUserStatistics(user.id)
       }
 
       setUserStatistics(stats)
     } catch (error) {
-      console.error("사용자 통계 로드 에러:", error)
     } finally {
       setIsLoading(false)
     }
@@ -107,7 +104,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       )
       setLearningSessions(sessions)
     } catch (error) {
-      console.error("학습 세션 로드 에러:", error)
     } finally {
       setIsLoading(false)
     }
@@ -125,9 +121,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         // 통계 업데이트
         const updatedStats = await ApiClient.getUserStatistics(user.id)
         setUserStatistics(updatedStats)
-      } catch (error) {
-        console.error("사용자 통계 업데이트 에러:", error)
-      }
+      } catch (error) {}
     },
     [user, learningSessions]
   )
@@ -153,9 +147,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           // updatedStats.totalSessions += stats.totalPlayed || 0
           setUserStatistics(updatedStats)
         }
-      } catch (error) {
-        console.error("실시간 통계 업데이트 에러:", error)
-      }
+      } catch (error) {}
     },
     [user, userStatistics]
   )

@@ -61,6 +61,7 @@ export default function Home() {
     }>
   >([])
   const [isLoadingRankings, setIsLoadingRankings] = useState<boolean>(false)
+  const [showRankingModal, setShowRankingModal] = useState(false)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -137,13 +138,8 @@ export default function Home() {
         setIsLoadingRankings(true)
 
         // 디버깅: 모든 유저 조회
-        console.log("🔍 디버깅: 모든 유저 조회 시작")
         const allUsers = await ApiClient.getAllUsers()
-        console.log("📊 모든 유저:", allUsers)
-
-        // 유저 순위 조회
         const rankings = await ApiClient.getUserRankings()
-        console.log("🏆 유저 순위:", rankings)
 
         setUserRankings(rankings)
       } catch (error) {
@@ -531,11 +527,8 @@ export default function Home() {
                     </span>
                   </div>
                 ) : userRankings.length > 0 ? (
-                  <div className='max-h-[500px] overflow-y-auto space-y-3' style={{
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: '#d1d5db #f3f4f6'
-                  }}>
-                    {userRankings.map((user) => (
+                  <div className='space-y-3'>
+                    {userRankings.slice(0, 5).map((user) => (
                       <div
                         key={user.userId}
                         className={`flex items-center justify-between p-3 rounded-lg ${
@@ -594,6 +587,18 @@ export default function Home() {
                         </div>
                       </div>
                     ))}
+                    
+                    {/* 더보기 버튼 */}
+                    {userRankings.length > 5 && (
+                      <div className='text-center pt-3'>
+                        <button
+                          onClick={() => setShowRankingModal(true)}
+                          className='text-xs text-gray-500 hover:text-gray-700 underline'
+                        >
+                          더보기
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className='text-center py-8 text-gray-500'>
@@ -769,6 +774,110 @@ export default function Home() {
               >
                 확인
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 유저 순위 모달 */}
+      {showRankingModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowRankingModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-xl font-bold text-gray-900">
+                🏆 전체 유저 순위
+              </h2>
+              <button
+                onClick={() => setShowRankingModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            {/* 모달 내용 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {isLoadingRankings ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <span className="ml-2 text-gray-600">
+                    순위를 불러오는 중...
+                  </span>
+                </div>
+              ) : userRankings.length > 0 ? (
+                <div className="space-y-3">
+                  {userRankings.map((user) => (
+                    <div
+                      key={user.userId}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        user.rank === 1
+                          ? "bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200"
+                          : user.rank === 2
+                          ? "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200"
+                          : user.rank === 3
+                          ? "bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200"
+                          : "bg-gray-50 border border-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            user.rank === 1
+                              ? "bg-yellow-400 text-white"
+                              : user.rank === 2
+                              ? "bg-gray-400 text-white"
+                              : user.rank === 3
+                              ? "bg-orange-400 text-white"
+                              : "bg-blue-400 text-white"
+                          }`}
+                        >
+                          {user.rank}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 truncate">
+                            {user.username}
+                          </div>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span>레벨 {user.level}</span>
+                              <span>•</span>
+                              <span>
+                                {user.experience.toLocaleString()} EXP
+                              </span>
+                              <span>•</span>
+                              <span className="text-orange-600 font-medium">
+                                {formatStudyTime(user.totalStudyTime)}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span>{user.totalPlayed}문제</span>
+                              <span>•</span>
+                              <span className="text-green-600 font-medium">
+                                정답률 {user.accuracy}%
+                              </span>
+                              <span>•</span>
+                              <span className="text-blue-600 font-medium">
+                                {user.preferredGrade}급
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  아직 순위 데이터가 없습니다.
+                </div>
+              )}
             </div>
           </div>
         </div>

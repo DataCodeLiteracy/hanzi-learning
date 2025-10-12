@@ -55,11 +55,7 @@ export default function QuizGame() {
 
   // 게임 생성 완료 후 상태 강제 업데이트
   useEffect(() => {
-    console.log(
-      `🔄 useEffect 트리거: questions.length=${gameLogic.questions.length}, isGenerating=${isGenerating}`
-    )
     if (gameLogic.questions.length > 0 && isGenerating) {
-      console.log(`🔄 게임 생성 완료 감지, 상태 강제 업데이트`)
       setShowSettings(false)
       setIsGenerating(false)
     }
@@ -68,19 +64,12 @@ export default function QuizGame() {
   // setQuestions 호출 후 강제 리렌더링
   useEffect(() => {
     if (gameLogic.questions.length > 0) {
-      console.log(
-        `🎮 questions 상태 업데이트 감지: ${gameLogic.questions.length}개`
-      )
       setForceUpdate((prev) => prev + 1)
     }
   }, [gameLogic.questions.length])
 
   // 강제 리렌더링을 위한 useEffect
-  useEffect(() => {
-    console.log(
-      `🔄 컴포넌트 리렌더링: showSettings=${showSettings}, isGenerating=${isGenerating}, questions=${gameLogic.questions.length}`
-    )
-  }, [showSettings, isGenerating, gameLogic.questions.length])
+  useEffect(() => {}, [showSettings, isGenerating, gameLogic.questions.length])
 
   // 강제 리렌더링을 위한 상태
   const [forceUpdate, setForceUpdate] = useState(0)
@@ -102,7 +91,6 @@ export default function QuizGame() {
         const grade8Data = await ApiClient.getHanziByGrade(8)
         setGradeHanzi(grade8Data)
       } catch (error) {
-        console.error("초기 데이터 로드 실패:", error)
       } finally {
         setIsLoading(false)
       }
@@ -160,14 +148,10 @@ export default function QuizGame() {
     ) {
       gameLogic.setUserConfirmedExit(true)
       const sessionDuration = endSession()
-      console.log(`🚪 퀴즈 게임 중단: ${sessionDuration}초 학습 시간 저장됨`)
       gameLogic.setGameEnded(true)
     } else {
       gameLogic.setUserConfirmedExit(true)
       const sessionDuration = endSession()
-      console.log(
-        `🚪 퀴즈 게임 중단 (문제 미풀이): ${sessionDuration}초 학습 시간 저장됨`
-      )
       gameLogic.setGameEnded(true)
     }
     setShowExitModal(false)
@@ -202,12 +186,9 @@ export default function QuizGame() {
           selectedGrade
         )
         if (completionStatus.isFullyCompleted) {
-          console.log(`🎯 모든 한자 100번 이상 완료! 다음 급수 권장 모달 표시`)
           setShowNextGradeModal(true)
         }
-      } catch (error) {
-        console.error("다음 급수 체크 실패:", error)
-      }
+      } catch (error) {}
     }
   }
 
@@ -240,7 +221,6 @@ export default function QuizGame() {
         setShowNoDataModal(false)
       }
     } catch (error) {
-      console.error("급수 데이터 로드 실패:", error)
       setNoDataMessage("데이터 로드 중 오류가 발생했습니다.")
       setShowNoDataModal(true)
     } finally {
@@ -250,13 +230,7 @@ export default function QuizGame() {
 
   // 게임 초기화 함수
   const initializeGame = async () => {
-    console.log(`🚀 initializeGame 호출됨`)
-    console.log(
-      `📊 현재 상태: gradeHanzi.length=${gradeHanzi.length}, questionCount=${questionCount}, user=${user?.id}`
-    )
-
     if (gradeHanzi.length === 0) {
-      console.log(`❌ 급수 데이터 없음`)
       setNoDataMessage(
         `선택한 급수(${
           selectedGrade === 5.5
@@ -273,7 +247,6 @@ export default function QuizGame() {
     }
 
     if (gradeHanzi.length < questionCount) {
-      console.log(`❌ 한자 개수 부족: ${gradeHanzi.length} < ${questionCount}`)
       setNoDataMessage(
         `선택한 급수에 ${questionCount}개보다 적은 한자가 있습니다. (${gradeHanzi.length}개)`
       )
@@ -281,37 +254,19 @@ export default function QuizGame() {
       return
     }
 
-    console.log(`✅ 게임 생성 조건 만족, isGenerating=true 설정`)
     setIsGenerating(true)
-    console.log(
-      `🎮 퀴즈 게임 생성 시작 - 사용자: ${user?.id}, 급수: ${selectedGrade}, 문제수: ${questionCount}`
-    )
 
     try {
-      console.log(`🔄 API 호출 시작: getPrioritizedHanzi`)
-      console.log(
-        `📤 요청 파라미터: userId=${
-          user!.id
-        }, grade=${selectedGrade}, count=${questionCount}`
-      )
-
       const selectedHanzi = await ApiClient.getPrioritizedHanzi(
         user!.id,
         selectedGrade,
         questionCount
       )
-      console.log(`📝 API 응답 받음: ${selectedHanzi.length}개`, selectedHanzi)
-
-      console.log(
-        `🔧 문제 생성 시작: ${selectedHanzi.length}개 한자로 문제 만들기`
-      )
       const generatedQuestions: QuizQuestion[] = selectedHanzi.map(
         (hanzi, index) => {
-          console.log(`📝 문제 ${index + 1} 생성 중: ${hanzi.character}`)
           const questionType = Math.random() > 0.5 ? "meaning" : "sound"
           const correctAnswer =
             questionType === "meaning" ? hanzi.meaning : hanzi.sound
-          console.log(`🎯 문제 유형: ${questionType}, 정답: ${correctAnswer}`)
 
           const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
           const wrongAnswers = otherHanzi
@@ -358,10 +313,7 @@ export default function QuizGame() {
       )
 
       // 게임 초기화
-      console.log(`✅ 퀴즈 문제 생성 완료: ${generatedQuestions.length}개`)
-      console.log(`🎮 게임 로직에 문제 설정 중...`)
       gameLogic.setQuestions(generatedQuestions)
-      console.log(`🎮 setQuestions 호출 완료`)
 
       // setQuestions 호출 후 상태 확인
       setTimeout(() => {
@@ -371,36 +323,24 @@ export default function QuizGame() {
         }
       }, 100)
 
-      console.log(`🎮 게임 초기화 중...`)
       gameLogic.initializeGame()
-      console.log(`✅ 게임 초기화 완료!`)
 
-      // 상태 강제 업데이트
-      console.log(`🔄 상태 강제 업데이트 시작`)
-
-      // 즉시 상태 업데이트
+      // 상태 업데이트
       setShowSettings(false)
       setIsGenerating(false)
       setForceUpdate((prev) => prev + 1)
 
-      // 추가 강제 업데이트
+      // 추가 상태 업데이트
       setTimeout(() => {
-        console.log(`🔄 추가 상태 업데이트`)
         setShowSettings(false)
         setIsGenerating(false)
         setForceUpdate((prev) => prev + 1)
       }, 0)
 
-      console.log(`✅ 상태 업데이트 완료`)
-
       if (user) {
-        console.log(`⏰ 시간 추적 시작...`)
-        startSession().catch((error: any) => {
-          console.error("시간 추적 시작 실패:", error)
-        })
+        startSession().catch((error: any) => {})
       }
     } catch (error) {
-      console.error("게임 초기화 실패:", error)
       setIsGenerating(false)
       setNoDataMessage("게임 초기화 중 오류가 발생했습니다.")
       setShowNoDataModal(true)
@@ -451,7 +391,6 @@ export default function QuizGame() {
 
   // 게임 생성 중
   if (isGenerating) {
-    console.log(`⏳ 로딩 스피너 표시 중...`)
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='퀴즈를 생성하는 중...' />
@@ -461,7 +400,6 @@ export default function QuizGame() {
 
   // 설정 화면
   if (showSettings) {
-    console.log(`🎮 설정 화면 렌더링: isGenerating=${isGenerating}`)
     return (
       <GameSettings
         gameType='quiz'
@@ -487,15 +425,6 @@ export default function QuizGame() {
   const currentQuestion = gameLogic.questions[
     gameLogic.currentQuestionIndex
   ] as QuizQuestion
-
-  console.log(
-    `🎮 게임 화면 렌더링: showSettings=${showSettings}, isGenerating=${isGenerating}, gameEnded=${gameLogic.gameEnded}`
-  )
-  console.log(
-    `🎮 현재 문제: ${currentQuestion?.hanzi || "없음"}, 인덱스: ${
-      gameLogic.currentQuestionIndex
-    }`
-  )
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>

@@ -32,7 +32,6 @@ export class ApiClient {
       })
       return docRef.id
     } catch (error) {
-      console.error("Error creating document:", error)
       throw new Error("문서 생성에 실패했습니다.")
     }
   }
@@ -62,7 +61,6 @@ export class ApiClient {
         ...doc.data(),
       })) as any
     } catch (error) {
-      console.error("피드백 목록 조회 실패:", error)
       throw new Error("피드백 목록을 가져오는데 실패했습니다.")
     }
   }
@@ -79,7 +77,6 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
-      console.error("피드백 상태 업데이트 실패:", error)
       throw new Error("피드백 상태 업데이트에 실패했습니다.")
     }
   }
@@ -90,7 +87,6 @@ export class ApiClient {
       const feedbackRef = doc(db, "feedback", feedbackId)
       await deleteDoc(feedbackRef)
     } catch (error) {
-      console.error("피드백 삭제 실패:", error)
       throw new Error("피드백 삭제에 실패했습니다.")
     }
   }
@@ -109,7 +105,6 @@ export class ApiClient {
       }
       return null
     } catch (error) {
-      console.error("Error getting document:", error)
       throw new Error("문서 조회에 실패했습니다.")
     }
   }
@@ -127,7 +122,6 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
-      console.error("Error updating document:", error)
       throw new Error("문서 업데이트에 실패했습니다.")
     }
   }
@@ -141,7 +135,6 @@ export class ApiClient {
       const docRef = doc(db, collectionName, id)
       await deleteDoc(docRef)
     } catch (error) {
-      console.error("Error deleting document:", error)
       throw new Error("문서 삭제에 실패했습니다.")
     }
   }
@@ -160,7 +153,6 @@ export class ApiClient {
         ...doc.data(),
       })) as T[]
     } catch (error) {
-      console.error("Error querying documents:", error)
       // 오류가 발생해도 빈 배열을 반환하여 앱이 중단되지 않도록 함
       return []
     }
@@ -182,7 +174,6 @@ export class ApiClient {
       const userData = userDoc.data()
       return (userData[collection] as T[]) || []
     } catch (error) {
-      console.error(`사용자 ${collection} 데이터 로드 실패:`, error)
       return []
     }
   }
@@ -203,7 +194,6 @@ export class ApiClient {
 
       return sortedResults
     } catch (error) {
-      console.error(`❌ ${grade}급 한자 조회 실패:`, error)
       // 오류가 발생해도 빈 배열을 반환하여 앱이 중단되지 않도록 함
       return []
     }
@@ -216,7 +206,6 @@ export class ApiClient {
 
       return results
     } catch (error) {
-      console.error(`❌ 모든 한자 조회 실패:`, error)
       return []
     }
   }
@@ -239,8 +228,6 @@ export class ApiClient {
     additionalTime: number
   ): Promise<void> {
     try {
-      console.log(`🕐 총 학습시간 업데이트: +${additionalTime}초`)
-
       const userStats = await this.getUserStatistics(userId)
 
       if (userStats) {
@@ -248,14 +235,9 @@ export class ApiClient {
         const currentTotalTime = userStats.totalStudyTime || 0
         const newTotalTime = currentTotalTime + additionalTime
 
-        console.log(
-          `📊 학습시간 업데이트: ${currentTotalTime}초 → ${newTotalTime}초`
-        )
-
         await this.updateDocument("userStatistics", userStats.id!, {
           totalStudyTime: newTotalTime,
         })
-
       } else {
         // 새로운 userStatistics 생성
         await this.createDocument("userStatistics", {
@@ -283,13 +265,8 @@ export class ApiClient {
             ).getDate(),
           },
         })
-
-        console.log(
-          `✅ 새로운 userStatistics 생성 완료: totalStudyTime=${additionalTime}초`
-        )
       }
     } catch (error) {
-      console.error("총 학습시간 업데이트 실패:", error)
       throw error
     }
   }
@@ -300,7 +277,6 @@ export class ApiClient {
       const userStats = await this.getUserStatistics(userId)
       return userStats?.totalStudyTime || 0
     } catch (error) {
-      console.error("총 학습시간 조회 실패:", error)
       return 0
     }
   }
@@ -318,7 +294,6 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
-      console.error("Error updating user experience:", error)
       throw new Error("경험치 업데이트에 실패했습니다.")
     }
   }
@@ -344,7 +319,6 @@ export class ApiClient {
         await updateDoc(userRef, updatedData)
       }
     } catch (error) {
-      console.error("Error adding user experience:", error)
       throw new Error("경험치 추가에 실패했습니다.")
     }
   }
@@ -361,7 +335,6 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
-      console.error("Error updating user preferred grade:", error)
       throw new Error("선호 급수 업데이트에 실패했습니다.")
     }
   }
@@ -373,7 +346,6 @@ export class ApiClient {
       const userStats = await this.getUserStatistics(userId)
       return userStats?.todayExperience || 0
     } catch (error) {
-      console.error("Error getting today's experience:", error)
       return 0 // 에러 시 0 반환
     }
   }
@@ -431,7 +403,6 @@ export class ApiClient {
         )
       }
     } catch (error) {
-      console.error("Error updating today's experience:", error)
       throw new Error("오늘 경험치 업데이트에 실패했습니다.")
     }
   }
@@ -464,7 +435,6 @@ export class ApiClient {
         })
       }
     } catch (error) {
-      console.error("Error updating today's goal:", error)
       throw new Error("오늘의 학습 목표 업데이트에 실패했습니다.")
     }
   }
@@ -521,10 +491,6 @@ export class ApiClient {
         todayGoal
       )
       if (bonusExperience > 0) {
-        console.log(
-          `🎁 보너스 경험치 획득: ${bonusExperience} EXP (연속 ${consecutiveDays}일, 목표 ${todayGoal})`
-        )
-
         // users 컬렉션에 보너스 경험치 추가
         const userRef = doc(db, "users", userId)
         const userDoc = await getDoc(userRef)
@@ -538,12 +504,6 @@ export class ApiClient {
             level: newLevel,
             updatedAt: new Date().toISOString(),
           })
-
-          console.log(
-            `보너스 경험치 적용: ${currentExp} → ${newExp} EXP, 레벨 ${
-              userDoc.data().level
-            } → ${newLevel}`
-          )
         }
 
         // 보너스 획득 콜백 호출 (모달 표시용)
@@ -568,7 +528,6 @@ export class ApiClient {
           achievedDays: 0,
           totalDays: 7,
         }
-        console.log("새로운 주 시작: 주간 달성 초기화")
       }
 
       // 데이터베이스 업데이트
@@ -581,15 +540,7 @@ export class ApiClient {
         lastWeekNumber: currentWeek, // 현재 주차 번호 업데이트
         updatedAt: new Date().toISOString(),
       })
-
-      console.log(
-        `목표 달성 통계 업데이트: ${
-          achieved ? "달성" : "미달성"
-        }, 연속 ${consecutiveDays}일`
-      )
-    } catch (error) {
-      console.error("Error updating goal achievement stats:", error)
-    }
+    } catch (error) {}
   }
 
   // 연속 목표 달성일 계산 (자정 기준)
@@ -782,14 +733,12 @@ export class ApiClient {
 
       // userStatistics가 없으면 잠시 대기 후 다시 확인 (네트워크 지연 대응)
       if (!userStats) {
-        console.log("UserStatistics not found, waiting and retrying...")
         await new Promise((resolve) => setTimeout(resolve, 1000)) // 1초 대기
         userStats = await this.getUserStatistics(userId)
       }
 
       if (!userStats) {
         // 여전히 없으면 생성 (기존 데이터 보존)
-        console.log("Creating new UserStatistics for user:", userId)
         await this.initializeUserStatistics(userId)
         return
       }
@@ -805,7 +754,6 @@ export class ApiClient {
           lastResetDate: today,
           updatedAt: new Date().toISOString(),
         })
-        console.log("자정 리셋 완료: 오늘 경험치 초기화")
       }
 
       // 주간 리셋 확인 (일요일에서 월요일로 넘어갈 때)
@@ -819,7 +767,6 @@ export class ApiClient {
           lastWeekNumber: currentWeek,
           updatedAt: new Date().toISOString(),
         })
-        console.log("새로운 주 시작: 주간 달성 초기화 (월요일부터)")
       }
     } catch (error) {
       console.error("Error checking and resetting today's experience:", error)
@@ -853,11 +800,7 @@ export class ApiClient {
 
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises)
-        console.log(
-          `${updatePromises.length}명의 사용자에게 기본 선호 급수(8급) 설정 완료`
-        )
       } else {
-        console.log("모든 사용자가 이미 preferredGrade 필드를 가지고 있습니다.")
       }
     } catch (error) {
       console.error("사용자 선호 급수 마이그레이션 실패:", error)
@@ -1049,7 +992,8 @@ export class ApiClient {
         }
       })
 
-      const completionRate = totalHanzi > 0 ? (completedHanzi / totalHanzi) * 100 : 0
+      const completionRate =
+        totalHanzi > 0 ? (completedHanzi / totalHanzi) * 100 : 0
       const isFullyCompleted = eligibleForBonus === totalHanzi
       const isEligibleForBonus = completionRate >= 80
 
@@ -1221,8 +1165,6 @@ export class ApiClient {
     }
   ): Promise<void> {
     try {
-
-
       // 기존 통계 찾기
       const gameStatsRef = collection(db, "gameStatistics")
       const q = query(
@@ -1269,7 +1211,6 @@ export class ApiClient {
         const newTotalSessions =
           existingData.totalSessions + (stats.totalSessions || 0)
 
-
         const updatedData = {
           ...existingData,
           totalPlayed: newTotalPlayed,
@@ -1292,7 +1233,6 @@ export class ApiClient {
         stats.completedSessions || 0 // totalPlayed 대신 completedSessions 사용
       )
     } catch (error) {
-      console.error("게임 통계 업데이트 실패:", error)
       throw error
     }
   }
@@ -1305,7 +1245,6 @@ export class ApiClient {
     sessionsToAdd: number
   ): Promise<void> {
     try {
-
       const userStats = await this.getUserStatistics(userId)
 
       if (userStats) {
@@ -1327,12 +1266,8 @@ export class ApiClient {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
-        console.log(
-          `✅ 새로운 userStatistics 생성 완료: totalSessions=${sessionsToAdd}`
-        )
       }
     } catch (error) {
-      console.error("userStatistics totalSessions 업데이트 실패:", error)
       throw error
     }
   }
@@ -1392,7 +1327,6 @@ export class ApiClient {
         await setDoc(existingDoc.ref, updatedData)
       }
     } catch (error) {
-      console.error("한자 통계 업데이트 실패:", error)
       throw error
     }
   }
@@ -1456,7 +1390,6 @@ export class ApiClient {
         await setDoc(existingDoc.ref, updatedData)
       }
     } catch (error) {
-      console.error("한자 통계 업데이트 실패:", error)
       throw error
     }
   }
@@ -1503,7 +1436,6 @@ export class ApiClient {
 
       return gameStats
     } catch (error) {
-      console.error("게임 통계 가져오기 실패:", error)
       throw error
     }
   }
@@ -1548,7 +1480,6 @@ export class ApiClient {
           }
       )
     } catch (error) {
-      console.error("한자 통계 가져오기 실패:", error)
       throw error
     }
   }
@@ -1637,7 +1568,6 @@ export class ApiClient {
         return result
       }
     } catch (error) {
-      console.error(`${grade}급 한자 통계 가져오기 실패:`, error)
       throw error
     }
   }
@@ -1657,7 +1587,6 @@ export class ApiClient {
       })
       await batch.commit()
     } catch (error) {
-      console.error("한자들에 gradeNumber 추가 실패:", error)
       throw error
     }
   }
@@ -1672,8 +1601,6 @@ export class ApiClient {
     newGradeData: Hanzi[]
   ): Promise<void> {
     try {
-      console.log(`${newGrade}급 데이터 추가 시 학습완료 상태 동기화 시작...`)
-
       // 모든 사용자 조회
       const usersRef = collection(db, "users")
       const usersSnapshot = await getDocs(usersRef)
@@ -1710,12 +1637,7 @@ export class ApiClient {
 
       // 모든 동기화 완료 대기
       await Promise.all(syncPromises)
-
-      console.log(
-        `${newGrade}급 학습완료 상태 동기화 완료: ${syncPromises.length}개 업데이트`
-      )
     } catch (error) {
-      console.error("새 급수 학습완료 상태 동기화 실패:", error)
       throw error
     }
   }
@@ -1734,9 +1656,7 @@ export class ApiClient {
       })
 
       await batch.commit()
-      console.log(`🗑️ ${grade}급 한자 ${hanziList.length}개 삭제 완료`)
     } catch (error) {
-      console.error(`${grade}급 한자 삭제 실패:`, error)
       throw error
     }
   }
@@ -1749,7 +1669,6 @@ export class ApiClient {
       // 기존 userStatistics가 있는지 확인
       const existingStats = await this.getUserStatistics(userId)
       if (existingStats) {
-        console.log("UserStatistics already exists for user:", userId)
         return
       }
 
@@ -1758,7 +1677,6 @@ export class ApiClient {
       const userDoc = await getDoc(userRef)
 
       if (!userDoc.exists()) {
-        console.log("User not found:", userId)
         return
       }
 
@@ -1806,10 +1724,7 @@ export class ApiClient {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
-
-      console.log("UserStatistics initialized for user:", userId)
     } catch (error) {
-      console.error("Error initializing user statistics:", error)
       throw new Error("사용자 통계 초기화에 실패했습니다.")
     }
   }
@@ -1830,11 +1745,7 @@ export class ApiClient {
       }
 
       await Promise.all(initPromises)
-      console.log(
-        `UserStatistics initialization completed for ${initPromises.length} users`
-      )
     } catch (error) {
-      console.error("Error initializing all user statistics:", error)
       throw error
     }
   }
@@ -1855,8 +1766,6 @@ export class ApiClient {
     }>
   > {
     try {
-      console.log("🔍 유저 순위 조회 시작...")
-
       // 1. 모든 사용자 조회 (users 컬렉션)
       const usersRef = collection(db, "users")
       const usersSnapshot = await getDocs(usersRef)
@@ -1871,7 +1780,6 @@ export class ApiClient {
           const userStats = await this.getUserStatistics(userId)
           return userStats?.totalStudyTime || 0
         } catch (error) {
-          console.log(`⚠️ ${userId}의 userStatistics 조회 실패:`, error)
           return 0
         }
       }
@@ -1889,14 +1797,9 @@ export class ApiClient {
 
           // 중복 문서 확인
           if (processedDocs.has(docKey)) {
-            console.log(`⚠️ 중복 문서 발견: ${docKey}`)
             continue
           }
           processedDocs.add(docKey)
-
-          console.log(
-            `📊 게임 통계 문서: userId=${actualUserId}, gameType=${gameType}, totalPlayed=${statData.totalPlayed}, correct=${statData.correctAnswers}, wrong=${statData.wrongAnswers}`
-          )
 
           if (!userStatsMap.has(actualUserId)) {
             userStatsMap.set(actualUserId, {
@@ -1924,7 +1827,6 @@ export class ApiClient {
           userStats.completedSessions += statData.completedSessions || 0
         }
       }
-
 
       // 6. 모든 사용자를 순위에 포함
       const userRankings: Array<{
@@ -1970,11 +1872,6 @@ export class ApiClient {
               if (totalAnswers > 0) {
                 const gameAccuracy =
                   (gameStats.correctAnswers / totalAnswers) * 100
-                console.log(
-                  `🎮 ${username} - ${gameType}: ${
-                    gameStats.correctAnswers
-                  }/${totalAnswers} = ${gameAccuracy.toFixed(1)}%`
-                )
                 totalAccuracy += gameAccuracy
                 gameCount++
               }
@@ -1988,12 +1885,6 @@ export class ApiClient {
           // userStatistics에서 totalStudyTime 개별 조회
           const totalStudyTime = await getUserStudyTime(userId)
 
-          console.log(
-            `📊 ${username} 정답률 계산: ${gameCount}개 게임, 총 정답률 ${totalAccuracy.toFixed(
-              1
-            )}, 평균 ${accuracy}%, 학습시간 ${totalStudyTime}초`
-          )
-
           // 모든 사용자를 순위에 포함 (경험치가 0이어도 포함)
           userRankings.push({
             userId,
@@ -2006,15 +1897,8 @@ export class ApiClient {
             preferredGrade: userData.preferredGrade || 8,
             rank: 0, // 임시로 0 설정
           })
-
-          console.log(
-            `✅ 유저 추가: ${username} (레벨${level}, ${totalExp}EXP, ${userStats.totalPlayed}문제, 정답률${accuracy}%, 학습시간${totalStudyTime}초)`
-          )
-        } catch (userError) {
-          console.log(`⚠️ 유저 ${userDoc.id} 정보 처리 실패:`, userError)
-        }
+        } catch (userError) {}
       }
-
 
       // 경험치 기준으로 내림차순 정렬
       userRankings.sort((a, b) => b.experience - a.experience)
@@ -2024,20 +1908,9 @@ export class ApiClient {
         user.rank = index + 1
       })
 
-      console.log(
-        `🏆 상위 5명:`,
-        userRankings
-          .slice(0, 5)
-          .map(
-            (u) =>
-              `${u.rank}위: ${u.username} (레벨${u.level}, ${u.experience}EXP, ${u.totalPlayed}문제, 정답률${u.accuracy}%, ${u.preferredGrade}급, 학습시간${u.totalStudyTime}초)`
-          )
-      )
-
       // 상위 20명만 반환
       return userRankings.slice(0, 20)
     } catch (error) {
-      console.error("Error getting user rankings:", error)
       throw new Error("유저 순위 조회에 실패했습니다.")
     }
   }
@@ -2090,8 +1963,6 @@ export class ApiClient {
     }>
   > {
     try {
-      console.log("🔍 모든 유저 조회 시작...")
-
       // 1. users 컬렉션 확인
       const usersRef = collection(db, "users")
       const usersSnapshot = await getDocs(usersRef)
@@ -2115,10 +1986,6 @@ export class ApiClient {
       // users 컬렉션에서 데이터 수집
       for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data()
-        console.log(`👤 users 컬렉션 유저:`, {
-          id: userDoc.id,
-          data: userData,
-        })
 
         if (userData.displayName || userData.username) {
           users.push({
@@ -2138,7 +2005,6 @@ export class ApiClient {
 
       return users
     } catch (error) {
-      console.error("Error getting all users:", error)
       throw new Error("모든 유저 조회에 실패했습니다.")
     }
   }

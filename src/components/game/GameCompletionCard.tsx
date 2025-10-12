@@ -108,15 +108,23 @@ export default function GameCompletionCard({
             </div>
           )}
           <div className='flex justify-between items-center pt-3 border-t-2 border-gray-300'>
-            <span className='text-gray-900 font-bold text-base'>획득 경험치</span>
+            <span className='text-gray-900 font-bold text-base'>
+              획득 경험치
+            </span>
             <span className='text-green-600 font-bold text-lg'>
               +{earnedExperience} EXP
             </span>
           </div>
           <div className='flex justify-between items-center'>
-            <span className='text-gray-700 font-medium'>총 경험치</span>
+            <span className='text-gray-700 font-medium'>이전 경험치</span>
+            <span className='text-gray-600 font-bold text-xl'>
+              {userExperience - earnedExperience} EXP
+            </span>
+          </div>
+          <div className='flex justify-between items-center pt-2'>
+            <span className='text-gray-900 font-medium'>최종 경험치</span>
             <span className='text-blue-600 font-bold text-xl'>
-              {userExperience + earnedExperience} EXP
+              {userExperience} EXP
             </span>
           </div>
         </div>

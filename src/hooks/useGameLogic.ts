@@ -67,15 +67,9 @@ export const useGameLogic = (config: GameConfig) => {
             config.selectedGrade
           )
           if (completionStatus.isEligibleForBonus) {
-            console.log(
-              `🚫 학습 완료도 80% 이상으로 추가 보상 제한됨 (${completionStatus.completionRate.toFixed(
-                1
-              )}%)`
-            )
             return 0
           }
         } catch (error) {
-          console.error("학습 완료도 체크 실패:", error)
           // 에러 시에는 보너스 지급 (기존 로직 유지)
         }
       }
@@ -143,57 +137,27 @@ export const useGameLogic = (config: GameConfig) => {
         experienceToAdd = -1
       }
 
-      console.log(
-        `🔢 문제 답변: ${currentQuestionIndex + 1}/${
-          questions.length
-        }, questionsAnswered: ${questionsAnsweredRef.current}`
-      )
-
       // 즉시 통계 업데이트 (문제 풀 때마다)
       if (user) {
         try {
-          console.log(`📊 즉시 통계 업데이트 시작 (${config.gameType}):`)
-          console.log(`  - totalPlayed: +1`)
-          console.log(`  - correctAnswers: ${correct ? "+1" : "+0"}`)
-          console.log(`  - wrongAnswers: ${correct ? "+0" : "+1"}`)
-          console.log(`  - completedSessions: +0 (문제 풀 때마다는 0)`)
-
           await ApiClient.updateGameStatisticsNew(user.id, config.gameType, {
             totalPlayed: 1, // 1문제씩 즉시 추가
             correctAnswers: correct ? 1 : 0,
             wrongAnswers: correct ? 0 : 1,
             completedSessions: 0, // 문제 풀 때마다는 0
           })
-
-          console.log(`✅ 즉시 통계 업데이트 완료 (${config.gameType})!`)
-        } catch (error) {
-          console.error(`즉시 통계 업데이트 실패 (${config.gameType}):`, error)
-        }
+        } catch (error) {}
       }
 
       // 즉시 경험치 추가
       if (user && experienceToAdd !== 0) {
         try {
-          console.log(
-            `💰 경험치 업데이트 시작 (${config.gameType}): ${
-              isDontKnow ? "모르겠음" : correct ? "정답" : "오답"
-            } → ${experienceToAdd >= 0 ? "+" : ""}${experienceToAdd} EXP`
-          )
           await updateUserExperience(experienceToAdd)
           // 오늘 경험치도 함께 업데이트 (경험치가 양수일 때만)
           if (experienceToAdd > 0) {
             await ApiClient.updateTodayExperience(user.id, experienceToAdd)
           }
-          console.log(
-            `⭐ 즉시 경험치 추가 완료 (${config.gameType}): ${
-              experienceToAdd >= 0 ? "+" : ""
-            }${experienceToAdd} EXP (${
-              isDontKnow ? "모르겠음" : correct ? "정답" : "오답"
-            })`
-          )
-        } catch (error) {
-          console.error(`즉시 경험치 추가 실패 (${config.gameType}):`, error)
-        }
+        } catch (error) {}
       }
 
       // 경험치 상태 업데이트
@@ -211,9 +175,7 @@ export const useGameLogic = (config: GameConfig) => {
             config.gameType,
             isDontKnow ? false : correct // 모르겠음은 false로 처리
           )
-        } catch (error) {
-          console.error("한자 통계 업데이트 실패:", error)
-        }
+        } catch (error) {}
       }
 
       // 정답/오답 모달 표시 후 자동으로 다음 문제로 이동
@@ -225,13 +187,6 @@ export const useGameLogic = (config: GameConfig) => {
             setIsCorrect(null)
           } else {
             // 마지막 문제인 경우 게임 종료
-            console.log(
-              `🎯 마지막 문제 완료! 총 답변: ${questionsAnsweredRef.current}개`
-            )
-            console.log(
-              `🏁 gameEnded를 true로 설정합니다. (${config.gameType})`
-            )
-
             // 완벽한 게임 보너스 계산 및 적용
             const finalCorrectAnswers =
               gameStats.correctAnswers + (correct ? 1 : 0)
@@ -245,8 +200,6 @@ export const useGameLogic = (config: GameConfig) => {
             )
 
             if (perfectBonus > 0) {
-              console.log(`🎁 완벽한 게임 보너스! +${perfectBonus} EXP`)
-
               // 추가 경험치를 사용자에게 적용
               if (user) {
                 updateUserExperience(perfectBonus)
@@ -314,29 +267,15 @@ export const useGameLogic = (config: GameConfig) => {
       !hasUpdatedStats &&
       questionsAnsweredRef.current === questions.length
     ) {
-      console.log(`🎯 게임 완료 (${config.gameType})! 세션 완료 통계 업데이트`)
-      console.log(`📊 completedSessions +1 업데이트 시작 (${config.gameType})`)
-
       // 세션 완료 통계 업데이트
       ApiClient.updateGameStatisticsNew(user.id, config.gameType, {
         completedSessions: 1, // 세션 1회 완료
       })
         .then(() => {
-          console.log(
-            `✅ 세션 완료 통계 업데이트 완료 (${config.gameType}) - completedSessions +1`
-          )
           setHasUpdatedStats(true)
         })
-        .catch((error) => {
-          console.error(
-            `세션 완료 통계 업데이트 실패 (${config.gameType}):`,
-            error
-          )
-        })
+        .catch((error) => {})
     } else if (gameEnded && questionsAnsweredRef.current !== questions.length) {
-      console.log(
-        `🚫 중도 포기 (${config.gameType}): 세션 완료 통계 업데이트 안함 (${questionsAnsweredRef.current}/${questions.length})`
-      )
       setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
     }
   }, [gameEnded, user, hasUpdatedStats, questions.length, config.gameType])
