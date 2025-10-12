@@ -531,8 +531,11 @@ export default function Home() {
                     </span>
                   </div>
                 ) : userRankings.length > 0 ? (
-                  <div className='space-y-3'>
-                    {userRankings.slice(0, 5).map((user) => (
+                  <div className='max-h-[500px] overflow-y-auto space-y-3' style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#d1d5db #f3f4f6'
+                  }}>
+                    {userRankings.map((user) => (
                       <div
                         key={user.userId}
                         className={`flex items-center justify-between p-3 rounded-lg ${
