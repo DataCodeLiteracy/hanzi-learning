@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, Trophy, RotateCcw, Play, Timer } from "lucide-react"
@@ -20,8 +21,8 @@ interface Card {
 }
 
 export default function MemoryGame() {
-  const { user, initialLoading, isAuthenticated, updateUserExperience } =
-    useAuth()
+  const { user, loading, isAuthenticated, updateUserExperience } = useAuth()
+  const { hanziList, isLoading: isDataLoading } = useData()
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
   const [matchedPairs, setMatchedPairs] = useState<number>(0)
@@ -33,6 +34,9 @@ export default function MemoryGame() {
   const [currentGrade, setCurrentGrade] = useState<number>(
     user?.preferredGrade || 8
   ) // 현재 선택된 급수
+
+  // 통합된 로딩 상태
+  const isLoading = loading || isDataLoading || hanziList.length === 0
   const [gridSize, setGridSize] = useState<{ cols: number; rows: number }>({
     cols: 4,
     rows: 4,
@@ -258,7 +262,7 @@ export default function MemoryGame() {
     setGradeError("")
 
     // 선택된 등급의 한자들 중에서 필요한 개수만큼 랜덤하게 선택
-    const gradeHanzi = await ApiClient.getHanziByGrade(currentGrade)
+    const gradeHanzi = hanziList
 
     // 해당 급수에 데이터가 없는지 확인
     if (gradeHanzi.length === 0) {
@@ -365,13 +369,6 @@ export default function MemoryGame() {
 
   // 게임 초기화
   useEffect(() => {
-    console.log(`🔄 게임 초기화 체크:`, {
-      currentGrade,
-      showGameSettings,
-      gameEnded,
-      shouldInitialize: currentGrade > 0 && !showGameSettings && !gameEnded,
-    })
-
     // 게임 완료 후에는 절대 초기화하지 않음
     if (
       currentGrade > 0 &&
@@ -379,7 +376,6 @@ export default function MemoryGame() {
       !gameEnded &&
       !hasUpdatedStats
     ) {
-      console.log(`🚀 게임 초기화 시작`)
       initializeGame()
     }
   }, [currentGrade, gridSize, showGameSettings])
@@ -643,11 +639,11 @@ export default function MemoryGame() {
     }
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
-  if (initialLoading) {
+  // 로딩 중일 때는 로딩 스피너 표시
+  if (isLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
+        <LoadingSpinner message='데이터를 불러오는 중...' />
       </div>
     )
   }
@@ -741,74 +737,68 @@ export default function MemoryGame() {
     }
   }
 
-  return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
-      {/* 헤더 */}
-      <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center py-3'>
-            <div className='flex items-center space-x-4'>
-              <Link href='/' className='text-blue-600 hover:text-blue-700'>
-                <ArrowLeft className='h-5 w-5' />
-              </Link>
-              <h1 className='text-xl font-bold text-gray-900'>카드 뒤집기</h1>
-            </div>
-            {!showGameSettings && (
-              <div className='flex items-center space-x-6'>
-                <div className='text-center'>
-                  <div className='text-sm text-gray-600'>매칭</div>
-                  <div className='text-lg font-bold text-green-600'>
-                    {matchedPairs}/{(gridSize.cols * gridSize.rows) / 2}
+  // 설정 화면 (헤더 없이 독립적으로)
+  if (showGameSettings) {
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pt-6'>
+        {/* 뒤로가기 버튼 */}
+        <div className='max-w-md mx-auto mb-4'>
+          <Link
+            href='/'
+            className='inline-flex items-center font-medium transition-all no-underline'
+            style={{ color: "#111827", textDecoration: "none" }}
+          >
+            <svg
+              className='w-5 h-5 mr-2'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+              style={{ color: "#111827" }}
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M10 19l-7-7m0 0l7-7m-7 7h18'
+              />
+            </svg>
+            <span style={{ color: "#111827" }}>메인으로 돌아가기</span>
+          </Link>
+        </div>
+        <div className='max-w-md mx-auto bg-white rounded-xl shadow-2xl p-8'>
+          <h2 className='text-3xl font-bold text-center mb-8 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent'>
+            카드 뒤집기 설정
+          </h2>
+
+              {/* 학습 중인 급수 표시 */}
+              <div className='mb-6'>
+                <div className='flex items-center justify-between mb-2'>
+                  <label className='block text-sm font-semibold text-gray-700'>
+                    학습 중인 급수
+                  </label>
+                  <Link
+                    href='/profile#study-goal'
+                    className='text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors'
+                  >
+                    급수 변경 →
+                  </Link>
+                </div>
+                <div className='relative'>
+                  <div className='block w-full px-4 py-3 text-base font-medium text-gray-900 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner'>
+                    {currentGrade === 5.5
+                      ? "준5급"
+                      : currentGrade === 4.5
+                      ? "준4급"
+                      : currentGrade === 3.5
+                      ? "준3급"
+                      : `${currentGrade}급`}
+                    {hanziList.length > 0 && (
+                      <span className='ml-2 text-sm text-blue-600 font-semibold'>
+                        ({hanziList.length}개)
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* 메인 컨텐츠 */}
-      <main className='max-w-4xl mx-auto px-0 sm:px-6 lg:px-8 py-8 pt-16'>
-        {/* 게임 설정 화면 */}
-        {showGameSettings && (
-          <div className='text-center py-8'>
-            <div className='bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto'>
-              <h2 className='text-3xl font-bold text-gray-900 mb-6'>
-                게임 설정
-              </h2>
-
-              {/* 급수 선택 */}
-              <div className='mb-6'>
-                <label className='block text-sm font-semibold text-gray-700 mb-2'>
-                  급수 선택
-                </label>
-                <select
-                  value={currentGrade}
-                  onChange={(e) => handleGradeChange(Number(e.target.value))}
-                  disabled={isLoadingGrade}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
-                >
-                  {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
-                    <option key={grade} value={grade} className='font-medium'>
-                      {grade === 5.5
-                        ? "준5급"
-                        : grade === 4.5
-                        ? "준4급"
-                        : grade === 3.5
-                        ? "준3급"
-                        : `${grade}급`}
-                    </option>
-                  ))}
-                </select>
-
-                {isLoadingGrade && (
-                  <div className='mt-2 flex items-center space-x-2'>
-                    <LoadingSpinner message='' />
-                    <span className='text-sm text-gray-600'>
-                      급수 데이터를 불러오는 중...
-                    </span>
-                  </div>
-                )}
 
                 {gradeError && !isLoadingGrade && (
                   <p className='mt-2 text-sm text-red-600 font-medium'>
@@ -910,22 +900,13 @@ export default function MemoryGame() {
                 </div>
               </div>
 
-              <button
-                onClick={handleStartGame}
-                className='w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
-              >
-                게임 시작
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 카드 생성 중 로딩 */}
-        {isGeneratingCards && (
-          <div className='text-center py-8'>
-            <LoadingSpinner message='카드를 생성하는 중...' />
-          </div>
-        )}
+          <button
+            onClick={handleStartGame}
+            className='w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-lg font-bold py-4 px-6 rounded-xl shadow-lg hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-200'
+          >
+            시작하기
+          </button>
+        </div>
 
         {/* 오류 모달 */}
         {showErrorModal && (
@@ -938,16 +919,49 @@ export default function MemoryGame() {
                 </h3>
                 <p className='text-gray-600 mb-6'>{gradeError}</p>
                 <button
-                  onClick={() => {
-                    setShowErrorModal(false)
-                    handleBackToSettings()
-                  }}
+                  onClick={() => setShowErrorModal(false)}
                   className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
                 >
                   확인
                 </button>
               </div>
             </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
+      {/* 헤더 */}
+      <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='flex justify-between items-center py-3'>
+            <div className='flex items-center space-x-4'>
+              <Link href='/' className='text-blue-600 hover:text-blue-700'>
+                <ArrowLeft className='h-5 w-5' />
+              </Link>
+              <h1 className='text-xl font-bold text-gray-900'>카드 뒤집기</h1>
+            </div>
+            <div className='flex items-center space-x-6'>
+              <div className='text-center'>
+                <div className='text-sm text-gray-600'>매칭</div>
+                <div className='text-lg font-bold text-green-600'>
+                  {matchedPairs}/{(gridSize.cols * gridSize.rows) / 2}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* 메인 컨텐츠 */}
+      <main className='max-w-4xl mx-auto px-0 sm:px-6 lg:px-8 py-8 pt-16'>
+        {/* 카드 생성 중 로딩 */}
+        {isGeneratingCards && (
+          <div className='text-center py-8'>
+            <LoadingSpinner message='카드를 생성하는 중...' />
           </div>
         )}
 
@@ -982,7 +996,13 @@ export default function MemoryGame() {
                   width: "100%",
                   maxWidth: getContainerMaxWidth(),
                   margin: "0 auto",
-                  gap: `${gridSize.cols === 3 ? "10px" : gridSize.cols === 4 ? "8px" : "6px"}`, // 3x4는 10px, 4x4는 8px, 5x6는 6px
+                  gap: `${
+                    gridSize.cols === 3
+                      ? "10px"
+                      : gridSize.cols === 4
+                      ? "8px"
+                      : "6px"
+                  }`, // 3x4는 10px, 4x4는 8px, 5x6는 6px
                 }}
               >
                 {cards.map((card) => (
@@ -1075,7 +1095,13 @@ export default function MemoryGame() {
                   width: "100%",
                   maxWidth: getContainerMaxWidth(),
                   margin: "0 auto",
-                  gap: `${gridSize.cols === 3 ? "10px" : gridSize.cols === 4 ? "8px" : "6px"}`, // 3x4는 10px, 4x4는 8px, 5x6는 6px
+                  gap: `${
+                    gridSize.cols === 3
+                      ? "10px"
+                      : gridSize.cols === 4
+                      ? "8px"
+                      : "6px"
+                  }`, // 3x4는 10px, 4x4는 8px, 5x6는 6px
                 }}
               >
                 {cards.map((card, index) => (

@@ -26,7 +26,716 @@ import { ApiClient } from "@/lib/apiClient"
 
 export default function Home() {
   const { user, initialLoading, signIn } = useAuth()
-  const { isLoading: dataLoading } = useData()
+  const { hanziList, isLoading: dataLoading, refreshHanziData } = useData()
+
+  // hanziList 상태 확인
+  useEffect(() => {
+    console.log("🏠 메인페이지 - hanziList 상태 확인:", {
+      count: hanziList.length,
+      isLoading: dataLoading,
+      userGrade: user?.preferredGrade,
+      allData: hanziList.map((h) => ({
+        character: h.character,
+        meaning: h.meaning,
+        sound: h.sound,
+        grade: h.grade,
+        id: h.id,
+      })),
+      dataSource: hanziList.length > 0 ? "IndexedDB/DataContext" : "No Data",
+    })
+
+    // hanziList 전체 배열 출력
+    console.log("📦 메인페이지 - hanziList 전체 배열:", hanziList)
+  }, [hanziList.length, dataLoading, user?.preferredGrade])
+
+  // IndexedDB 새로운 데이터베이스 테스트
+  useEffect(() => {
+    const checkAndUpdateIndexedDB = async () => {
+      console.group("🔍 IndexedDB 급수 비교 및 데이터 관리")
+      console.log("🚀 checkAndUpdateIndexedDB 함수 시작")
+
+      try {
+        // 1. 현재 급수 확인
+        const currentGrade = user?.preferredGrade || 7
+        console.debug("1️⃣ 현재 급수:", currentGrade)
+        console.log("✅ 1단계 완료 - 현재 급수 확인")
+
+        // 2. IndexedDB로 데이터 조회
+        console.debug("2️⃣ IndexedDB 데이터 조회 시작...")
+        console.log("🔍 indexedDB 객체 확인:", typeof indexedDB)
+        console.log("🔍 window.indexedDB 확인:", typeof window.indexedDB)
+
+        if (typeof indexedDB === "undefined") {
+          console.error("❌ indexedDB가 정의되지 않음!")
+          console.groupEnd()
+          return
+        }
+
+        console.log("✅ indexedDB 사용 가능, 데이터베이스 열기 시도...")
+        const request = indexedDB.open("hanziDB", 1)
+        console.log("📂 hanziDB 열기 요청 생성됨")
+
+        request.onsuccess = () => {
+          console.log("🎉 hanziDB 데이터베이스 열기 성공!")
+          const db = request.result
+          console.debug("✅ hanziDB 데이터베이스 열기 성공")
+          console.log("📊 데이터베이스 객체:", db)
+          console.log("📊 데이터베이스 이름:", db.name)
+          console.log("📊 데이터베이스 버전:", db.version)
+          console.log(
+            "📊 오브젝트 스토어 목록:",
+            Array.from(db.objectStoreNames)
+          )
+
+          // 트랜잭션 시작
+          console.log("🔄 트랜잭션 시작...")
+          const transaction = db.transaction(["hanziStore"], "readwrite")
+          console.log("✅ 트랜잭션 생성됨")
+          const store = transaction.objectStore("hanziStore")
+          console.log("✅ 오브젝트 스토어 접근됨")
+
+          // 먼저 모든 키 조회해서 어떤 데이터가 있는지 확인
+          console.log("🔍 모든 키 조회 시작...")
+          const getAllKeysRequest = store.getAllKeys()
+
+          getAllKeysRequest.onsuccess = () => {
+            const allKeys = getAllKeysRequest.result
+            console.log("📋 IndexedDB에 저장된 모든 키:", allKeys)
+
+            if (allKeys.length === 0) {
+              console.log("❌ IndexedDB에 저장된 데이터가 없음")
+              console.log("📥 API에서 데이터 가져오기 시작...")
+
+              // API에서 실제 한자 데이터 가져오기
+              ApiClient.getHanziByGrade(currentGrade)
+                .then((hanziData) => {
+                  console.debug("✅ API에서 데이터 가져오기 성공:", {
+                    grade: currentGrade,
+                    charactersCount: hanziData.length,
+                    sampleCharacters: hanziData.slice(0, 3).map((h) => ({
+                      character: h.character,
+                      meaning: h.meaning,
+                      sound: h.sound,
+                    })),
+                  })
+
+                  // 새로운 트랜잭션 생성
+                  const newTransaction = db.transaction(
+                    ["hanziStore"],
+                    "readwrite"
+                  )
+                  const newStore = newTransaction.objectStore("hanziStore")
+
+                  const newData = {
+                    grade: currentGrade,
+                    lastUpdated: new Date().toISOString(),
+                    data: hanziData,
+                  }
+
+                  const putRequest = newStore.put(newData, "currentHanziData")
+
+                  putRequest.onsuccess = () => {
+                    console.debug("✅ API 데이터 IndexedDB 저장 완료!")
+                    console.debug("📦 저장된 데이터:", {
+                      grade: newData.grade,
+                      charactersCount: newData.data.length,
+                      lastUpdated: newData.lastUpdated,
+                      sampleCharacters: newData.data.slice(0, 3).map((h) => ({
+                        character: h.character,
+                        meaning: h.meaning,
+                        sound: h.sound,
+                      })),
+                    })
+                    console.groupEnd()
+                  }
+
+                  putRequest.onerror = () => {
+                    console.error("❌ API 데이터 저장 실패:", putRequest.error)
+                    console.groupEnd()
+                  }
+                })
+                .catch((error) => {
+                  console.error("❌ API 호출 실패:", error)
+                  console.debug("📥 API 실패 시 테스트 데이터 생성...")
+
+                  // API 실패 시 테스트 데이터 생성
+                  const fallbackData = {
+                    grade: currentGrade,
+                    lastUpdated: new Date().toISOString(),
+                    data: [
+                      {
+                        id: `fallback_${currentGrade}_1`,
+                        character: "人",
+                        pinyin: "rén",
+                        sound: "인",
+                        meaning: "사람",
+                        grade: currentGrade,
+                        gradeNumber: 1,
+                        strokes: 2,
+                        radicals: ["人"],
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                      },
+                    ],
+                  }
+
+                  // 새로운 트랜잭션 생성
+                  const newTransaction = db.transaction(
+                    ["hanziStore"],
+                    "readwrite"
+                  )
+                  const newStore = newTransaction.objectStore("hanziStore")
+
+                  const putRequest = newStore.put(
+                    fallbackData,
+                    "currentHanziData"
+                  )
+
+                  putRequest.onsuccess = () => {
+                    console.debug("✅ 테스트 데이터 생성 완료!")
+                    console.groupEnd()
+                  }
+
+                  putRequest.onerror = () => {
+                    console.error(
+                      "❌ 테스트 데이터 생성 실패:",
+                      putRequest.error
+                    )
+                    console.groupEnd()
+                  }
+                })
+              return
+            }
+
+            // 데이터가 있지만 비어있는 경우도 처리
+            console.log("🔍 기존 데이터 확인 중...")
+            const getRequest1 = store.get("currentHanziData")
+
+            getRequest1.onsuccess = () => {
+              const storedData = getRequest1.result
+              console.log("📦 조회된 데이터:", storedData)
+
+              if (
+                !storedData ||
+                !storedData.data ||
+                storedData.data.length === 0
+              ) {
+                console.log(
+                  "❌ IndexedDB에 데이터가 비어있음 - API에서 데이터 가져오기"
+                )
+                console.log("📥 API에서 데이터 가져오기 시작...")
+                console.log("🔍 API 호출 시작 - currentGrade:", currentGrade)
+
+                // API에서 실제 한자 데이터 가져오기
+                ApiClient.getHanziByGrade(currentGrade)
+                  .then((hanziData) => {
+                    console.log("🔍 API 응답 받음 - hanziData:", hanziData)
+                    console.log("🔍 hanziData 타입:", typeof hanziData)
+                    console.log("🔍 hanziData 길이:", hanziData?.length || 0)
+                    console.debug("✅ API에서 데이터 가져오기 성공:", {
+                      grade: currentGrade,
+                      charactersCount: hanziData.length,
+                      sampleCharacters: hanziData.slice(0, 3).map((h) => ({
+                        character: h.character,
+                        meaning: h.meaning,
+                        sound: h.sound,
+                      })),
+                    })
+
+                    const newData = {
+                      grade: currentGrade,
+                      lastUpdated: new Date().toISOString(),
+                      data: hanziData,
+                    }
+
+                    // 새로운 트랜잭션 생성
+                    const newTransaction = db.transaction(
+                      ["hanziStore"],
+                      "readwrite"
+                    )
+                    const newStore = newTransaction.objectStore("hanziStore")
+
+                    const putRequest = newStore.put(newData, "currentHanziData")
+
+                    putRequest.onsuccess = () => {
+                      console.debug("✅ API 데이터 IndexedDB 저장 완료!")
+                      console.debug("📦 저장된 데이터:", {
+                        grade: newData.grade,
+                        charactersCount: newData.data.length,
+                        lastUpdated: newData.lastUpdated,
+                        sampleCharacters: newData.data.slice(0, 3).map((h) => ({
+                          character: h.character,
+                          meaning: h.meaning,
+                          sound: h.sound,
+                        })),
+                      })
+                      console.groupEnd()
+                    }
+
+                    putRequest.onerror = () => {
+                      console.error(
+                        "❌ API 데이터 저장 실패:",
+                        putRequest.error
+                      )
+                      console.groupEnd()
+                    }
+                  })
+                  .catch((error) => {
+                    console.error("❌ API 호출 실패:", error)
+                    console.groupEnd()
+                  })
+              } else {
+                console.log("✅ IndexedDB에 유효한 데이터가 있음")
+                console.groupEnd()
+              }
+            }
+
+            getRequest1.onerror = () => {
+              console.error("❌ 데이터 조회 실패:", getRequest1.error)
+              console.groupEnd()
+            }
+
+            // currentHanziData 키로 데이터 조회
+            console.log("🔍 currentHanziData 키로 데이터 조회 시작...")
+            const getRequest2 = store.get("currentHanziData")
+            console.log("📥 조회 요청 생성됨")
+
+            getRequest2.onsuccess = async () => {
+              console.log("🎉 데이터 조회 성공!")
+              const storedData = getRequest2.result
+              console.debug("3️⃣ 조회된 데이터 구조:", {
+                hasData: !!storedData,
+                dataType: typeof storedData,
+                dataKeys: storedData ? Object.keys(storedData) : null,
+                storedGrade: storedData?.grade,
+                storedLastUpdated: storedData?.lastUpdated,
+                storedCharactersCount: storedData?.data?.length || 0,
+              })
+              console.log("📦 조회된 데이터:", storedData)
+              console.log("🔍 storedData 존재 여부:", !!storedData)
+              console.log("🔍 storedData 타입:", typeof storedData)
+              console.log("📊 data 배열 상세:", {
+                length: storedData?.data?.length || 0,
+                data: storedData?.data || [],
+                sampleData: storedData?.data?.slice(0, 3) || [],
+              })
+
+              if (storedData) {
+                console.log("✅ storedData가 존재함, 급수 비교 시작")
+                const storedGrade = storedData.grade
+                console.debug("4️⃣ 급수 비교:", {
+                  currentGrade,
+                  storedGrade,
+                  isSameGrade: currentGrade === storedGrade,
+                })
+                console.log("🔍 급수 비교 결과:", {
+                  current: currentGrade,
+                  stored: storedGrade,
+                  isSame: currentGrade === storedGrade,
+                })
+
+                console.log("🔍 급수 비교 후 조건 확인:", {
+                  currentGrade,
+                  storedGrade,
+                  isEqual: currentGrade === storedGrade,
+                  willEnterIfBlock: currentGrade === storedGrade,
+                })
+
+                if (currentGrade === storedGrade) {
+                  console.log("✅ 같은 급수 조건 진입!")
+                  // 5. 같은 급수면 데이터 그대로 사용 (단, data 배열이 비어있지 않은 경우만)
+                  if (storedData.data && storedData.data.length > 0) {
+                    console.debug("5️⃣ ✅ 같은 급수 - 기존 데이터 사용")
+                    console.debug("📦 사용할 데이터:", {
+                      grade: storedData.grade,
+                      charactersCount: storedData.data.length,
+                      lastUpdated: storedData.lastUpdated,
+                      sampleCharacters: storedData.data
+                        .slice(0, 3)
+                        .map((h: any) => ({
+                          character: h.character,
+                          meaning: h.meaning,
+                          sound: h.sound,
+                        })),
+                    })
+
+                    // 🔍 IndexedDB 데이터를 실제로 활용하는지 확인
+                    console.log("🎯 IndexedDB 데이터 활용 확인:", {
+                      source: "IndexedDB Cache",
+                      grade: storedData.grade,
+                      charactersCount: storedData.data.length,
+                      sampleCharacters: storedData.data
+                        .slice(0, 3)
+                        .map((h: any) => ({
+                          character: h.character,
+                          meaning: h.meaning,
+                          sound: h.sound,
+                        })),
+                    })
+
+                    // DataContext에 데이터 전달 (실제 활용)
+                    console.log("🔄 DataContext에 IndexedDB 데이터 전달 중...")
+                    console.log("🎯 IndexedDB 데이터 활용 확인:", {
+                      source: "IndexedDB Cache",
+                      grade: storedData.grade,
+                      charactersCount: storedData.data.length,
+                      lastUpdated: storedData.lastUpdated,
+                      sampleCharacters: storedData.data
+                        .slice(0, 3)
+                        .map((h: any) => ({
+                          character: h.character,
+                          meaning: h.meaning,
+                          sound: h.sound,
+                        })),
+                    })
+
+                    // 🔍 실제로 DataContext의 hanziList가 업데이트되는지 확인
+                    console.log("🔄 DataContext hanziList 업데이트 확인:", {
+                      expectedLength: storedData.data.length,
+                      expectedGrade: storedData.grade,
+                      isUsingIndexedDB: true,
+                    })
+
+                    // 🔍 DataContext에 IndexedDB 데이터를 직접 전달
+                    console.log(
+                      "🎯 DataContext에 IndexedDB 데이터 직접 전달:",
+                      {
+                        dataSource: "IndexedDB",
+                        charactersCount: storedData.data.length,
+                        grade: storedData.grade,
+                      }
+                    )
+
+                    // DataContext의 refreshHanziData 함수를 호출하여 IndexedDB 데이터를 DataContext에 전달
+                    console.log("🔄 DataContext refreshHanziData 호출 중...")
+                    console.log("🔍 refreshHanziData 함수 존재 확인:", {
+                      exists: !!refreshHanziData,
+                      type: typeof refreshHanziData,
+                    })
+
+                    try {
+                      console.log("🚀 refreshHanziData() 호출 시작!")
+                      await refreshHanziData()
+                      console.log("✅ DataContext refreshHanziData 호출 완료!")
+                    } catch (error) {
+                      console.error(
+                        "❌ DataContext refreshHanziData 실패:",
+                        error
+                      )
+                    }
+
+                    console.groupEnd()
+                  } else {
+                    // 같은 급수이지만 data 배열이 비어있는 경우 - API에서 데이터 가져오기
+                    console.debug(
+                      "5️⃣ ❌ 같은 급수이지만 데이터가 비어있음 - API에서 데이터 가져오기"
+                    )
+                    console.debug("📥 API에서 데이터 가져오기 시작...")
+
+                    // API에서 실제 한자 데이터 가져오기
+                    ApiClient.getHanziByGrade(currentGrade)
+                      .then((hanziData) => {
+                        console.debug("✅ API에서 데이터 가져오기 성공:", {
+                          grade: currentGrade,
+                          charactersCount: hanziData.length,
+                          sampleCharacters: hanziData.slice(0, 3).map((h) => ({
+                            character: h.character,
+                            meaning: h.meaning,
+                            sound: h.sound,
+                          })),
+                        })
+
+                        // 새로운 트랜잭션 생성
+                        const newTransaction = db.transaction(
+                          ["hanziStore"],
+                          "readwrite"
+                        )
+                        const newStore =
+                          newTransaction.objectStore("hanziStore")
+
+                        const newData = {
+                          grade: currentGrade,
+                          lastUpdated: new Date().toISOString(),
+                          data: hanziData,
+                        }
+
+                        const putRequest = newStore.put(
+                          newData,
+                          "currentHanziData"
+                        )
+
+                        putRequest.onsuccess = () => {
+                          console.debug("✅ API 데이터 IndexedDB 저장 완료!")
+                          console.debug("📦 저장된 데이터:", {
+                            grade: newData.grade,
+                            charactersCount: newData.data.length,
+                            lastUpdated: newData.lastUpdated,
+                            sampleCharacters: newData.data
+                              .slice(0, 3)
+                              .map((h) => ({
+                                character: h.character,
+                                meaning: h.meaning,
+                                sound: h.sound,
+                              })),
+                          })
+                          console.groupEnd()
+                        }
+
+                        putRequest.onerror = () => {
+                          console.error(
+                            "❌ API 데이터 저장 실패:",
+                            putRequest.error
+                          )
+                          console.groupEnd()
+                        }
+                      })
+                      .catch((error) => {
+                        console.error("❌ API 호출 실패:", error)
+                        console.groupEnd()
+                      })
+                  }
+                } else {
+                  // 6. 다른 급수면 기존 데이터 클리어 후 새로운 데이터 저장
+                  console.debug(
+                    "6️⃣ ❌ 다른 급수 - 기존 데이터 클리어 후 새 데이터 저장"
+                  )
+                  console.debug("🧹 기존 데이터 클리어 중...")
+
+                  // 기존 데이터 삭제
+                  const deleteRequest = store.delete("currentHanziData")
+
+                  deleteRequest.onsuccess = () => {
+                    console.debug("✅ 기존 데이터 클리어 완료")
+                    console.log(
+                      "📥 API에서 새로운 급수 데이터 가져오기 시작..."
+                    )
+                    console.log(
+                      "🔍 API 호출 시작 - currentGrade:",
+                      currentGrade
+                    )
+
+                    // API에서 실제 한자 데이터 가져오기
+                    ApiClient.getHanziByGrade(currentGrade)
+                      .then((hanziData) => {
+                        console.log("🔍 API 응답 받음 - hanziData:", hanziData)
+                        console.log("🔍 hanziData 타입:", typeof hanziData)
+                        console.log(
+                          "🔍 hanziData 길이:",
+                          hanziData?.length || 0
+                        )
+                        console.debug("✅ API에서 데이터 가져오기 성공:", {
+                          grade: currentGrade,
+                          charactersCount: hanziData.length,
+                          sampleCharacters: hanziData.slice(0, 3).map((h) => ({
+                            character: h.character,
+                            meaning: h.meaning,
+                            sound: h.sound,
+                          })),
+                        })
+
+                        const newData = {
+                          grade: currentGrade,
+                          lastUpdated: new Date().toISOString(),
+                          data: hanziData,
+                        }
+
+                        // 새로운 트랜잭션 생성
+                        const newTransaction = db.transaction(
+                          ["hanziStore"],
+                          "readwrite"
+                        )
+                        const newStore =
+                          newTransaction.objectStore("hanziStore")
+
+                        const putRequest = newStore.put(
+                          newData,
+                          "currentHanziData"
+                        )
+
+                        putRequest.onsuccess = () => {
+                          console.debug("✅ API 데이터 IndexedDB 저장 완료!")
+                          console.debug("📦 저장된 데이터:", {
+                            grade: newData.grade,
+                            charactersCount: newData.data.length,
+                            lastUpdated: newData.lastUpdated,
+                            sampleCharacters: newData.data
+                              .slice(0, 3)
+                              .map((h) => ({
+                                character: h.character,
+                                meaning: h.meaning,
+                                sound: h.sound,
+                              })),
+                          })
+                          console.groupEnd()
+                        }
+
+                        putRequest.onerror = () => {
+                          console.error(
+                            "❌ API 데이터 저장 실패:",
+                            putRequest.error
+                          )
+                          console.groupEnd()
+                        }
+                      })
+                      .catch((error) => {
+                        console.error("❌ API 호출 실패:", error)
+                        console.groupEnd()
+                      })
+                  }
+
+                  deleteRequest.onerror = () => {
+                    console.error(
+                      "❌ 기존 데이터 클리어 실패:",
+                      deleteRequest.error
+                    )
+                  }
+                }
+              } else {
+                // 데이터가 없는 경우 - API에서 실제 데이터 가져오기
+                console.debug(
+                  "4️⃣ ❌ IndexedDB에 데이터 없음 - API에서 데이터 가져오기"
+                )
+                console.debug("📥 API 호출 시작...")
+
+                // API에서 실제 한자 데이터 가져오기
+                ApiClient.getHanziByGrade(currentGrade)
+                  .then((hanziData) => {
+                    console.debug("✅ API에서 데이터 가져오기 성공:", {
+                      grade: currentGrade,
+                      charactersCount: hanziData.length,
+                      sampleCharacters: hanziData.slice(0, 3).map((h) => ({
+                        character: h.character,
+                        meaning: h.meaning,
+                        sound: h.sound,
+                      })),
+                    })
+
+                    const newData = {
+                      grade: currentGrade,
+                      lastUpdated: new Date().toISOString(),
+                      data: hanziData,
+                    }
+
+                    // 새로운 트랜잭션 생성
+                    const newTransaction = db.transaction(
+                      ["hanziStore"],
+                      "readwrite"
+                    )
+                    const newStore = newTransaction.objectStore("hanziStore")
+
+                    const putRequest = newStore.put(newData, "currentHanziData")
+
+                    putRequest.onsuccess = () => {
+                      console.debug("✅ API 데이터 IndexedDB 저장 완료!")
+                      console.debug("📦 저장된 데이터:", {
+                        grade: newData.grade,
+                        charactersCount: newData.data.length,
+                        lastUpdated: newData.lastUpdated,
+                        sampleCharacters: newData.data.slice(0, 3).map((h) => ({
+                          character: h.character,
+                          meaning: h.meaning,
+                          sound: h.sound,
+                        })),
+                      })
+                    }
+
+                    putRequest.onerror = () => {
+                      console.error(
+                        "❌ API 데이터 저장 실패:",
+                        putRequest.error
+                      )
+                    }
+                  })
+                  .catch((error) => {
+                    console.error("❌ API 호출 실패:", error)
+                    console.debug("📥 API 실패 시 테스트 데이터 생성...")
+
+                    // API 실패 시 테스트 데이터 생성
+                    const fallbackData = {
+                      grade: currentGrade,
+                      lastUpdated: new Date().toISOString(),
+                      data: [
+                        {
+                          id: `fallback_${currentGrade}_1`,
+                          character: "人",
+                          pinyin: "rén",
+                          sound: "인",
+                          meaning: "사람",
+                          grade: currentGrade,
+                          gradeNumber: 1,
+                          strokes: 2,
+                          radicals: ["人"],
+                          createdAt: new Date().toISOString(),
+                          updatedAt: new Date().toISOString(),
+                        },
+                      ],
+                    }
+
+                    // 새로운 트랜잭션 생성
+                    const newTransaction = db.transaction(
+                      ["hanziStore"],
+                      "readwrite"
+                    )
+                    const newStore = newTransaction.objectStore("hanziStore")
+
+                    const putRequest = newStore.put(
+                      fallbackData,
+                      "currentHanziData"
+                    )
+
+                    putRequest.onsuccess = () => {
+                      console.debug("✅ 테스트 데이터 생성 완료!")
+                    }
+
+                    putRequest.onerror = () => {
+                      console.error(
+                        "❌ 테스트 데이터 생성 실패:",
+                        putRequest.error
+                      )
+                    }
+                  })
+              }
+
+              console.groupEnd()
+            }
+
+            getRequest2.onerror = () => {
+              console.error("❌ IndexedDB 데이터 조회 실패:", getRequest2.error)
+              console.log("🔍 조회 실패 상세:", {
+                error: getRequest2.error,
+                errorName: getRequest2.error?.name,
+                errorMessage: getRequest2.error?.message,
+              })
+              console.groupEnd()
+            }
+          }
+
+          getAllKeysRequest.onerror = () => {
+            console.error("❌ 모든 키 조회 실패:", getAllKeysRequest.error)
+            console.groupEnd()
+          }
+        }
+
+        request.onerror = () => {
+          console.error("❌ hanziDB 데이터베이스 열기 실패:", request.error)
+          console.log("🔍 데이터베이스 열기 실패 상세:", {
+            error: request.error,
+            errorName: request.error?.name,
+            errorMessage: request.error?.message,
+          })
+          console.groupEnd()
+        }
+      } catch (error) {
+        console.error("❌ IndexedDB 처리 중 에러:", error)
+        console.groupEnd()
+      }
+    }
+
+    // 사용자가 로그인한 후에만 실행
+    if (user) {
+      checkAndUpdateIndexedDB()
+    }
+  }, [user])
   const [showWritingModal, setShowWritingModal] = useState(false)
   const [showGuideModal, setShowGuideModal] = useState(false)
   const [todayExperience, setTodayExperience] = useState<number>(0)
@@ -587,7 +1296,7 @@ export default function Home() {
                         </div>
                       </div>
                     ))}
-                    
+
                     {/* 더보기 버튼 */}
                     {userRankings.length > 5 && (
                       <div className='text-center pt-3'>
@@ -610,9 +1319,23 @@ export default function Home() {
 
             {/* 게임 선택 */}
             <div>
-              <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6'>
-                학습 게임
-              </h2>
+              <div className='flex items-center justify-between mb-4 sm:mb-6'>
+                <h2 className='text-xl sm:text-2xl font-bold text-gray-900'>
+                  학습 게임
+                </h2>
+                {user && (
+                  <div className='bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold'>
+                    현재 학습 급수:{" "}
+                    {user.preferredGrade === 5.5
+                      ? "준5급"
+                      : user.preferredGrade === 4.5
+                      ? "준4급"
+                      : user.preferredGrade === 3.5
+                      ? "준3급"
+                      : `${user.preferredGrade}급`}
+                  </div>
+                )}
+              </div>
               <div className='grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6'>
                 {games.map((game) => (
                   <button
@@ -781,38 +1504,38 @@ export default function Home() {
 
       {/* 유저 순위 모달 */}
       {showRankingModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        <div
+          className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'
           onClick={() => setShowRankingModal(false)}
         >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col"
+          <div
+            className='bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col'
             onClick={(e) => e.stopPropagation()}
           >
             {/* 모달 헤더 */}
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">
+            <div className='flex items-center justify-between p-6 border-b'>
+              <h2 className='text-xl font-bold text-gray-900'>
                 🏆 전체 유저 순위
               </h2>
               <button
                 onClick={() => setShowRankingModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
+                className='text-gray-400 hover:text-gray-600 text-2xl'
               >
                 ×
               </button>
             </div>
-            
+
             {/* 모달 내용 */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className='flex-1 overflow-y-auto p-6'>
               {isLoadingRankings ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  <span className="ml-2 text-gray-600">
+                <div className='flex items-center justify-center py-8'>
+                  <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500'></div>
+                  <span className='ml-2 text-gray-600'>
                     순위를 불러오는 중...
                   </span>
                 </div>
               ) : userRankings.length > 0 ? (
-                <div className="space-y-3">
+                <div className='space-y-3'>
                   {userRankings.map((user) => (
                     <div
                       key={user.userId}
@@ -826,7 +1549,7 @@ export default function Home() {
                           : "bg-gray-50 border border-gray-100"
                       }`}
                     >
-                      <div className="flex items-center space-x-3">
+                      <div className='flex items-center space-x-3'>
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                             user.rank === 1
@@ -840,30 +1563,30 @@ export default function Home() {
                         >
                           {user.rank}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-900 truncate">
+                        <div className='flex-1 min-w-0'>
+                          <div className='font-semibold text-gray-900 truncate'>
                             {user.username}
                           </div>
-                          <div className="text-xs text-gray-600 space-y-1">
-                            <div className="flex items-center space-x-2">
+                          <div className='text-xs text-gray-600 space-y-1'>
+                            <div className='flex items-center space-x-2'>
                               <span>레벨 {user.level}</span>
                               <span>•</span>
                               <span>
                                 {user.experience.toLocaleString()} EXP
                               </span>
                               <span>•</span>
-                              <span className="text-orange-600 font-medium">
+                              <span className='text-orange-600 font-medium'>
                                 {formatStudyTime(user.totalStudyTime)}
                               </span>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className='flex items-center space-x-2'>
                               <span>{user.totalPlayed}문제</span>
                               <span>•</span>
-                              <span className="text-green-600 font-medium">
+                              <span className='text-green-600 font-medium'>
                                 정답률 {user.accuracy}%
                               </span>
                               <span>•</span>
-                              <span className="text-blue-600 font-medium">
+                              <span className='text-blue-600 font-medium'>
                                 {user.preferredGrade}급
                               </span>
                             </div>
@@ -874,7 +1597,7 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className='text-center py-8 text-gray-500'>
                   아직 순위 데이터가 없습니다.
                 </div>
               )}

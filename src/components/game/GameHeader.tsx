@@ -15,14 +15,14 @@ export default function GameHeader({
   currentQuestionIndex,
   questionCount,
   currentDuration,
-  onBackClick
+  onBackClick,
 }: GameHeaderProps) {
   const gameTitle = gameType === "partial" ? "부분 맞추기" : "퀴즈"
 
   return (
     <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-        <div className='flex justify-between items-center py-3'>
+        <div className='flex justify-between items-center py-4'>
           <div className='flex items-center space-x-4'>
             <button
               onClick={onBackClick}

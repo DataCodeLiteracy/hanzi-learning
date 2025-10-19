@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import Link from "next/link"
 import { ApiClient } from "@/lib/apiClient"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import NextGradeModal from "@/components/NextGradeModal"
 import { useGameLogic, GameQuestion } from "@/hooks/useGameLogic"
-import GameSettings from "@/components/game/GameSettings"
 import GameHeader from "@/components/game/GameHeader"
 import GameCompletionCard from "@/components/game/GameCompletionCard"
 import AnswerModal from "@/components/game/AnswerModal"
@@ -20,31 +20,23 @@ interface PartialQuestion extends GameQuestion {
 }
 
 export default function PartialGame() {
-  const { user, initialLoading, isAuthenticated } = useAuth()
+  const { user, loading, isAuthenticated } = useAuth()
+  const { hanziList, isLoading: isDataLoading } = useData()
 
   // 게임 설정
-  const [selectedGrade, setSelectedGrade] = useState<number>(
-    user?.preferredGrade || 8
-  )
   const [questionCount, setQuestionCount] = useState<number>(10)
   const [showSettings, setShowSettings] = useState<boolean>(true)
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
   const [noDataMessage, setNoDataMessage] = useState<string>("")
-  const [gradeHanzi, setGradeHanzi] = useState<
-    {
-      id: string
-      character: string
-      meaning: string
-      sound: string
-      pinyin?: string
-      grade: number
-    }[]
-  >([])
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false)
   const [showExitModal, setShowExitModal] = useState<boolean>(false)
   const [showNextGradeModal, setShowNextGradeModal] = useState<boolean>(false)
+
+  // 통합된 로딩 상태
+  const isLoading = loading || isDataLoading || hanziList.length === 0
+
+  // 현재 선택된 급수는 user.preferredGrade를 사용
+  const selectedGrade = user?.preferredGrade || 8
 
   // 게임 로직 훅
   const gameLogic = useGameLogic({
@@ -83,23 +75,6 @@ export default function PartialGame() {
     autoEnd: true,
   })
 
-  // 8급 데이터 기본 로딩
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true)
-      try {
-        const grade8Data = await ApiClient.getHanziByGrade(8)
-        setGradeHanzi(grade8Data)
-      } catch (error) {
-        console.error("초기 데이터 로드 실패:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadInitialData()
-  }, [])
-
   // 뒤로가기 감지 및 모달 표시
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
@@ -126,14 +101,6 @@ export default function PartialGame() {
     gameLogic.hasUpdatedStats,
     gameLogic.userConfirmedExit,
   ])
-
-  // 사용자 정보 로드 후 선호 급수 반영
-  useEffect(() => {
-    if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
-      setSelectedGrade(user.preferredGrade)
-      handleGradeChange(user.preferredGrade)
-    }
-  }, [user])
 
   // 게임 종료 시 세션 완료 통계 업데이트
   useEffect(() => {
@@ -163,46 +130,9 @@ export default function PartialGame() {
     setShowExitModal(false)
   }
 
-  // 급수 변경 시 데이터 업데이트
-  const handleGradeChange = async (grade: number) => {
-    if (grade === selectedGrade) return
-
-    setSelectedGrade(grade)
-    setIsLoadingGrade(true)
-
-    try {
-      const gradeData = await ApiClient.getHanziByGrade(grade)
-      setGradeHanzi(gradeData)
-
-      if (gradeData.length === 0) {
-        setNoDataMessage(
-          `선택한 급수(${
-            grade === 5.5
-              ? "준5급"
-              : grade === 4.5
-              ? "준4급"
-              : grade === 3.5
-              ? "준3급"
-              : `${grade}급`
-          })에 데이터가 없습니다.`
-        )
-        setShowNoDataModal(true)
-      } else {
-        setNoDataMessage("")
-        setShowNoDataModal(false)
-      }
-    } catch (error) {
-      console.error("급수 데이터 로드 실패:", error)
-      setNoDataMessage("데이터 로드 중 오류가 발생했습니다.")
-      setShowNoDataModal(true)
-    } finally {
-      setIsLoadingGrade(false)
-    }
-  }
-
   // 게임 초기화 함수
   const initializeGame = async () => {
-    if (gradeHanzi.length === 0) {
+    if (hanziList.length === 0) {
       setNoDataMessage(
         `선택한 급수(${
           selectedGrade === 5.5
@@ -218,9 +148,9 @@ export default function PartialGame() {
       return
     }
 
-    if (gradeHanzi.length < questionCount) {
+    if (hanziList.length < questionCount) {
       setNoDataMessage(
-        `선택한 급수에 ${questionCount}개보다 적은 한자가 있습니다. (${gradeHanzi.length}개)`
+        `선택한 급수에 ${questionCount}개보다 적은 한자가 있습니다. (${hanziList.length}개)`
       )
       setShowNoDataModal(true)
       return
@@ -229,11 +159,11 @@ export default function PartialGame() {
     setIsGenerating(true)
 
     try {
-      const selectedHanzi = await ApiClient.getPrioritizedHanzi(
-        user!.id,
-        selectedGrade,
-        questionCount
-      )
+      // hanziList에서 직접 문제 생성 (IndexedDB 데이터 사용)
+      const selectedHanzi = hanziList
+        .sort(() => Math.random() - 0.5)
+        .slice(0, questionCount)
+
       const generatedQuestions: PartialQuestion[] = selectedHanzi.map(
         (hanzi, index) => {
           const hiddenParts: Array<
@@ -242,7 +172,7 @@ export default function PartialGame() {
           const hiddenPart =
             hiddenParts[Math.floor(Math.random() * hiddenParts.length)]
 
-          const otherHanzi = gradeHanzi.filter((h) => h.id !== hanzi.id)
+          const otherHanzi = hanziList.filter((h) => h.id !== hanzi.id)
           const correctAnswer = `${hanzi.meaning} ${
             hanzi.sound || hanzi.pinyin || ""
           }`
@@ -366,18 +296,10 @@ export default function PartialGame() {
   }
 
   // 로딩 상태 처리
-  if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
-      </div>
-    )
-  }
-
   if (isLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='한자 데이터를 불러오는 중...' />
+        <LoadingSpinner message='데이터를 불러오는 중...' />
       </div>
     )
   }
@@ -397,10 +319,6 @@ export default function PartialGame() {
     )
   }
 
-  if (gradeHanzi.length === 0) {
-    return <LoadingSpinner message='한자 데이터를 불러오는 중...' />
-  }
-
   // 게임 생성 중
   if (isGenerating) {
     return (
@@ -413,20 +331,151 @@ export default function PartialGame() {
   // 설정 화면
   if (showSettings) {
     return (
-      <GameSettings
-        gameType='partial'
-        selectedGrade={selectedGrade}
-        questionCount={questionCount}
-        gradeHanzi={gradeHanzi}
-        isLoadingGrade={isLoadingGrade}
-        isGenerating={isGenerating}
-        showNoDataModal={showNoDataModal}
-        noDataMessage={noDataMessage}
-        onGradeChange={handleGradeChange}
-        onQuestionCountChange={setQuestionCount}
-        onStartGame={initializeGame}
-        onCloseNoDataModal={() => setShowNoDataModal(false)}
-      />
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pt-6'>
+        {/* 뒤로가기 버튼 */}
+        <div className='max-w-md mx-auto mb-4'>
+          <Link
+            href='/'
+            className='inline-flex items-center font-medium transition-all no-underline'
+            style={{ color: "#111827", textDecoration: "none" }}
+          >
+            <svg
+              className='w-5 h-5 mr-2'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+              style={{ color: "#111827" }}
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M10 19l-7-7m0 0l7-7m-7 7h18'
+              />
+            </svg>
+            <span style={{ color: "#111827" }}>메인으로 돌아가기</span>
+          </Link>
+        </div>
+        <div className='max-w-md mx-auto bg-white rounded-xl shadow-2xl p-8'>
+          <h2 className='text-3xl font-bold text-center mb-8 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent'>
+            부분 맞추기 설정
+          </h2>
+
+          {/* 현재 학습 급수 표시 */}
+          <div className='mb-6'>
+            <div className='flex items-center justify-between mb-2'>
+              <label className='block text-base font-semibold text-gray-700'>
+                학습 중인 급수
+              </label>
+              <Link
+                href='/profile#study-goal'
+                className='text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors'
+              >
+                급수 변경 →
+              </Link>
+            </div>
+            <div className='relative'>
+              <div className='block w-full px-4 py-3 text-base font-medium text-gray-900 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner'>
+                {selectedGrade === 5.5
+                  ? "준5급"
+                  : selectedGrade === 4.5
+                  ? "준4급"
+                  : selectedGrade === 3.5
+                  ? "준3급"
+                  : `${selectedGrade}급`}
+                {hanziList.length > 0 && (
+                  <span className='ml-2 text-sm text-blue-600 font-semibold'>
+                    ({hanziList.length}개)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 문제 수 설정 */}
+          <div className='mb-6'>
+            <label className='block text-base font-semibold text-gray-700 mb-2'>
+              문제 수
+            </label>
+            <div className='relative'>
+              <select
+                value={questionCount}
+                onChange={(e) => setQuestionCount(Number(e.target.value))}
+                className='block w-full px-4 py-3 text-base font-medium text-gray-900 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+              >
+                <option value={5}>5문제</option>
+                <option value={10}>10문제</option>
+                <option value={15}>15문제</option>
+                <option value={20}>20문제</option>
+              </select>
+              <div className='pointer-events-none absolute inset-y-0 right-0 flex items-center px-4'>
+                <svg
+                  className='h-5 w-5 text-gray-500'
+                  viewBox='0 0 20 20'
+                  fill='currentColor'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* 시작 버튼 */}
+          <button
+            onClick={initializeGame}
+            disabled={isGenerating}
+            className='w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-lg font-bold py-4 px-6 rounded-xl shadow-lg hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none'
+          >
+            {isGenerating ? (
+              <div className='flex items-center justify-center space-x-2'>
+                <svg
+                  className='animate-spin h-5 w-5 text-white'
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  ></circle>
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                  ></path>
+                </svg>
+                <span>게임 생성 중...</span>
+              </div>
+            ) : (
+              "시작하기"
+            )}
+          </button>
+        </div>
+
+        {/* 에러 모달 */}
+        {showNoDataModal && (
+          <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4'>
+            <div className='bg-white rounded-lg p-6 max-w-sm w-full'>
+              <h3 className='text-lg font-semibold mb-4'>알림</h3>
+              <p className='text-gray-600 mb-4'>{noDataMessage}</p>
+              <button
+                onClick={() => setShowNoDataModal(false)}
+                className='w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700'
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -642,9 +691,9 @@ export default function PartialGame() {
         currentGrade={selectedGrade}
         nextGrade={selectedGrade - 1}
         onProceedToNext={() => {
-          setSelectedGrade(selectedGrade - 1)
+          // 다음 급수로 이동은 마이페이지에서만 가능하도록 변경
           setShowNextGradeModal(false)
-          initializeGame()
+          window.location.href = "/profile"
         }}
       />
     </div>

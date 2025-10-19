@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft } from "lucide-react"
@@ -9,76 +10,16 @@ import Link from "next/link"
 
 export default function WritingGame() {
   const { user, loading: authLoading } = useAuth()
-  const [selectedGrade, setSelectedGrade] = useState<number>(8)
-  const [gradeHanzi, setGradeHanzi] = useState<
-    {
-      id: string
-      character: string
-      meaning: string
-      sound: string
-      pinyin?: string
-      grade: number
-    }[]
-  >([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false)
+  const { hanziList, isLoading: isDataLoading } = useData()
 
-  // 8급 데이터 기본 로딩
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true)
-      try {
-        const grade8Data = await ApiClient.getHanziByGrade(8)
-        setGradeHanzi(grade8Data)
-      } catch (error) {
-        console.error("초기 데이터 로드 실패:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  // 통합된 로딩 상태
+  const isLoading = authLoading || isDataLoading || hanziList.length === 0
 
-    loadInitialData()
-  }, [])
-
-  // 급수 변경 시 데이터 업데이트
-  const handleGradeChange = async (grade: number) => {
-    if (grade === selectedGrade) return
-
-    setSelectedGrade(grade)
-    setIsLoadingGrade(true)
-
-    try {
-      const gradeData = await ApiClient.getHanziByGrade(grade)
-      setGradeHanzi(gradeData)
-
-      if (gradeData.length === 0) {
-        // setNoDataMessage(
-        //   `선택한 급수(${
-        //     grade === 5.5
-        //       ? "준5급"
-        //       : grade === 4.5
-        //       ? "준4급"
-        //       : grade === 3.5
-        //       ? "준3급"
-        //       : `${grade}급`
-        //   })에 데이터가 없습니다.`
-        // )
-        // setShowNoDataModal(true)
-      } else {
-        // setNoDataMessage("")
-        // setShowNoDataModal(false)
-      }
-    } catch (error) {
-      console.error("급수 데이터 로드 실패:", error)
-      // setNoDataMessage("데이터 로드 중 오류가 발생했습니다.")
-      // setShowNoDataModal(true)
-    } finally {
-      setIsLoadingGrade(false)
-    }
-  }
+  // 현재 선택된 급수는 user.preferredGrade를 사용
+  const selectedGrade = user?.preferredGrade || 8
 
   // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading || isLoading || isLoadingGrade) {
+  if (isLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='게임을 준비하는 중...' />
@@ -103,7 +44,7 @@ export default function WritingGame() {
   }
 
   // 데이터가 없을 때 표시
-  if (gradeHanzi.length === 0) {
+  if (hanziList.length === 0) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <div className='text-center'>
@@ -111,34 +52,16 @@ export default function WritingGame() {
             데이터가 없습니다
           </h1>
           <p className='text-gray-600 mb-4'>
-            선택한 급수에 해당하는 한자 데이터가 없습니다. 다른 급수를
-            선택해주세요.
+            현재 학습 급수에 해당하는 한자 데이터가 없습니다. 마이페이지에서
+            다른 급수를 선택해주세요.
           </p>
           <div className='flex justify-center space-x-4'>
-            <button
-              onClick={() => handleGradeChange(8)}
+            <Link
+              href='/profile'
               className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
             >
-              8급 데이터 로드
-            </button>
-            <button
-              onClick={() => handleGradeChange(5.5)}
-              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-            >
-              준5급 데이터 로드
-            </button>
-            <button
-              onClick={() => handleGradeChange(4.5)}
-              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-            >
-              준4급 데이터 로드
-            </button>
-            <button
-              onClick={() => handleGradeChange(3.5)}
-              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-            >
-              준3급 데이터 로드
-            </button>
+              마이페이지로 이동
+            </Link>
           </div>
         </div>
       </div>
@@ -181,30 +104,12 @@ export default function WritingGame() {
             선택한 급수의 한자를 써보세요. 배경에 흐린 한자를 따라 그려보세요.
           </p>
           <div className='flex justify-center space-x-4'>
-            <button
-              onClick={() => handleGradeChange(8)}
+            <Link
+              href='/profile'
               className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
             >
-              8급 데이터 로드
-            </button>
-            <button
-              onClick={() => handleGradeChange(5.5)}
-              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-            >
-              준5급 데이터 로드
-            </button>
-            <button
-              onClick={() => handleGradeChange(4.5)}
-              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-            >
-              준4급 데이터 로드
-            </button>
-            <button
-              onClick={() => handleGradeChange(3.5)}
-              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-            >
-              준3급 데이터 로드
-            </button>
+              마이페이지로 이동
+            </Link>
           </div>
         </div>
       </main>

@@ -51,7 +51,7 @@ export default function ProfilePage() {
     isAuthenticated,
     signOutUser,
   } = useAuth()
-  const { userStatistics, learningSessions } = useData()
+  const { userStatistics, learningSessions, clearIndexedDB } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [gameStatistics, setGameStatistics] = useState<Record<
@@ -180,7 +180,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
+    <div
+      className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'
+      style={{ scrollBehavior: "smooth" }}
+    >
       {/* 헤더 */}
       <header className='bg-white shadow-sm'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -355,7 +358,7 @@ export default function ProfilePage() {
             </div>
 
             {/* 오늘의 학습 목표 설정 */}
-            <div className='mb-6'>
+            <div className='mb-6' id='study-goal'>
               <h3 className='text-lg font-semibold text-gray-900 mb-3'>
                 오늘의 학습 목표
               </h3>
@@ -421,26 +424,146 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* 선호 급수 설정 */}
-            <div className='mb-6'>
+            {/* 학습 중인 급수 설정 */}
+            <div className='mb-6' id='learning-grade'>
               <h3 className='text-lg font-semibold text-gray-900 mb-3'>
-                선호하는 급수
+                학습 중인 급수
               </h3>
               <p className='text-sm text-gray-600 mb-3'>
-                설정한 급수가 다른 페이지의 급수 선택에서 기본값으로 사용됩니다.
+                현재 학습하고 있는 급수를 설정하세요. 모든 게임에서 이 급수의
+                한자로 문제가 출제됩니다.
               </p>
               <div className='flex items-center space-x-3'>
                 <select
                   value={user?.preferredGrade || 8}
                   onChange={async (e) => {
+                    console.log("🔍 급수 변경 시작 - onChange 이벤트 발생")
                     if (user) {
+                      console.log("🔍 사용자 존재 확인:", user.id)
                       try {
+                        const newGrade = Number(e.target.value)
+                        console.log("🔍 새로운 급수:", newGrade)
+                        console.log("🔍 기존 급수:", user.preferredGrade)
+                        console.debug(
+                          `🔄 Changing preferred grade from ${user.preferredGrade} to ${newGrade}`
+                        )
+
+                        // IndexedDB 클리어
+                        await clearIndexedDB()
+
+                        // 사용자 선호 급수 업데이트
                         await ApiClient.updateUserPreferredGrade(
                           user.id,
-                          Number(e.target.value)
+                          newGrade
                         )
-                        // 사용자 정보 새로고침
-                        window.location.reload()
+
+                        console.debug(
+                          "✅ Preferred grade updated, loading new grade data..."
+                        )
+
+                        // 새로운 급수 데이터를 IndexedDB에 저장
+                        try {
+                          console.warn(
+                            "⚠️ 마이페이지 - 급수 변경으로 Firebase API 호출 시작!"
+                          )
+                          console.warn(
+                            `🔥 Firebase hanzi 컬렉션 읽기 발생: ${newGrade}급`
+                          )
+                          console.debug(
+                            "📥 Loading new grade data for IndexedDB..."
+                          )
+
+                          const newGradeData = await ApiClient.getHanziByGrade(
+                            newGrade
+                          )
+
+                          console.warn(
+                            `✅ Firebase API 호출 완료: ${newGradeData.length}개 문서 읽기`
+                          )
+                          console.debug("✅ New grade data loaded:", {
+                            grade: newGrade,
+                            charactersCount: newGradeData.length,
+                            sampleCharacters: newGradeData
+                              .slice(0, 3)
+                              .map((h) => ({
+                                character: h.character,
+                                meaning: h.meaning,
+                                sound: h.sound,
+                              })),
+                          })
+
+                          // IndexedDB에 새로운 데이터 저장
+                          if (
+                            typeof window !== "undefined" &&
+                            window.indexedDB
+                          ) {
+                            const request = window.indexedDB.open("hanziDB", 1)
+
+                            request.onsuccess = () => {
+                              const db = request.result
+                              const transaction = db.transaction(
+                                ["hanziStore"],
+                                "readwrite"
+                              )
+                              const store =
+                                transaction.objectStore("hanziStore")
+
+                              const newData = {
+                                grade: newGrade,
+                                lastUpdated: new Date().toISOString(),
+                                data: newGradeData,
+                              }
+
+                              const putRequest = store.put(
+                                newData,
+                                "currentHanziData"
+                              )
+
+                              putRequest.onsuccess = () => {
+                                console.debug(
+                                  "✅ New grade data saved to IndexedDB!"
+                                )
+                                console.debug("📦 Saved data:", {
+                                  grade: newData.grade,
+                                  charactersCount: newData.data.length,
+                                  lastUpdated: newData.lastUpdated,
+                                })
+                                // 페이지 새로고침 없이 메인페이지로 이동
+                                window.location.href = "/"
+                              }
+
+                              putRequest.onerror = () => {
+                                console.error(
+                                  "❌ Failed to save new grade data:",
+                                  putRequest.error
+                                )
+                                // 에러가 발생해도 메인페이지로 이동
+                                window.location.href = "/"
+                              }
+                            }
+
+                            request.onerror = () => {
+                              console.error(
+                                "❌ Failed to open IndexedDB:",
+                                request.error
+                              )
+                              // IndexedDB 열기 실패해도 메인페이지로 이동
+                              window.location.href = "/"
+                            }
+                          } else {
+                            console.warn(
+                              "⚠️ IndexedDB not available, redirecting to main page"
+                            )
+                            window.location.href = "/"
+                          }
+                        } catch (error) {
+                          console.error(
+                            "❌ Failed to load new grade data:",
+                            error
+                          )
+                          // API 호출 실패해도 메인페이지로 이동
+                          window.location.href = "/"
+                        }
                       } catch (error) {
                         console.error("선호 급수 업데이트 실패:", error)
                       }
@@ -461,7 +584,14 @@ export default function ProfilePage() {
                   ))}
                 </select>
                 <span className='text-sm text-gray-500'>
-                  현재: {user?.preferredGrade || 8}급
+                  현재 학습 중:{" "}
+                  {user?.preferredGrade === 5.5
+                    ? "준5급"
+                    : user?.preferredGrade === 4.5
+                    ? "준4급"
+                    : user?.preferredGrade === 3.5
+                    ? "준3급"
+                    : `${user?.preferredGrade || 8}급`}
                 </span>
               </div>
             </div>
@@ -482,7 +612,7 @@ export default function ProfilePage() {
                     try {
                       await ApiClient.ensureAllUsersHavePreferredGrade()
                       alert(
-                        "모든 사용자에게 기본 선호 급수(8급) 설정이 완료되었습니다."
+                        "모든 사용자에게 기본 학습 급수(8급) 설정이 완료되었습니다."
                       )
                     } catch (error) {
                       console.error("마이그레이션 실패:", error)
@@ -492,7 +622,7 @@ export default function ProfilePage() {
                   className='inline-flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors'
                 >
                   <Settings className='h-4 w-4' />
-                  <span>사용자 선호 급수 마이그레이션</span>
+                  <span>사용자 학습 급수 마이그레이션</span>
                 </button>
               </div>
             )}
