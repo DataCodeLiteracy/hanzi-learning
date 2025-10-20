@@ -13,10 +13,14 @@
     "firebase": "^12.0.0",
     "firebase-admin": "^13.5.0",
     "hanzi-writer": "^3.7.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
     "lucide-react": "^0.536.0",
     "next": "15.4.5",
+    "openai": "^6.5.0",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "sharp": "^0.34.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

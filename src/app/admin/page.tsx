@@ -14,6 +14,7 @@ import {
   Upload,
   Download,
   MessageSquare,
+  ImageIcon,
 } from "lucide-react"
 import { migrateAllUsers, migrateUserData } from "@/lib/migration"
 
@@ -502,6 +503,24 @@ export default function AdminPage() {
                 <span>🧪 전체 테스트</span>
               </button>
             </div>
+          </div>
+
+          {/* 쓰기 갤러리 관리 */}
+          <div className='bg-white rounded-lg shadow-sm p-6'>
+            <h2 className='text-lg font-semibold text-gray-900 mb-4'>
+              쓰기 갤러리 관리
+            </h2>
+            <p className='text-sm text-gray-600 mb-4'>
+              사용자들이 업로드한 한자 쓰기 이미지를 검토하고 경험치를 조정할 수
+              있습니다.
+            </p>
+            <Link
+              href='/admin/writing-gallery'
+              className='inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors'
+            >
+              <ImageIcon className='h-4 w-4' />
+              <span>쓰기 갤러리 관리</span>
+            </Link>
           </div>
 
           {/* 고객 피드백 관리 */}

@@ -736,7 +736,6 @@ export default function Home() {
       checkAndUpdateIndexedDB()
     }
   }, [user])
-  const [showWritingModal, setShowWritingModal] = useState(false)
   const [showGuideModal, setShowGuideModal] = useState(false)
   const [todayExperience, setTodayExperience] = useState<number>(0)
   const [todayGoal, setTodayGoal] = useState<number>(100)
@@ -947,11 +946,7 @@ export default function Home() {
   ]
 
   const handleGameClick = (gameId: string, href: string) => {
-    if (gameId === "writing") {
-      setShowWritingModal(true)
-    } else {
-      window.location.href = href
-    }
+    window.location.href = href
   }
 
   // 학습시간을 읽기 쉬운 형식으로 변환
@@ -1439,37 +1434,6 @@ export default function Home() {
           </div>
         )}
       </main>
-
-      {/* 쓰기 게임 준비 중 모달 */}
-      {showWritingModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center'>
-          {/* 배경 오버레이 */}
-          <div
-            className='absolute inset-0'
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
-            onClick={() => setShowWritingModal(false)}
-          />
-
-          {/* 모달 */}
-          <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
-            <div className='text-center'>
-              <div className='text-yellow-500 text-4xl mb-4'>🚧</div>
-              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
-                준비 중인 기능
-              </h3>
-              <p className='text-gray-700 mb-6'>
-                쓰기 연습 기능은 현재 개발 중입니다.
-              </p>
-              <button
-                onClick={() => setShowWritingModal(false)}
-                className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 학습 가이드 준비 중 모달 */}
       {showGuideModal && (

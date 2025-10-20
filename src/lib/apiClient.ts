@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { Hanzi, UserStatistics } from "@/types"
-import { calculateLevel, calculateBonusExperience } from "./experienceSystem"
+import { calculateBonusExperience } from "./experienceSystem"
 
 export class ApiClient {
   // 문서 생성
@@ -33,6 +33,23 @@ export class ApiClient {
       return docRef.id
     } catch (error) {
       throw new Error("문서 생성에 실패했습니다.")
+    }
+  }
+
+  // 문서 업데이트
+  static async updateDocument(
+    docId: string,
+    collectionName: string,
+    data: Partial<any>
+  ): Promise<void> {
+    try {
+      const docRef = doc(db, collectionName, docId)
+      await updateDoc(docRef, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      throw new Error("문서 업데이트에 실패했습니다.")
     }
   }
 
@@ -304,21 +321,40 @@ export class ApiClient {
     experienceToAdd: number
   ): Promise<void> {
     try {
+      console.log("🔍 사용자 경험치 업데이트 시작:", { userId, experienceToAdd })
+      
       const userRef = doc(db, "users", userId)
       const userDoc = await getDoc(userRef)
+      
       if (userDoc.exists()) {
         const currentData = userDoc.data()
         const currentExperience = currentData.experience || 0
         const newExperience = currentExperience + experienceToAdd
-        const newLevel = calculateLevel(newExperience)
+        const newLevel = this.calculateLevel(newExperience)
+        
+        console.log("📊 경험치 업데이트 정보:", {
+          userId,
+          currentExperience,
+          experienceToAdd,
+          newExperience,
+          currentLevel: currentData.level || 1,
+          newLevel,
+        })
+        
         const updatedData = {
-          experience: currentExperience + experienceToAdd,
+          experience: newExperience,
           level: newLevel,
           updatedAt: new Date().toISOString(),
         }
+        
         await updateDoc(userRef, updatedData)
+        console.log("✅ 사용자 경험치 업데이트 완료:", { userId, newExperience, newLevel })
+      } else {
+        console.error("❌ 사용자 문서를 찾을 수 없습니다:", userId)
+        throw new Error("사용자를 찾을 수 없습니다.")
       }
     } catch (error) {
+      console.error("❌ 경험치 업데이트 오류:", error)
       throw new Error("경험치 추가에 실패했습니다.")
     }
   }
@@ -336,6 +372,61 @@ export class ApiClient {
       })
     } catch (error) {
       throw new Error("선호 급수 업데이트에 실패했습니다.")
+    }
+  }
+
+  // 한자 쓰기 통계 업데이트
+  static async updateHanziWritingStatistics(
+    userId: string,
+    hanziId: string,
+    character: string,
+    grade: number
+  ): Promise<void> {
+    try {
+      console.log("📊 한자 쓰기 통계 업데이트:", { userId, hanziId, character, grade })
+      
+      const hanziStatsRef = doc(db, "hanziStatistics", `${userId}_${hanziId}`)
+      const hanziStatsDoc = await getDoc(hanziStatsRef)
+      
+      const now = new Date().toISOString()
+      const today = now.split("T")[0] // YYYY-MM-DD
+      
+      if (hanziStatsDoc.exists()) {
+        // 기존 통계 업데이트
+        const currentData = hanziStatsDoc.data()
+        const lastWrited = currentData.lastWrited || ""
+        
+        // 오늘 이미 연습했는지 확인
+        if (lastWrited.startsWith(today)) {
+          console.log("⚠️ 오늘 이미 연습한 한자:", { character, lastWrited })
+          throw new Error(`오늘 이미 '${character}' 한자를 연습하셨습니다.`)
+        }
+        
+        await updateDoc(hanziStatsRef, {
+          totalWrited: (currentData.totalWrited || 0) + 1,
+          lastWrited: now,
+          updatedAt: now,
+        })
+        
+        console.log("✅ 한자 쓰기 통계 업데이트 완료 (기존):", { character, totalWrited: (currentData.totalWrited || 0) + 1 })
+      } else {
+        // 새 통계 생성
+        await setDoc(hanziStatsRef, {
+          userId,
+          hanziId,
+          character,
+          grade,
+          totalWrited: 1,
+          lastWrited: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        
+        console.log("✅ 한자 쓰기 통계 생성 완료 (신규):", { character, totalWrited: 1 })
+      }
+    } catch (error) {
+      console.error("❌ 한자 쓰기 통계 업데이트 오류:", error)
+      throw error
     }
   }
 
@@ -497,7 +588,7 @@ export class ApiClient {
         if (userDoc.exists()) {
           const currentExp = userDoc.data().experience || 0
           const newExp = currentExp + bonusExperience
-          const newLevel = calculateLevel(newExp)
+          const newLevel = this.calculateLevel(newExp)
 
           await updateDoc(userRef, {
             experience: newExp,
@@ -857,11 +948,18 @@ export class ApiClient {
     userId: string,
     hanziId: string
   ): Promise<{
+    id?: string
     totalStudied: number
     correctAnswers: number
     wrongAnswers: number
     lastStudied: string | null
     accuracy: number
+    // 쓰기 전용 필드 추가
+    totalWrited?: number
+    lastWrited?: string
+    isKnown?: boolean
+    createdAt?: string
+    updatedAt?: string
   } | null> {
     // 새로운 구조로 리다이렉트
     const allStats = await this.getHanziStatisticsNew(userId)
@@ -874,15 +972,25 @@ export class ApiClient {
         wrongAnswers: 0,
         lastStudied: null,
         accuracy: 0,
+        totalWrited: 0,
+        lastWrited: undefined,
+        isKnown: false,
       }
     }
 
     return {
+      id: hanziStat.id,
       totalStudied: hanziStat.totalStudied || 0,
       correctAnswers: hanziStat.correctAnswers || 0,
       wrongAnswers: hanziStat.wrongAnswers || 0,
       lastStudied: hanziStat.lastStudied || null,
       accuracy: hanziStat.accuracy || 0,
+      // 쓰기 전용 필드 포함
+      totalWrited: hanziStat.totalWrited,
+      lastWrited: hanziStat.lastWrited,
+      isKnown: hanziStat.isKnown,
+      createdAt: hanziStat.createdAt,
+      updatedAt: hanziStat.updatedAt,
     }
   }
 
@@ -1325,6 +1433,56 @@ export class ApiClient {
         }
 
         await setDoc(existingDoc.ref, updatedData)
+      }
+    } catch (error) {
+      throw error
+    }
+  }
+
+  /**
+   * 한자 통계 직접 설정 (쓰기 연습용)
+   */
+  static async setHanziStatistics(
+    userId: string,
+    hanziId: string,
+    statsData: {
+      hanziId: string
+      userId: string
+      totalStudied: number
+      correctAnswers: number
+      wrongAnswers: number
+      // 쓰기 전용 필드
+      totalWrited?: number
+      lastWrited?: string
+      isKnown: boolean
+      lastStudied: string
+      createdAt: string
+      updatedAt: string
+    }
+  ): Promise<void> {
+    try {
+      // 기존 통계 찾기
+      const hanziStatsRef = collection(db, "hanziStatistics")
+      const q = query(
+        hanziStatsRef,
+        where("userId", "==", userId),
+        where("hanziId", "==", hanziId)
+      )
+      const snapshot = await getDocs(q)
+
+      if (snapshot.empty) {
+        // 새로운 통계 생성
+        const newStatsRef = doc(collection(db, "hanziStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          ...statsData,
+        })
+      } else {
+        // 기존 통계 업데이트
+        const existingDoc = snapshot.docs[0]
+        await setDoc(existingDoc.ref, {
+          ...statsData,
+        })
       }
     } catch (error) {
       throw error
