@@ -86,7 +86,7 @@ export default function GradingPage() {
     try {
       const formData = new FormData()
       formData.append("file", selectedImage)
-      formData.append("userId", user.uid)
+      formData.append("userId", user.id)
 
       const response = await fetch("/api/ai-grading", {
         method: "POST",
@@ -144,7 +144,7 @@ export default function GradingPage() {
 
       // 사용자 경험치 업데이트
       if (totalExperience > 0) {
-        await ApiClient.addUserExperience(user.uid, totalExperience)
+        await ApiClient.addUserExperience(user.id, totalExperience)
         await refreshUserStatistics()
       }
 

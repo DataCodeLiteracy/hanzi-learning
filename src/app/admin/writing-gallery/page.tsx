@@ -68,6 +68,11 @@ export default function AdminWritingGalleryPage() {
   const [editExperience, setEditExperience] = useState<number>(0)
   const [editNotes, setEditNotes] = useState<string>("")
 
+  // 삭제 로딩 상태
+  const [deletingSubmissionId, setDeletingSubmissionId] = useState<
+    string | null
+  >(null)
+
   // 커스텀 모달 상태
   const [showModal, setShowModal] = useState(false)
   const [modalMessage, setModalMessage] = useState("")
@@ -302,6 +307,9 @@ export default function AdminWritingGalleryPage() {
       return
     }
 
+    // 삭제 로딩 시작
+    setDeletingSubmissionId(submissionId)
+
     try {
       const response = await fetch("/api/admin/delete-submission", {
         method: "DELETE",
@@ -327,6 +335,9 @@ export default function AdminWritingGalleryPage() {
     } catch (err) {
       console.error("Delete submission error:", err)
       showCustomModal("제출물 삭제 중 오류가 발생했습니다", "error")
+    } finally {
+      // 삭제 로딩 종료
+      setDeletingSubmissionId(null)
     }
   }
 
@@ -979,10 +990,24 @@ export default function AdminWritingGalleryPage() {
                                 submission.character
                               )
                             }
-                            className='flex-1 bg-gray-600 text-white px-3 py-2 rounded text-sm hover:bg-gray-700 flex items-center justify-center'
+                            disabled={deletingSubmissionId === submission.id}
+                            className={`flex-1 px-3 py-2 rounded text-sm flex items-center justify-center ${
+                              deletingSubmissionId === submission.id
+                                ? "bg-gray-400 cursor-not-allowed"
+                                : "bg-gray-600 hover:bg-gray-700"
+                            } text-white`}
                           >
-                            <Trash2 className='w-4 h-4 mr-1' />
-                            삭제
+                            {deletingSubmissionId === submission.id ? (
+                              <>
+                                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1'></div>
+                                삭제 중...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className='w-4 h-4 mr-1' />
+                                삭제
+                              </>
+                            )}
                           </button>
                         </>
                       )}
@@ -1090,6 +1115,18 @@ export default function AdminWritingGalleryPage() {
                   확인
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 삭제 로딩 오버레이 */}
+      {deletingSubmissionId && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='bg-white rounded-lg p-6 flex items-center space-x-4'>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
+            <div className='text-lg font-medium text-gray-900'>
+              제출물을 삭제하는 중...
             </div>
           </div>
         </div>

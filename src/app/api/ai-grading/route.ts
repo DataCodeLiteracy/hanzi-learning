@@ -14,10 +14,7 @@ export async function POST(request: NextRequest) {
     const userId = formData.get("userId") as string
 
     if (!file) {
-      return NextResponse.json(
-        { error: "파일이 필요합니다" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "파일이 필요합니다" }, { status: 400 })
     }
 
     if (!userId || userId === "undefined") {
@@ -35,13 +32,15 @@ export async function POST(request: NextRequest) {
     })
 
     // 일일 채점 제한 확인
-    const today = new Date().toISOString().split("T")[0]
+    // 한국시간(KST, UTC+9) 기준으로 날짜 계산
+    const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000) // UTC+9
+    const today = kstDate.toISOString().split("T")[0]
     const dailyGradingKey = `daily_grading_${userId}_${today}`
 
     try {
       const { ApiClient } = await import("@/lib/apiClient")
-      const dailyCount =
-        (await ApiClient.getDocument("users", userId, dailyGradingKey)) || 0
+      const userDoc = (await ApiClient.getDocument("users", userId)) as any
+      const dailyCount = userDoc?.[dailyGradingKey] || 0
       const maxDailyGrading = 5
 
       console.log("✅ 일일 채점 제한 확인:", { dailyCount, maxDailyGrading })
@@ -74,13 +73,13 @@ export async function POST(request: NextRequest) {
       file.name.toLowerCase().endsWith(".heif")
     ) {
       try {
-        const { convert } = await import("heic-convert")
-        const convertedBuffer = await convert({
-          buffer: buffer,
+        const heicConvert = await import("heic-convert")
+        const convertedBuffer = await heicConvert.default({
+          buffer: buffer as any,
           format: "JPEG",
           quality: 0.8,
         })
-        buffer = Buffer.from(convertedBuffer)
+        buffer = Buffer.from(convertedBuffer as any) as any
         mimeType = "image/jpeg"
         console.log("✅ HEIC/HEIF 변환 완료")
       } catch (error) {
@@ -99,7 +98,7 @@ export async function POST(request: NextRequest) {
         .jpeg({ quality: 90 })
         .toBuffer()
 
-      buffer = optimizedBuffer
+      buffer = optimizedBuffer as any
       mimeType = "image/jpeg"
       console.log("✅ 이미지 최적화 완료 (대비 강화)")
     } catch (error) {
@@ -265,7 +264,7 @@ JSON 형식으로만 응답:
     // 추출된 한자 로그 출력 및 중복 제거
     if (aiAnalysis.extractedHanzi && aiAnalysis.extractedHanzi.length > 0) {
       // 한자만 필터링 (한글, 영어, 숫자 제거)
-      const hanziOnly = aiAnalysis.extractedHanzi.filter((hanzi) => {
+      const hanziOnly = aiAnalysis.extractedHanzi.filter((hanzi: string) => {
         // 한자 범위: U+4E00-U+9FFF
         return /[\u4e00-\u9fff]/.test(hanzi) && hanzi.length === 1
       })
@@ -280,8 +279,8 @@ JSON 형식으로만 응답:
     }
 
     // 중복 한자 체크
-    let alreadyPracticedToday = []
-    let newCharactersToday = []
+    const alreadyPracticedToday = []
+    const newCharactersToday = []
 
     try {
       const { ApiClient } = await import("@/lib/apiClient")
@@ -290,26 +289,27 @@ JSON 형식으로만 응답:
         console.log("🔍 중복 한자 체크 시작...")
 
         // 모든 한자 통계 가져오기
-        const allHanziStats = await ApiClient.getHanziStatistics(userId)
-        console.log("📊 기존 한자 통계 개수:", allHanziStats.length)
+        const allHanziStats = await ApiClient.getHanziStatisticsNew(userId)
+        console.log("📊 기존 한자 통계 개수:", allHanziStats?.length || 0)
 
         // 오늘 연습한 한자 필터링
-        const todayPracticed = allHanziStats.filter(
-          (stat) => stat.lastWrited && stat.lastWrited.startsWith(today)
-        )
+        const todayPracticed =
+          allHanziStats?.filter(
+            (stat: any) => stat.lastWrited && stat.lastWrited.startsWith(today)
+          ) || []
         console.log("📅 오늘 연습한 한자 통계:", todayPracticed.length)
 
         // 추출된 한자와 비교
         for (const hanzi of aiAnalysis.extractedHanzi) {
           // 해당 한자의 모든 통계 찾기 (여러 급수에 있을 수 있음)
-          const hanziStats = allHanziStats.filter(
-            (stat) => stat.character === hanzi
-          )
+          const hanziStats =
+            allHanziStats?.filter((stat: any) => stat.character === hanzi) || []
 
           if (hanziStats.length > 0) {
             // 오늘 이미 연습했는지 확인
             const practicedToday = hanziStats.some(
-              (stat) => stat.lastWrited && stat.lastWrited.startsWith(today)
+              (stat: any) =>
+                stat.lastWrited && stat.lastWrited.startsWith(today)
             )
 
             if (practicedToday) {
@@ -338,16 +338,12 @@ JSON 형식으로만 응답:
     // 일일 채점 카운트 증가
     try {
       const { ApiClient } = await import("@/lib/apiClient")
+      const userDoc = (await ApiClient.getDocument("users", userId)) as any
       await ApiClient.updateDocument("users", userId, {
-        [dailyGradingKey]:
-          ((await ApiClient.getDocument("users", userId, dailyGradingKey)) ||
-            0) + 1,
+        [dailyGradingKey]: (userDoc?.[dailyGradingKey] || 0) + 1,
       })
-      const newCount = await ApiClient.getDocument(
-        "users",
-        userId,
-        dailyGradingKey
-      )
+      const newUserDoc = (await ApiClient.getDocument("users", userId)) as any
+      const newCount = newUserDoc?.[dailyGradingKey]
       console.log("📊 일일 채점 카운트 증가:", { newCount })
     } catch (error) {
       console.log("⚠️ 일일 카운트 업데이트 실패:", error)

@@ -88,9 +88,9 @@ export default function WritingGalleryPage() {
 
     try {
       const { ApiClient } = await import("@/lib/apiClient")
-      const stats = await ApiClient.getHanziStatistics(user.id)
+      const stats = await ApiClient.getHanziStatisticsNew(user.id)
       if (stats && Array.isArray(stats)) {
-        setHanziStats(stats)
+        setHanziStats(stats as any)
       } else {
         console.warn("Hanzi statistics 데이터가 올바르지 않습니다:", stats)
         setHanziStats([])

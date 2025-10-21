@@ -771,11 +771,70 @@ export default function Home() {
   const [isLoadingRankings, setIsLoadingRankings] = useState<boolean>(false)
   const [showRankingModal, setShowRankingModal] = useState(false)
 
+  // 사용자 정보 상태 (실시간 업데이트용)
+  const [userInfo, setUserInfo] = useState({
+    level: user?.level || 1,
+    experience: user?.experience || 0,
+  })
+
   // 데이터베이스의 level과 experience 사용
-  const currentLevel = user?.level || 1
-  const currentExperience = user?.experience || 0
+  const currentLevel = userInfo.level
+  const currentExperience = userInfo.experience
   const levelProgress = calculateLevelProgress(currentExperience)
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
+
+  // 사용자 정보 새로고침 함수
+  const refreshUserInfo = async () => {
+    if (!user) return
+
+    try {
+      const userDoc = (await ApiClient.getDocument("users", user.id)) as any
+      if (userDoc) {
+        setUserInfo({
+          level: userDoc.level || 1,
+          experience: userDoc.experience || 0,
+        })
+        console.log("🔄 사용자 정보 새로고침:", {
+          level: userDoc.level,
+          experience: userDoc.experience,
+        })
+      }
+    } catch (error) {
+      console.error("사용자 정보 새로고침 실패:", error)
+    }
+  }
+
+  // 페이지 포커스 시 사용자 정보 새로고침
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        refreshUserInfo()
+      }
+    }
+
+    window.addEventListener("focus", handleFocus)
+    return () => window.removeEventListener("focus", handleFocus)
+  }, [user])
+
+  // 컴포넌트 마운트 시 사용자 정보 새로고침
+  useEffect(() => {
+    if (user) {
+      refreshUserInfo()
+    }
+  }, [user])
+
+  // 페이지 가시성 변경 시 사용자 정보 새로고침 (다른 탭에서 돌아올 때)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        refreshUserInfo()
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [user])
 
   // 오늘 경험치 로드
   useEffect(() => {

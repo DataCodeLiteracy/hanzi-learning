@@ -33,16 +33,24 @@ export async function POST(request: NextRequest) {
     // 오늘 이미 같은 한자를 업로드했는지 체크
     try {
       const { ApiClient } = await import("@/lib/apiClient")
-      const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD
+      // 한국시간(KST, UTC+9) 기준으로 날짜 계산
+      const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000) // UTC+9
+      const today = kstDate.toISOString().split("T")[0] // YYYY-MM-DD
 
-      // 해당 한자의 통계 조회
-      const hanziStats = await ApiClient.getHanziStatistics(userId, hanziId)
+      // 해당 한자의 통계 조회 (새로운 구조 사용)
+      const allHanziStats = await ApiClient.getHanziStatisticsNew(userId)
+      const hanziStats = allHanziStats?.find((stat) => stat.hanziId === hanziId)
 
       if (
         hanziStats &&
         hanziStats.lastWrited &&
         hanziStats.lastWrited.startsWith(today)
       ) {
+        console.log("⚠️ 중복 한자 발견:", {
+          character,
+          lastWrited: hanziStats.lastWrited,
+          today,
+        })
         return NextResponse.json(
           {
             error: "duplicate",
@@ -132,7 +140,11 @@ export async function POST(request: NextRequest) {
       console.log("✅ Storage 업로드 완료:", snapshot.metadata.fullPath)
     } catch (storageError) {
       console.error("❌ Storage 업로드 실패:", storageError)
-      throw new Error(`Storage 업로드 실패: ${storageError.message}`)
+      throw new Error(
+        `Storage 업로드 실패: ${
+          storageError instanceof Error ? storageError.message : "Unknown error"
+        }`
+      )
     }
 
     // 다운로드 URL 생성
@@ -191,6 +203,19 @@ export async function POST(request: NextRequest) {
       })
     } catch (error) {
       console.error("⚠️ hanziStatistics 업데이트 또는 경험치 반영 실패:", error)
+
+      // 중복 에러인 경우 사용자에게 알림
+      if (error instanceof Error && error.message.includes("오늘 이미")) {
+        return NextResponse.json(
+          {
+            error: "duplicate",
+            message: error.message,
+            character: character,
+          },
+          { status: 409 }
+        )
+      }
+
       // 통계 업데이트 실패해도 업로드는 성공으로 처리
     }
 

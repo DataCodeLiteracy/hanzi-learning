@@ -67,8 +67,20 @@ export default function WritingUploadPage() {
         const gradeHanzi = dataHanziList.filter(
           (hanzi) => hanzi.grade === grade
         )
-        setHanziList(gradeHanzi)
-        setFilteredHanziList(gradeHanzi)
+        setHanziList(
+          gradeHanzi.map((hanzi) => ({
+            ...hanzi,
+            difficulty: hanzi.difficulty || "medium",
+            frequency: hanzi.frequency || 0,
+          }))
+        )
+        setFilteredHanziList(
+          gradeHanzi.map((hanzi) => ({
+            ...hanzi,
+            difficulty: hanzi.difficulty || "medium",
+            frequency: hanzi.frequency || 0,
+          }))
+        )
         console.log(
           `📚 IndexedDB에서 ${grade}급 한자 ${gradeHanzi.length}개 로드`
         )
@@ -153,7 +165,7 @@ export default function WritingUploadPage() {
     }
     setPreviewUrl(null)
     setError(null)
-    setSuccess(false)
+    setSuccess(null)
   }
 
   // 업로드 핸들러

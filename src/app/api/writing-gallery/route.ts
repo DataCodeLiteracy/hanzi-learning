@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     console.log("📚 한자 쓰기 갤러리 조회:", { userId, grade, date })
 
     // 임시 해결책: userId만으로 쿼리하고 클라이언트에서 필터링
-    let q = query(
+    const q = query(
       collection(db, "writing_submissions"),
       where("userId", "==", userId)
     )
@@ -37,14 +37,18 @@ export async function GET(request: NextRequest) {
 
     // 클라이언트 사이드에서 필터링 (임시 해결책)
     if (grade && grade !== "all") {
-      submissions = submissions.filter((sub) => sub.grade === parseInt(grade))
+      submissions = submissions.filter(
+        (sub: any) => sub.grade === parseInt(grade)
+      )
     }
     if (date) {
-      submissions = submissions.filter((sub) => sub.submissionDate === date)
+      submissions = submissions.filter(
+        (sub: any) => sub.submissionDate === date
+      )
     }
 
     // 클라이언트 사이드에서 정렬
-    submissions = submissions.sort((a, b) => {
+    submissions = submissions.sort((a: any, b: any) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
 

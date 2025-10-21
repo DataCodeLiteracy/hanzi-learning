@@ -103,7 +103,7 @@ export class TimeTrackingService {
           totalSessions: 0,
           todayExperience: 0,
           todayGoal: 100,
-          lastResetDate: new Date().toDateString(),
+          lastResetDate: new Date(Date.now() + 9 * 60 * 60 * 1000).toDateString(),
           lastPlayedAt: new Date().toISOString(),
           goalAchievementHistory: [],
           consecutiveGoalDays: 0,
