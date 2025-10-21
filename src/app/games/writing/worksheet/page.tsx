@@ -5,7 +5,14 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { ArrowLeft, Printer, CheckSquare, Square } from "lucide-react"
+import {
+  ArrowLeft,
+  Printer,
+  CheckSquare,
+  Square,
+  Search,
+  X,
+} from "lucide-react"
 import Link from "next/link"
 import { Hanzi } from "@/types"
 
@@ -20,6 +27,7 @@ export default function WorksheetPage() {
   const [isLoadingHanzi, setIsLoadingHanzi] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [modificationCount, setModificationCount] = useState(0)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // 급수 목록
   const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
@@ -52,12 +60,12 @@ export default function WorksheetPage() {
     loadHanziByGrade()
   }, [selectedGrade, user, contextHanziList])
 
-  // 전체 선택/해제
+  // 전체 선택/해제 (필터링된 목록 기준)
   const handleToggleAll = () => {
-    if (selectedHanziIds.size === hanziList.length) {
+    if (selectedHanziIds.size === filteredHanziList.length) {
       setSelectedHanziIds(new Set())
     } else {
-      setSelectedHanziIds(new Set(hanziList.map((h) => h.id)))
+      setSelectedHanziIds(new Set(filteredHanziList.map((h) => h.id)))
     }
   }
 
@@ -71,6 +79,18 @@ export default function WorksheetPage() {
     }
     setSelectedHanziIds(newSet)
   }
+
+  // 검색 필터링된 한자 목록
+  const filteredHanziList = useMemo(() => {
+    if (!searchTerm.trim()) return hanziList
+
+    return hanziList.filter(
+      (hanzi) =>
+        hanzi.character.includes(searchTerm) ||
+        hanzi.sound.includes(searchTerm) ||
+        hanzi.meaning.includes(searchTerm)
+    )
+  }, [hanziList, searchTerm])
 
   // 선택된 한자 데이터
   const selectedHanziData = useMemo(() => {
@@ -295,6 +315,7 @@ export default function WorksheetPage() {
                   onClick={() => {
                     setSelectedGrade(grade)
                     setSelectedHanziIds(new Set())
+                    setSearchTerm("")
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                     selectedGrade === grade
@@ -308,13 +329,36 @@ export default function WorksheetPage() {
             </div>
           </div>
 
+          {/* 검색 입력 */}
+          <div className='mb-4'>
+            <div className='relative'>
+              <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400' />
+              <input
+                type='text'
+                placeholder='한자, 음, 뜻으로 검색...'
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className='w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500'
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600'
+                >
+                  <X className='h-4 w-4' />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* 전체 선택 */}
           <div className='mb-4 flex items-center justify-between'>
             <button
               onClick={handleToggleAll}
               className='flex items-center text-blue-600 hover:text-blue-700 font-semibold'
             >
-              {selectedHanziIds.size === hanziList.length ? (
+              {selectedHanziIds.size === filteredHanziList.length &&
+              filteredHanziList.length > 0 ? (
                 <>
                   <CheckSquare className='h-5 w-5 mr-2' />
                   전체 해제
@@ -328,6 +372,7 @@ export default function WorksheetPage() {
             </button>
             <div className='text-sm text-gray-600'>
               {selectedHanziIds.size}개 선택됨 / 총 {hanziList.length}개
+              {searchTerm && ` (검색 결과: ${filteredHanziList.length}개)`}
             </div>
           </div>
 
@@ -336,9 +381,15 @@ export default function WorksheetPage() {
             <div className='py-12 text-center'>
               <LoadingSpinner message='한자 목록을 불러오는 중...' />
             </div>
+          ) : filteredHanziList.length === 0 && searchTerm ? (
+            <div className='py-12 text-center text-gray-500'>
+              <Search className='h-12 w-12 mx-auto mb-4 text-gray-300' />
+              <p>검색 결과가 없습니다.</p>
+              <p className='text-sm'>다른 검색어를 시도해보세요.</p>
+            </div>
           ) : (
             <div className='grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3 mb-6 max-h-96 overflow-y-auto p-2'>
-              {hanziList.map((hanzi) => (
+              {filteredHanziList.map((hanzi) => (
                 <button
                   key={hanzi.id}
                   onClick={() => handleToggleHanzi(hanzi.id)}
