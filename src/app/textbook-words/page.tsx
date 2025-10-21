@@ -46,14 +46,13 @@ export default function TextbookWordsPage() {
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
 
   // 시간 추적 훅 (페이지 접속 시간 체크)
-  const { startSession, endSession, isActive, currentDuration, formatTime } =
-    useTimeTracking({
-      userId: user?.id || "",
-      type: "page",
-      activity: "textbook-words",
-      autoStart: true, // 페이지 접속 시 자동 시작
-      autoEnd: true,
-    })
+  const { endSession, isActive } = useTimeTracking({
+    userId: user?.id || "",
+    type: "page",
+    activity: "textbook-words",
+    autoStart: true, // 페이지 접속 시 자동 시작
+    autoEnd: true,
+  })
 
   // 페이지를 떠날 때 시간 추적 종료
   useEffect(() => {

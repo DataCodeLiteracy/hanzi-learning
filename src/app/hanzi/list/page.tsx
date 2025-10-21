@@ -10,12 +10,7 @@ import { Hanzi } from "@/types"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 
 export default function HanziListPage() {
-  const {
-    user,
-    loading: authLoading,
-    initialLoading,
-    isAuthenticated,
-  } = useAuth()
+  const { user, loading: authLoading, initialLoading } = useAuth()
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
   )
@@ -26,14 +21,13 @@ export default function HanziListPage() {
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
 
   // 시간 추적 훅 (페이지 접속 시간 체크)
-  const { startSession, endSession, isActive, currentDuration, formatTime } =
-    useTimeTracking({
-      userId: user?.id || "",
-      type: "page",
-      activity: "hanzi-list",
-      autoStart: true, // 페이지 접속 시 자동 시작
-      autoEnd: true,
-    })
+  const { endSession, isActive } = useTimeTracking({
+    userId: user?.id || "",
+    type: "page",
+    activity: "hanzi-list",
+    autoStart: true, // 페이지 접속 시 자동 시작
+    autoEnd: true,
+  })
 
   // 페이지를 떠날 때 시간 추적 종료
   useEffect(() => {

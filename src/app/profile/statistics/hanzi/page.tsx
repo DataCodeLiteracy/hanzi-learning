@@ -20,12 +20,7 @@ interface HanziStatistics {
 }
 
 export default function HanziStatisticsPage() {
-  const {
-    user,
-    loading: authLoading,
-    initialLoading,
-    isAuthenticated,
-  } = useAuth()
+  const { user, loading: authLoading, initialLoading } = useAuth()
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziStats, setHanziStats] = useState<HanziStatistics[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)

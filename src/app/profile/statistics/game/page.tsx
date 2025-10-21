@@ -26,7 +26,6 @@ export default function GameStatisticsPage() {
     initialLoading,
     isAuthenticated,
   } = useAuth()
-  const { userStatistics } = useData()
   const [gameStatistics, setGameStatistics] = useState<{
     quiz?: GameStatistics
     writing?: GameStatistics

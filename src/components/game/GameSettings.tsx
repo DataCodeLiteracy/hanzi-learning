@@ -39,8 +39,6 @@ export default function GameSettings({
 }: GameSettingsProps) {
   const gameTitle = gameType === "partial" ? "부분 맞추기" : "퀴즈"
   const startButtonText = gameType === "partial" ? "게임 시작" : "퀴즈 시작"
-  const generatingText =
-    gameType === "partial" ? "게임 생성 중..." : "퀴즈 생성 중..."
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>

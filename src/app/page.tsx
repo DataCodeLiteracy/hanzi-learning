@@ -904,8 +904,6 @@ export default function Home() {
       try {
         setIsLoadingRankings(true)
 
-        // 디버깅: 모든 유저 조회
-        const allUsers = await ApiClient.getAllUsers()
         const rankings = await ApiClient.getUserRankings()
 
         setUserRankings(rankings)
