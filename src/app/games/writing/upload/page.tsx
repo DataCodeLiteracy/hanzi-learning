@@ -28,7 +28,7 @@ interface Hanzi {
 }
 
 export default function WritingUploadPage() {
-  const { user } = useAuth()
+  const { user, initialLoading } = useAuth()
   const { hanziList: dataHanziList } = useData()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -146,21 +146,56 @@ export default function WritingUploadPage() {
   }
 
   // 이미지 선택 핸들러
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0]
     if (file) {
       setSelectedImage(file)
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
       setError(null)
       setSuccess(null)
+
+      // HEIC/HEIF 파일인지 확인
+      const isHeic =
+        file.type === "image/heic" ||
+        file.type === "image/heif" ||
+        file.name.toLowerCase().endsWith(".heic") ||
+        file.name.toLowerCase().endsWith(".heif")
+
+      if (isHeic) {
+        console.log("🔄 HEIC 파일 감지, heic-to로 클라이언트 변환 시도...")
+        try {
+          const { heicTo } = await import("heic-to")
+          console.log("📦 heic-to 모듈 로딩 완료")
+
+          const convertedBlob = await heicTo({
+            blob: file,
+            type: "image/jpeg",
+            quality: 0.8,
+          })
+
+          console.log("🔄 변환된 Blob:", convertedBlob)
+
+          const url = URL.createObjectURL(convertedBlob)
+          setPreviewUrl(url)
+          console.log("✅ heic-to로 HEIC → JPEG 변환 완료, 미리보기 표시")
+        } catch (error) {
+          console.error("❌ heic-to 변환 실패:", error)
+          console.log("⚠️ 변환 실패, 파일 정보 표시")
+          setPreviewUrl("heic-file")
+        }
+      } else {
+        // 일반 이미지 파일
+        const url = URL.createObjectURL(file)
+        setPreviewUrl(url)
+      }
     }
   }
 
   // 이미지 제거 핸들러
   const handleRemoveImage = () => {
     setSelectedImage(null)
-    if (previewUrl) {
+    if (previewUrl && previewUrl !== "heic-file") {
       URL.revokeObjectURL(previewUrl)
     }
     setPreviewUrl(null)
@@ -203,8 +238,44 @@ export default function WritingUploadPage() {
         fileName: selectedImage.name,
       })
 
+      // HEIC 파일인지 확인하고 클라이언트에서 변환
+      let fileToUpload = selectedImage
+      const isHeic =
+        selectedImage.type === "image/heic" ||
+        selectedImage.type === "image/heif" ||
+        selectedImage.name.toLowerCase().endsWith(".heic") ||
+        selectedImage.name.toLowerCase().endsWith(".heif")
+
+      if (isHeic) {
+        console.log("🔄 HEIC 파일 감지, heic-to로 업로드용 변환 시작...")
+        try {
+          const { heicTo } = await import("heic-to")
+          console.log("📦 heic-to 모듈 로딩 완료")
+
+          const convertedBlob = await heicTo({
+            blob: selectedImage,
+            type: "image/jpeg",
+            quality: 0.8,
+          })
+
+          console.log("🔄 변환된 Blob:", convertedBlob)
+
+          // 변환된 Blob을 File 객체로 변환
+          fileToUpload = new File(
+            [convertedBlob],
+            selectedImage.name.replace(/\.(heic|heif)$/i, ".jpg"),
+            { type: "image/jpeg" }
+          )
+          console.log("✅ heic-to로 HEIC → JPEG 변환 완료, 업로드 준비")
+        } catch (error) {
+          console.error("❌ heic-to 변환 실패:", error)
+          console.log("⚠️ 변환 실패, 원본 파일 사용")
+          fileToUpload = selectedImage
+        }
+      }
+
       const formData = new FormData()
-      formData.append("file", selectedImage)
+      formData.append("file", fileToUpload)
       formData.append("userId", user.id)
       formData.append("grade", selectedGrade)
       formData.append("hanziId", selectedHanzi.id)
@@ -249,6 +320,18 @@ export default function WritingUploadPage() {
       setIsUploading(false) // 에러 시에만 로딩 해제
     }
     // 성공 시에는 로딩을 유지하여 리다이렉션까지 기다림
+  }
+
+  // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
+  if (initialLoading) {
+    return (
+      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+          <p className='text-gray-600'>로딩 중...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!user) {
@@ -499,10 +582,31 @@ export default function WritingUploadPage() {
                   <input
                     ref={fileInputRef}
                     type='file'
-                    accept='image/*'
+                    accept='image/*,.heic,.heif'
                     onChange={handleImageSelect}
                     className='hidden'
                   />
+                </div>
+              ) : previewUrl === "heic-file" ? (
+                <div className='space-y-4'>
+                  <div className='relative bg-gray-100 rounded-lg p-8 text-center'>
+                    <Camera className='w-12 h-12 text-gray-400 mx-auto mb-4' />
+                    <h3 className='text-lg font-semibold text-gray-700 mb-2'>
+                      HEIC 파일 선택됨
+                    </h3>
+                    <p className='text-sm text-gray-500 mb-4'>
+                      {selectedImage?.name}
+                    </p>
+                    <p className='text-xs text-blue-600'>
+                      📱 iPhone 사진은 업로드 후 자동으로 JPEG로 변환됩니다
+                    </p>
+                    <button
+                      onClick={handleRemoveImage}
+                      className='absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors'
+                    >
+                      <X className='w-4 h-4' />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className='space-y-4'>

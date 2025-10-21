@@ -66,26 +66,18 @@ export async function POST(request: NextRequest) {
     let mimeType = file.type
 
     // HEIC/HEIF 파일 처리
-    if (
-      file.type === "image/heic" ||
-      file.type === "image/heif" ||
-      file.name.toLowerCase().endsWith(".heic") ||
-      file.name.toLowerCase().endsWith(".heif")
-    ) {
-      try {
-        const heicConvert = await import("heic-convert")
-        const convertedBuffer = await heicConvert.default({
-          buffer: buffer as any,
-          format: "JPEG",
-          quality: 0.8,
-        })
-        buffer = Buffer.from(convertedBuffer as any) as any
-        mimeType = "image/jpeg"
-        console.log("✅ HEIC/HEIF 변환 완료")
-      } catch (error) {
-        console.log("⚠️ HEIC 변환 실패, 원본 사용:", error)
-      }
-    }
+    console.log("🔍 파일 타입 확인:", {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      isHeic: file.type === "image/heic" || file.type === "image/heif",
+      isHeicExtension:
+        file.name.toLowerCase().endsWith(".heic") ||
+        file.name.toLowerCase().endsWith(".heif"),
+    })
+
+    // HEIC/HEIF 파일은 클라이언트에서 JPEG로 변환되어 전송됨
+    console.log("ℹ️ 클라이언트에서 변환된 이미지 파일 처리")
 
     // 이미지 최적화 (대비 강화)
     try {

@@ -29,7 +29,7 @@ interface FinalResult {
 }
 
 export default function GradingPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, initialLoading } = useAuth()
   const { refreshUserStatistics } = useData()
   const router = useRouter()
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -189,6 +189,18 @@ export default function GradingPage() {
     return (
       <div className='min-h-screen flex items-center justify-center'>
         <LoadingSpinner />
+      </div>
+    )
+  }
+
+  // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
+  if (initialLoading) {
+    return (
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+          <p className='text-gray-600'>로딩 중...</p>
+        </div>
       </div>
     )
   }

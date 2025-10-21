@@ -37,7 +37,7 @@ interface HanziStatistics {
 }
 
 export default function WritingGalleryPage() {
-  const { user } = useAuth()
+  const { user, initialLoading } = useAuth()
   const router = useRouter()
 
   const [submissions, setSubmissions] = useState<WritingSubmission[]>([])
@@ -172,6 +172,18 @@ export default function WritingGalleryPage() {
     loadSubmissions()
     loadHanziStatistics()
   }, [user, selectedGrade, selectedDate])
+
+  // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
+  if (initialLoading) {
+    return (
+      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+          <p className='text-gray-600'>로딩 중...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!user) {
     return (

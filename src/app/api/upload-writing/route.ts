@@ -15,6 +15,18 @@ export async function POST(request: NextRequest) {
     const hanziId = formData.get("hanziId") as string
     const character = formData.get("character") as string
 
+    // 파일 정보 로그
+    console.log("📁 업로드 파일 정보:", {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      userId: userId,
+      isHeic: file.type === "image/heic" || file.type === "image/heif",
+      isHeicExtension:
+        file.name.toLowerCase().endsWith(".heic") ||
+        file.name.toLowerCase().endsWith(".heif"),
+    })
+
     if (!file || !userId || !grade || !hanziId || !character) {
       return NextResponse.json(
         { error: "필수 정보가 누락되었습니다" },

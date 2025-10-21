@@ -10,7 +10,7 @@ import Link from "next/link"
 import { Hanzi } from "@/types"
 
 export default function WorksheetPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, initialLoading } = useAuth()
   const { hanziList: contextHanziList, isLoading: isDataLoading } = useData()
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
@@ -97,6 +97,18 @@ export default function WorksheetPage() {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='로딩 중...' />
+      </div>
+    )
+  }
+
+  // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
+  if (initialLoading) {
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+          <p className='text-gray-600'>로딩 중...</p>
+        </div>
       </div>
     )
   }

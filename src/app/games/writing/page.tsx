@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export default function WritingGame() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, initialLoading } = useAuth()
 
   // 통합된 로딩 상태 (한자 데이터는 필수가 아님)
   const isLoading = authLoading
@@ -19,6 +19,18 @@ export default function WritingGame() {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='게임을 준비하는 중...' />
+      </div>
+    )
+  }
+
+  // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
+  if (initialLoading) {
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+          <p className='text-gray-600'>로딩 중...</p>
+        </div>
       </div>
     )
   }
@@ -49,7 +61,9 @@ export default function WritingGame() {
               <Link href='/' className='text-blue-600 hover:text-blue-700 p-1'>
                 <ArrowLeft className='h-5 w-5 sm:h-6 sm:w-6' />
               </Link>
-              <h1 className='text-lg sm:text-xl font-bold text-gray-900'>쓰기 연습</h1>
+              <h1 className='text-lg sm:text-xl font-bold text-gray-900'>
+                쓰기 연습
+              </h1>
             </div>
           </div>
         </div>
