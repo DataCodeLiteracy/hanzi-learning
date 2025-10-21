@@ -31,7 +31,6 @@ interface FinalResult {
 export default function GradingPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
   const { refreshUserStatistics } = useData()
-  const router = useRouter()
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)

@@ -60,11 +60,11 @@ export default function PartialGame() {
     }
   }, [gameLogic.questions.length])
 
-  // 강제 리렌더링을 위한 useEffect
-  useEffect(() => {}, [showSettings, isGenerating, gameLogic.questions.length])
-
   // 강제 리렌더링을 위한 상태
   const [forceUpdate, setForceUpdate] = useState(0)
+
+  // 강제 리렌더링을 위한 useEffect
+  useEffect(() => {}, [showSettings, isGenerating, gameLogic.questions.length])
 
   // 시간 추적 훅
   const { startSession, endSession, currentDuration } = useTimeTracking({
@@ -115,11 +115,11 @@ export default function PartialGame() {
       user
     ) {
       gameLogic.setUserConfirmedExit(true)
-      const sessionDuration = endSession()
+      endSession()
       gameLogic.setGameEnded(true)
     } else {
       gameLogic.setUserConfirmedExit(true)
-      const sessionDuration = endSession()
+      endSession()
       gameLogic.setGameEnded(true)
     }
     setShowExitModal(false)

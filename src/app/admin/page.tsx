@@ -10,7 +10,6 @@ import { ensureStrokeOrder } from "@/lib/hanziWriter"
 import {
   Edit,
   Trash2,
-  Save,
   Upload,
   Download,
   MessageSquare,
@@ -33,17 +32,8 @@ export default function AdminPage() {
   const [isDeletingGrade, setIsDeletingGrade] = useState(false)
   const [showEmptyGradeModal, setShowEmptyGradeModal] = useState(false)
   const [emptyGrade, setEmptyGrade] = useState<number>(8)
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
-
-  // 테스트용: 모든 한자 조회
-  const testGetAllHanzi = async () => {
-    try {
-      const allHanzi = await ApiClient.getAllHanzi()
-    } catch (error) {
-      console.error("🧪 테스트 실패:", error)
-    }
-  }
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
 
   // 페이지 로드 시 데이터 자동 로드
   useEffect(() => {
@@ -496,12 +486,6 @@ export default function AdminPage() {
                 <Trash2 className='h-4 w-4' />
                 <span>급수 삭제</span>
               </button>
-              <button
-                onClick={testGetAllHanzi}
-                className='flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors'
-              >
-                <span>🧪 전체 테스트</span>
-              </button>
             </div>
           </div>
 
@@ -861,11 +845,14 @@ export default function AdminPage() {
       </main>
 
       {/* 삭제 확인 모달 */}
-      {deletingHanzi && (
+      {showDeleteConfirmModal && deletingHanzi && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <div
             className='absolute inset-0 bg-black bg-opacity-50'
-            onClick={() => setDeletingHanzi(null)}
+            onClick={() => {
+              setDeletingHanzi(null)
+              setShowDeleteConfirmModal(false)
+            }}
           />
           <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
             <div className='text-center'>
@@ -882,7 +869,10 @@ export default function AdminPage() {
               </p>
               <div className='flex space-x-3'>
                 <button
-                  onClick={() => setDeletingHanzi(null)}
+                  onClick={() => {
+                    setDeletingHanzi(null)
+                    setShowDeleteConfirmModal(false)
+                  }}
                   className='flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md'
                 >
                   취소

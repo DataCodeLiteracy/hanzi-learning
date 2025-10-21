@@ -11,9 +11,6 @@ export default function WritingGame() {
   // 통합된 로딩 상태 (한자 데이터는 필수가 아님)
   const isLoading = authLoading
 
-  // 현재 선택된 급수는 user.preferredGrade를 사용
-  const selectedGrade = user?.preferredGrade || 8
-
   // 로딩 중일 때는 로딩 스피너 표시
   if (isLoading) {
     return (

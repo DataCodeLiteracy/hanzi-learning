@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
-  Calendar,
   Filter,
   Image as ImageIcon,
   CheckCircle,

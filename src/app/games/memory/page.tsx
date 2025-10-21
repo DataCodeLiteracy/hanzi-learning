@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { ArrowLeft, Trophy, RotateCcw, Play, Timer } from "lucide-react"
+import { ArrowLeft, Timer } from "lucide-react"
 import Link from "next/link"
 import { calculateMemoryGameExperience } from "@/lib/experienceSystem"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
@@ -770,135 +770,132 @@ export default function MemoryGame() {
             카드 뒤집기 설정
           </h2>
 
-              {/* 학습 중인 급수 표시 */}
-              <div className='mb-6'>
-                <div className='flex items-center justify-between mb-2'>
-                  <label className='block text-sm font-semibold text-gray-700'>
-                    학습 중인 급수
-                  </label>
-                  <Link
-                    href='/profile#study-goal'
-                    className='text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors'
-                  >
-                    급수 변경 →
-                  </Link>
-                </div>
-                <div className='relative'>
-                  <div className='block w-full px-4 py-3 text-base font-medium text-gray-900 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner'>
-                    {currentGrade === 5.5
-                      ? "준5급"
-                      : currentGrade === 4.5
-                      ? "준4급"
-                      : currentGrade === 3.5
-                      ? "준3급"
-                      : `${currentGrade}급`}
-                    {hanziList.length > 0 && (
-                      <span className='ml-2 text-sm text-blue-600 font-semibold'>
-                        ({hanziList.length}개)
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {gradeError && !isLoadingGrade && (
-                  <p className='mt-2 text-sm text-red-600 font-medium'>
-                    {gradeError}
-                  </p>
+          {/* 학습 중인 급수 표시 */}
+          <div className='mb-6'>
+            <div className='flex items-center justify-between mb-2'>
+              <label className='block text-sm font-semibold text-gray-700'>
+                학습 중인 급수
+              </label>
+              <Link
+                href='/profile#study-goal'
+                className='text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors'
+              >
+                급수 변경 →
+              </Link>
+            </div>
+            <div className='relative'>
+              <div className='block w-full px-4 py-3 text-base font-medium text-gray-900 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner'>
+                {currentGrade === 5.5
+                  ? "준5급"
+                  : currentGrade === 4.5
+                  ? "준4급"
+                  : currentGrade === 3.5
+                  ? "준3급"
+                  : `${currentGrade}급`}
+                {hanziList.length > 0 && (
+                  <span className='ml-2 text-sm text-blue-600 font-semibold'>
+                    ({hanziList.length}개)
+                  </span>
                 )}
               </div>
+            </div>
 
-              {/* 난이도 선택 */}
-              <div className='mb-6'>
-                <label className='block text-sm font-semibold text-gray-700 mb-2'>
-                  난이도 선택
-                </label>
-                <div className='grid grid-cols-3 gap-2'>
-                  {[
-                    { value: "easy", level: "easy" as const },
-                    { value: "medium", level: "medium" as const },
-                    { value: "hard", level: "hard" as const },
-                  ].map(({ value, level }) => {
-                    const info = getDifficultyInfo(level)
-                    return (
-                      <button
-                        key={value}
-                        onClick={() => setDifficulty(level)}
-                        className={`p-3 rounded-lg border-2 transition-colors text-center ${
-                          difficulty === level
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-gray-300 hover:border-blue-300 text-gray-700 hover:text-blue-700"
-                        }`}
-                      >
-                        <div className={`text-sm font-semibold ${info.color}`}>
-                          {info.label}
-                        </div>
-                        <div className='text-xs text-gray-500 mt-1'>
-                          {info.desc}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+            {gradeError && !isLoadingGrade && (
+              <p className='mt-2 text-sm text-red-600 font-medium'>
+                {gradeError}
+              </p>
+            )}
+          </div>
 
-              {/* 타일 크기 선택 */}
-              <div className='mb-6'>
-                <label className='text-sm font-medium text-gray-700 mb-2'>
-                  타일 크기
-                </label>
-                <div className='grid grid-cols-2 gap-2'>
-                  {[
-                    { cols: 3, rows: 4, label: "3 x 4 (6쌍)" },
-                    { cols: 4, rows: 4, label: "4 x 4 (8쌍)" },
-                    { cols: 4, rows: 5, label: "4 x 5 (10쌍)" },
-                    { cols: 4, rows: 6, label: "4 x 6 (12쌍)" },
-                    { cols: 4, rows: 7, label: "4 x 7 (14쌍)" },
-                    { cols: 5, rows: 6, label: "5 x 6 (15쌍)" },
-                  ].map((size) => {
-                    const totalPairs = Math.floor((size.cols * size.rows) / 2)
-                    const mediumTime =
-                      totalPairs <= 6
-                        ? "3분"
-                        : totalPairs <= 8
-                        ? "5분"
-                        : totalPairs <= 12
-                        ? "7분"
-                        : totalPairs <= 14
-                        ? "8분"
-                        : "10분"
-                    const hardTime =
-                      totalPairs <= 6
-                        ? "2분"
-                        : totalPairs <= 8
-                        ? "3분"
-                        : totalPairs <= 12
-                        ? "4분"
-                        : totalPairs <= 14
-                        ? "5분"
-                        : "6분"
+          {/* 난이도 선택 */}
+          <div className='mb-6'>
+            <label className='block text-sm font-semibold text-gray-700 mb-2'>
+              난이도 선택
+            </label>
+            <div className='grid grid-cols-3 gap-2'>
+              {[
+                { value: "easy", level: "easy" as const },
+                { value: "medium", level: "medium" as const },
+                { value: "hard", level: "hard" as const },
+              ].map(({ value, level }) => {
+                const info = getDifficultyInfo(level)
+                return (
+                  <button
+                    key={value}
+                    onClick={() => setDifficulty(level)}
+                    className={`p-3 rounded-lg border-2 transition-colors text-center ${
+                      difficulty === level
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-300 hover:border-blue-300 text-gray-700 hover:text-blue-700"
+                    }`}
+                  >
+                    <div className={`text-sm font-semibold ${info.color}`}>
+                      {info.label}
+                    </div>
+                    <div className='text-xs text-gray-500 mt-1'>
+                      {info.desc}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-                    return (
-                      <button
-                        key={`${size.cols}x${size.rows}`}
-                        onClick={() => setGridSize(size)}
-                        className={`p-3 rounded-lg border-2 transition-colors font-medium ${
-                          gridSize.cols === size.cols &&
-                          gridSize.rows === size.rows
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-gray-300 hover:border-blue-300 text-gray-700 hover:text-blue-700"
-                        }`}
-                      >
-                        <div className='text-sm font-semibold'>
-                          {size.label}
-                        </div>
-                        <div className='text-xs text-gray-500 mt-1'>
-                          중간: {mediumTime} | 어려움: {hardTime}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+          {/* 타일 크기 선택 */}
+          <div className='mb-6'>
+            <label className='text-sm font-medium text-gray-700 mb-2'>
+              타일 크기
+            </label>
+            <div className='grid grid-cols-2 gap-2'>
+              {[
+                { cols: 3, rows: 4, label: "3 x 4 (6쌍)" },
+                { cols: 4, rows: 4, label: "4 x 4 (8쌍)" },
+                { cols: 4, rows: 5, label: "4 x 5 (10쌍)" },
+                { cols: 4, rows: 6, label: "4 x 6 (12쌍)" },
+                { cols: 4, rows: 7, label: "4 x 7 (14쌍)" },
+                { cols: 5, rows: 6, label: "5 x 6 (15쌍)" },
+              ].map((size) => {
+                const totalPairs = Math.floor((size.cols * size.rows) / 2)
+                const mediumTime =
+                  totalPairs <= 6
+                    ? "3분"
+                    : totalPairs <= 8
+                    ? "5분"
+                    : totalPairs <= 12
+                    ? "7분"
+                    : totalPairs <= 14
+                    ? "8분"
+                    : "10분"
+                const hardTime =
+                  totalPairs <= 6
+                    ? "2분"
+                    : totalPairs <= 8
+                    ? "3분"
+                    : totalPairs <= 12
+                    ? "4분"
+                    : totalPairs <= 14
+                    ? "5분"
+                    : "6분"
+
+                return (
+                  <button
+                    key={`${size.cols}x${size.rows}`}
+                    onClick={() => setGridSize(size)}
+                    className={`p-3 rounded-lg border-2 transition-colors font-medium ${
+                      gridSize.cols === size.cols && gridSize.rows === size.rows
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-300 hover:border-blue-300 text-gray-700 hover:text-blue-700"
+                    }`}
+                  >
+                    <div className='text-sm font-semibold'>{size.label}</div>
+                    <div className='text-xs text-gray-500 mt-1'>
+                      중간: {mediumTime} | 어려움: {hardTime}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           <button
             onClick={handleStartGame}

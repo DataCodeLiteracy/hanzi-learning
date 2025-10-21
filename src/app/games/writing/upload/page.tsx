@@ -5,17 +5,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import {
-  ArrowLeft,
-  Upload,
-  Camera,
-  X,
-  CheckCircle,
-  Image as ImageIcon,
-  Search,
-  ChevronDown,
-} from "lucide-react"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { ArrowLeft, Upload, Camera, X, CheckCircle, Search } from "lucide-react"
 
 interface Hanzi {
   id: string

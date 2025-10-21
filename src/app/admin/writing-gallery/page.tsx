@@ -12,8 +12,6 @@ import {
   Filter,
   Search,
   User,
-  Calendar,
-  Award,
   Edit3,
   Save,
   Trash2,
