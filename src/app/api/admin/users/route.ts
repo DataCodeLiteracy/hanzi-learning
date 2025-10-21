@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { collection, query, orderBy, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log("👥 관리자 사용자 목록 조회 시작")
 

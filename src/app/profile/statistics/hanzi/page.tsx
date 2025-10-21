@@ -59,6 +59,7 @@ export default function HanziStatisticsPage() {
             lastAttempted: stats?.lastStudied || "없음",
           }
         } catch (error) {
+          console.error("한자 통계 조회 실패:", error)
           // 통계가 없는 경우 기본값 반환
           return {
             hanziId: hanzi.id,

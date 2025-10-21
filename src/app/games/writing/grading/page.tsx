@@ -7,7 +7,6 @@ import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, Upload, Camera, X, CheckCircle, Edit3 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 interface AIAnalysis {
   aiDetectedCount: number

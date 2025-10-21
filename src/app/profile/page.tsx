@@ -7,7 +7,6 @@ import ConfirmModal from "@/components/ConfirmModal"
 import {
   ArrowLeft,
   User,
-  Trophy,
   BarChart3,
   Settings,
   Crown,

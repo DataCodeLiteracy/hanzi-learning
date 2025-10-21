@@ -1,6 +1,5 @@
 import React from "react"
 import { ArrowLeft, Play } from "lucide-react"
-import LoadingSpinner from "@/components/LoadingSpinner"
 
 interface GameSettingsProps {
   gameType: "partial" | "quiz"

@@ -118,6 +118,7 @@ export class ApiClient {
       }
       return null
     } catch (error) {
+      console.error("문서 조회 실패:", error)
       throw new Error("문서 조회에 실패했습니다.")
     }
   }
@@ -135,6 +136,7 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
+      console.error("문서 업데이트 실패:", error)
       throw new Error("문서 업데이트에 실패했습니다.")
     }
   }
@@ -148,6 +150,7 @@ export class ApiClient {
       const docRef = doc(db, collectionName, id)
       await deleteDoc(docRef)
     } catch (error) {
+      console.error("문서 삭제 실패:", error)
       throw new Error("문서 삭제에 실패했습니다.")
     }
   }
@@ -166,6 +169,7 @@ export class ApiClient {
         ...doc.data(),
       })) as T[]
     } catch (error) {
+      console.error("문서 쿼리 실패:", error)
       // 오류가 발생해도 빈 배열을 반환하여 앱이 중단되지 않도록 함
       return []
     }
@@ -187,6 +191,7 @@ export class ApiClient {
       const userData = userDoc.data()
       return (userData[collection] as T[]) || []
     } catch (error) {
+      console.error("사용자 데이터 조회 실패:", error)
       return []
     }
   }
@@ -207,6 +212,7 @@ export class ApiClient {
 
       return sortedResults
     } catch (error) {
+      console.error("등급별 한자 조회 실패:", error)
       // 오류가 발생해도 빈 배열을 반환하여 앱이 중단되지 않도록 함
       return []
     }
@@ -219,6 +225,7 @@ export class ApiClient {
 
       return results
     } catch (error) {
+      console.error("등급별 한자 조회 실패:", error)
       return []
     }
   }
@@ -280,6 +287,7 @@ export class ApiClient {
         })
       }
     } catch (error) {
+      console.error("사용자 통계 업데이트 실패:", error)
       throw error
     }
   }
@@ -290,6 +298,7 @@ export class ApiClient {
       const userStats = await this.getUserStatistics(userId)
       return userStats?.totalStudyTime || 0
     } catch (error) {
+      console.error("총 학습시간 조회 실패:", error)
       return 0
     }
   }
@@ -307,6 +316,7 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
+      console.error("경험치 업데이트 실패:", error)
       throw new Error("경험치 업데이트에 실패했습니다.")
     }
   }
@@ -374,6 +384,7 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
+      console.error("선호 급수 업데이트 실패:", error)
       throw new Error("선호 급수 업데이트에 실패했습니다.")
     }
   }
@@ -460,6 +471,7 @@ export class ApiClient {
       const userStats = await this.getUserStatistics(userId)
       return userStats?.todayExperience || 0
     } catch (error) {
+      console.error("오늘 경험치 조회 실패:", error)
       return 0 // 에러 시 0 반환
     }
   }
@@ -517,6 +529,7 @@ export class ApiClient {
         )
       }
     } catch (error) {
+      console.error("오늘 경험치 업데이트 실패:", error)
       throw new Error("오늘 경험치 업데이트에 실패했습니다.")
     }
   }
@@ -549,6 +562,7 @@ export class ApiClient {
         })
       }
     } catch (error) {
+      console.error("오늘의 학습 목표 업데이트 실패:", error)
       throw new Error("오늘의 학습 목표 업데이트에 실패했습니다.")
     }
   }
@@ -654,7 +668,9 @@ export class ApiClient {
         lastWeekNumber: currentWeek, // 현재 주차 번호 업데이트
         updatedAt: new Date().toISOString(),
       })
-    } catch (error) {}
+    } catch (error) {
+      console.error("목표 달성 통계 업데이트 실패:", error)
+    }
   }
 
   // 연속 목표 달성일 계산 (자정 기준)
@@ -1909,6 +1925,7 @@ export class ApiClient {
         updatedAt: new Date().toISOString(),
       })
     } catch (error) {
+      console.error("사용자 통계 초기화 실패:", error)
       throw new Error("사용자 통계 초기화에 실패했습니다.")
     }
   }
@@ -1964,6 +1981,7 @@ export class ApiClient {
           const userStats = await this.getUserStatistics(userId)
           return userStats?.totalStudyTime || 0
         } catch (error) {
+          console.error("사용자 학습시간 조회 실패:", error)
           return 0
         }
       }
@@ -2081,7 +2099,8 @@ export class ApiClient {
             preferredGrade: userData.preferredGrade || 8,
             rank: 0, // 임시로 0 설정
           })
-        } catch {
+        } catch (error) {
+          console.error("사용자 랭킹 처리 중 오류:", error)
           // 사용자 처리 중 오류 발생 시 무시
         }
       }
@@ -2097,6 +2116,7 @@ export class ApiClient {
       // 상위 20명만 반환
       return userRankings.slice(0, 20)
     } catch (error) {
+      console.error("유저 순위 조회 실패:", error)
       throw new Error("유저 순위 조회에 실패했습니다.")
     }
   }

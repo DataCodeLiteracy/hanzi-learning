@@ -3,14 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import {
-  ArrowLeft,
-  BarChart3,
-  TrendingUp,
-  Calendar,
-  Target,
-  Trophy,
-} from "lucide-react"
+import { ArrowLeft, TrendingUp, Calendar, Target, Trophy } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import {

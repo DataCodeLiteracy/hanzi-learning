@@ -62,7 +62,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 제출물 상태 업데이트
-    const updateData: any = {
+    const updateData: {
+      status: string
+      updatedAt: string
+      experienceAwarded?: number
+      adminNotes?: string
+    } = {
       status,
       updatedAt: new Date().toISOString(),
     }

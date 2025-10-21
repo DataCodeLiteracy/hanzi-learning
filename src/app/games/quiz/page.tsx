@@ -158,7 +158,9 @@ export default function QuizGame() {
         if (completionStatus.isFullyCompleted) {
           setShowNextGradeModal(true)
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error("게임 초기화 실패:", error)
+      }
     }
   }
 
@@ -196,55 +198,53 @@ export default function QuizGame() {
         .sort(() => Math.random() - 0.5)
         .slice(0, questionCount)
 
-      const generatedQuestions: QuizQuestion[] = selectedHanzi.map(
-        (hanzi, index) => {
-          const questionType = Math.random() > 0.5 ? "meaning" : "sound"
-          const correctAnswer =
-            questionType === "meaning" ? hanzi.meaning : hanzi.sound
+      const generatedQuestions: QuizQuestion[] = selectedHanzi.map((hanzi) => {
+        const questionType = Math.random() > 0.5 ? "meaning" : "sound"
+        const correctAnswer =
+          questionType === "meaning" ? hanzi.meaning : hanzi.sound
 
-          const otherHanzi = hanziList.filter((h) => h.id !== hanzi.id)
-          const wrongAnswers = otherHanzi
-            .sort(() => Math.random() - 0.5)
+        const otherHanzi = hanziList.filter((h) => h.id !== hanzi.id)
+        const wrongAnswers = otherHanzi
+          .sort(() => Math.random() - 0.5)
+          .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
+          .filter((answer) => answer !== correctAnswer)
+          .filter((answer, index, arr) => arr.indexOf(answer) === index)
+          .slice(0, 3)
+
+        const allOptions = [correctAnswer, ...wrongAnswers]
+          .filter(
+            (option) =>
+              option !== undefined && option !== null && option.trim() !== ""
+          )
+          .filter((option, index, arr) => arr.indexOf(option) === index)
+          .sort(() => Math.random() - 0.5) as string[]
+
+        if (allOptions.length < 4) {
+          const additionalWrongAnswers = otherHanzi
             .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
-            .filter((answer) => answer !== correctAnswer)
+            .filter((answer) => !allOptions.includes(answer))
             .filter((answer, index, arr) => arr.indexOf(answer) === index)
-            .slice(0, 3)
+            .slice(0, 4 - allOptions.length)
 
-          const allOptions = [correctAnswer, ...wrongAnswers]
-            .filter(
-              (option) =>
-                option !== undefined && option !== null && option.trim() !== ""
-            )
-            .filter((option, index, arr) => arr.indexOf(option) === index)
-            .sort(() => Math.random() - 0.5) as string[]
-
-          if (allOptions.length < 4) {
-            const additionalWrongAnswers = otherHanzi
-              .map((h) => (questionType === "meaning" ? h.meaning : h.sound))
-              .filter((answer) => !allOptions.includes(answer))
-              .filter((answer, index, arr) => arr.indexOf(answer) === index)
-              .slice(0, 4 - allOptions.length)
-
-            allOptions.push(...additionalWrongAnswers)
-          }
-
-          allOptions.push("모르겠음")
-
-          return {
-            id: hanzi.id,
-            hanzi: hanzi.character,
-            meaning: hanzi.meaning,
-            sound: hanzi.sound || hanzi.pinyin || "",
-            options: allOptions,
-            correctAnswer:
-              correctAnswer ||
-              (questionType === "meaning" ? hanzi.meaning : hanzi.sound),
-            questionType: questionType as "meaning" | "sound",
-            hanziId: hanzi.id,
-            relatedWords: hanzi.relatedWords,
-          }
+          allOptions.push(...additionalWrongAnswers)
         }
-      )
+
+        allOptions.push("모르겠음")
+
+        return {
+          id: hanzi.id,
+          hanzi: hanzi.character,
+          meaning: hanzi.meaning,
+          sound: hanzi.sound || hanzi.pinyin || "",
+          options: allOptions,
+          correctAnswer:
+            correctAnswer ||
+            (questionType === "meaning" ? hanzi.meaning : hanzi.sound),
+          questionType: questionType as "meaning" | "sound",
+          hanziId: hanzi.id,
+          relatedWords: hanzi.relatedWords,
+        }
+      })
 
       // 게임 초기화
       gameLogic.setQuestions(generatedQuestions)
@@ -272,9 +272,12 @@ export default function QuizGame() {
       }, 0)
 
       if (user) {
-        startSession().catch((error: any) => {})
+        startSession().catch((error: any) => {
+          console.error("세션 시작 실패:", error)
+        })
       }
     } catch (error) {
+      console.error("게임 초기화 중 오류:", error)
       setIsGenerating(false)
       setNoDataMessage("게임 초기화 중 오류가 발생했습니다.")
       setShowNoDataModal(true)

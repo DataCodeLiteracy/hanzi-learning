@@ -39,7 +39,10 @@ export async function POST(request: NextRequest) {
 
     try {
       const { ApiClient } = await import("@/lib/apiClient")
-      const userDoc = (await ApiClient.getDocument("users", userId)) as any
+      const userDoc = (await ApiClient.getDocument("users", userId)) as Record<
+        string,
+        any
+      >
       const dailyCount = userDoc?.[dailyGradingKey] || 0
       const maxDailyGrading = 5
 

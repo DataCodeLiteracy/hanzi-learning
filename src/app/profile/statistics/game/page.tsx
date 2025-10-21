@@ -14,7 +14,6 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { ApiClient } from "@/lib/apiClient"
 import {
   GameStatisticsService,
   GameStatistics,

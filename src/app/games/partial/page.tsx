@@ -165,7 +165,7 @@ export default function PartialGame() {
         .slice(0, questionCount)
 
       const generatedQuestions: PartialQuestion[] = selectedHanzi.map(
-        (hanzi, index) => {
+        (hanzi) => {
           const hiddenParts: Array<
             "top-left" | "top-right" | "bottom-left" | "bottom-right"
           > = ["top-left", "top-right", "bottom-left", "bottom-right"]

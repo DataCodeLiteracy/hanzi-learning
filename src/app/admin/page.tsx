@@ -389,7 +389,7 @@ export default function AdminPage() {
       }
 
       // 배치 삭제
-      const batch = await ApiClient.deleteGradeHanzi(deleteGrade)
+      await ApiClient.deleteGradeHanzi(deleteGrade)
 
       alert(`${deleteGrade}급 한자 ${gradeHanzi.length}개가 삭제되었습니다.`)
       setShowDeleteGradeModal(false)
@@ -861,8 +861,8 @@ export default function AdminPage() {
                 한자 삭제
               </h3>
               <p className='text-gray-700 mb-4'>
-                "{deletingHanzi.character}" ({deletingHanzi.meaning}) 한자를
-                정말로 삭제하시겠습니까?
+                &ldquo;{deletingHanzi.character}&rdquo; ({deletingHanzi.meaning}
+                ) 한자를 정말로 삭제하시겠습니까?
               </p>
               <p className='text-sm text-red-600 mb-6'>
                 이 작업은 되돌릴 수 없습니다.

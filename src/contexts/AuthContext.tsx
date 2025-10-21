@@ -20,7 +20,6 @@ import {
 } from "firebase/firestore"
 import { User } from "@/types"
 import { calculateLevel } from "@/lib/experienceSystem"
-import { ApiClient } from "@/lib/apiClient"
 
 interface AuthContextType {
   user: User | null
@@ -80,7 +79,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // 이메일로 기존 사용자 발견 - UID 마이그레이션
           const existingUserDoc = emailQuery.docs[0]
           const existingUserData = existingUserDoc.data() as User
-
 
           // 기존 데이터를 새 UID로 마이그레이션
           const migratedUserData = {
@@ -153,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
+        console.error("사용자 데이터 로드 실패:", error)
       }
     }
   }
@@ -188,6 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           { merge: true }
         )
       } catch (error) {
+        console.error("사용자 경험치 업데이트 실패:", error)
         // 에러 발생 시 전체 새로고침
         await refreshUserData()
       }
@@ -231,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(appUser)
         setIsAuthenticated(true)
       } catch (error) {
+        console.error("사용자 인증 처리 실패:", error)
         // 에러 발생 시 기본 정보로 설정
         const fallbackUser: User = {
           id: firebaseUser.uid,
@@ -265,6 +266,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithPopup(auth, googleProvider)
     } catch (error) {
+      console.error("로그인 실패:", error)
       throw new Error("로그인에 실패했습니다.")
     }
   }
@@ -275,6 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 로그아웃 후 로그인 페이지로 리다이렉트
       window.location.href = "/login"
     } catch (error) {
+      console.error("로그아웃 실패:", error)
       throw new Error("로그아웃에 실패했습니다.")
     }
   }

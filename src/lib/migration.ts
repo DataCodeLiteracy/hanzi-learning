@@ -1,13 +1,5 @@
 import { db } from "@/lib/firebase"
-import {
-  doc,
-  getDoc,
-  setDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore"
+import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore"
 
 interface MigrationResult {
   success: boolean

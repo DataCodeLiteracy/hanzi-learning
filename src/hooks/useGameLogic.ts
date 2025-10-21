@@ -70,6 +70,7 @@ export const useGameLogic = (config: GameConfig) => {
             return 0
           }
         } catch (error) {
+          console.error("보너스 경험치 계산 실패:", error)
           // 에러 시에는 보너스 지급 (기존 로직 유지)
         }
       }
@@ -146,7 +147,9 @@ export const useGameLogic = (config: GameConfig) => {
             wrongAnswers: correct ? 0 : 1,
             completedSessions: 0, // 문제 풀 때마다는 0
           })
-        } catch (error) {}
+        } catch (error) {
+          console.error("게임 통계 업데이트 실패:", error)
+        }
       }
 
       // 즉시 경험치 추가
@@ -157,7 +160,9 @@ export const useGameLogic = (config: GameConfig) => {
           if (experienceToAdd > 0) {
             await ApiClient.updateTodayExperience(user.id, experienceToAdd)
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error("경험치 업데이트 실패:", error)
+        }
       }
 
       // 경험치 상태 업데이트
@@ -175,7 +180,9 @@ export const useGameLogic = (config: GameConfig) => {
             config.gameType,
             isDontKnow ? false : correct // 모르겠음은 false로 처리
           )
-        } catch (error) {}
+        } catch (error) {
+          console.error("한자 통계 업데이트 실패:", error)
+        }
       }
 
       // 정답/오답 모달 표시 후 자동으로 다음 문제로 이동
@@ -274,7 +281,9 @@ export const useGameLogic = (config: GameConfig) => {
         .then(() => {
           setHasUpdatedStats(true)
         })
-        .catch((error) => {})
+        .catch((error) => {
+          console.error("세션 완료 통계 업데이트 실패:", error)
+        })
     } else if (gameEnded && questionsAnsweredRef.current !== questions.length) {
       setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
     }

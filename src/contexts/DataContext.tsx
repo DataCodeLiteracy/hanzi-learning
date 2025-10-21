@@ -219,6 +219,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       setUserStatistics(stats)
     } catch (error) {
+      console.error("사용자 통계 로드 실패:", error)
     } finally {
       setIsLoading(false)
     }
@@ -236,6 +237,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       )
       setLearningSessions(sessions)
     } catch (error) {
+      console.error("학습 세션 로드 실패:", error)
     } finally {
       setIsLoading(false)
     }
@@ -254,7 +256,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         // 통계 업데이트
         const updatedStats = await ApiClient.getUserStatistics(user.id)
         setUserStatistics(updatedStats)
-      } catch (error) {}
+      } catch (error) {
+        console.error("사용자 통계 업데이트 실패:", error)
+      }
     },
     [user, learningSessions]
   )
@@ -280,7 +284,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           // updatedStats.totalSessions += stats.totalPlayed || 0
           setUserStatistics(updatedStats)
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error("실시간 통계 업데이트 실패:", error)
+      }
     },
     [user, userStatistics]
   )
