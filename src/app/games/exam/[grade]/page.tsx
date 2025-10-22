@@ -22,7 +22,17 @@ interface HanziData {
 
 interface ExamQuestion {
   id: string
-  type: "sound" | "meaning" | "word" | "sentence" | "subjective"
+  type:
+    | "sound"
+    | "meaning"
+    | "word_reading"
+    | "word_meaning"
+    | "blank_hanzi"
+    | "word_meaning_select"
+    | "hanzi_write"
+    | "word_reading_write"
+    | "sentence_reading"
+    | "subjective"
   question: string
   options?: string[]
   correctAnswer: string | number
@@ -88,32 +98,231 @@ export default function ExamGradePage({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // 간단한 시험 문제 생성 함수
+  // 9개 패턴별 시험 문제 생성 함수
   const generateSimpleExamQuestions = (
     hanziList: any[],
     questionCount: number
-  ) => {
-    const questions = []
+  ): ExamQuestion[] => {
+    const questions: ExamQuestion[] = []
     const shuffled = [...hanziList].sort(() => Math.random() - 0.5)
+    let questionIndex = 0
 
-    for (let i = 0; i < Math.min(questionCount, shuffled.length); i++) {
-      const hanzi = shuffled[i]
-      questions.push({
-        id: `q_${i}`,
-        type: "sound" as const,
-        question: `다음 한자의 음(소리)을 선택하세요: ${hanzi.character}`,
-        options: [
-          hanzi.sound,
-          shuffled[Math.floor(Math.random() * shuffled.length)].sound,
-          shuffled[Math.floor(Math.random() * shuffled.length)].sound,
-          shuffled[Math.floor(Math.random() * shuffled.length)].sound,
-        ].sort(() => Math.random() - 0.5),
-        correctAnswer: 1,
-        hanziData: hanzi,
-      })
-    }
+    // 패턴별로 문제 생성
+    patterns.forEach((pattern, patternIndex) => {
+      for (let i = 0; i < pattern.questionCount; i++) {
+        const hanzi = shuffled[questionIndex % shuffled.length]
+        const questionId = `q_${questionIndex}`
+
+        let question: any = {
+          id: questionId,
+          type: pattern.type,
+          hanziData: hanzi,
+        }
+
+        // 패턴별 문제 생성
+        switch (pattern.type) {
+          case "sound":
+            question.question = `[${hanzi.character}] 안의 한자의 음(소리)으로 알맞은 것을 선택하세요.`
+            question.options = generateUniqueOptions(
+              hanzi.sound,
+              shuffled,
+              "sound"
+            )
+            question.correctAnswer = question.options.indexOf(hanzi.sound) + 1
+            break
+
+          case "meaning":
+            question.question = `[${hanzi.meaning}] 안의 뜻에 맞는 한자를 선택하세요.`
+            question.options = generateUniqueOptions(
+              hanzi.character,
+              shuffled,
+              "character"
+            )
+            question.correctAnswer =
+              question.options.indexOf(hanzi.character) + 1
+            break
+
+          case "word_reading":
+            if (hanzi.relatedWords && hanzi.relatedWords.length > 0) {
+              const randomWord =
+                hanzi.relatedWords[
+                  Math.floor(Math.random() * hanzi.relatedWords.length)
+                ]
+              question.question = `[${randomWord.hanzi}] 안의 한자어를 바르게 읽은 것을 선택하세요.`
+              question.options = generateUniqueOptions(
+                randomWord.korean,
+                shuffled,
+                "relatedWords"
+              )
+              question.correctAnswer =
+                question.options.indexOf(randomWord.korean) + 1
+            } else {
+              // 관련 단어가 없으면 sound 문제로 대체
+              question.question = `[${hanzi.character}] 안의 한자의 음(소리)으로 알맞은 것을 선택하세요.`
+              question.options = generateUniqueOptions(
+                hanzi.sound,
+                shuffled,
+                "sound"
+              )
+              question.correctAnswer = question.options.indexOf(hanzi.sound) + 1
+            }
+            break
+
+          case "word_meaning":
+            question.question = `[${hanzi.meaning}] 안의 뜻을 가진 한자를 <보기>에서 찾아 번호를 쓰세요.`
+            question.options = generateUniqueOptions(
+              hanzi.character,
+              shuffled,
+              "character"
+            )
+            question.correctAnswer =
+              question.options.indexOf(hanzi.character) + 1
+            break
+
+          case "blank_hanzi":
+            question.question = `○에 들어갈 알맞은 한자를 <보기>에서 찾아 번호를 쓰세요.`
+            question.options = generateUniqueOptions(
+              hanzi.character,
+              shuffled,
+              "character"
+            )
+            question.correctAnswer =
+              question.options.indexOf(hanzi.character) + 1
+            break
+
+          case "word_meaning_select":
+            if (hanzi.relatedWords && hanzi.relatedWords.length > 0) {
+              const randomWord =
+                hanzi.relatedWords[
+                  Math.floor(Math.random() * hanzi.relatedWords.length)
+                ]
+              question.question = `[${randomWord.hanzi}] 안의 한자어의 뜻을 찾아 번호를 쓰세요.`
+              question.options = generateUniqueOptions(
+                randomWord.korean,
+                shuffled,
+                "relatedWords"
+              )
+              question.correctAnswer =
+                question.options.indexOf(randomWord.korean) + 1
+            } else {
+              // 관련 단어가 없으면 meaning 문제로 대체
+              question.question = `[${hanzi.meaning}] 안의 뜻에 맞는 한자를 선택하세요.`
+              question.options = generateUniqueOptions(
+                hanzi.character,
+                shuffled,
+                "character"
+              )
+              question.correctAnswer =
+                question.options.indexOf(hanzi.character) + 1
+            }
+            break
+
+          case "hanzi_write":
+            question.question = `한자의 훈(뜻)과 음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善 ( 착할 선 )\n\n${hanzi.character} (          )`
+            question.correctAnswer = `${hanzi.meaning} ${hanzi.sound}`
+            break
+
+          case "word_reading_write":
+            if (hanzi.relatedWords && hanzi.relatedWords.length > 0) {
+              const randomWord =
+                hanzi.relatedWords[
+                  Math.floor(Math.random() * hanzi.relatedWords.length)
+                ]
+              question.question = `한자어의 독음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善惡 ( 선악 )\n\n${randomWord.hanzi} (          )`
+              question.correctAnswer = randomWord.korean
+            } else {
+              // 관련 단어가 없으면 sound 문제로 대체
+              question.question = `한자의 음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善 ( 선 )\n\n${hanzi.character} (          )`
+              question.correctAnswer = hanzi.sound
+            }
+            break
+
+          case "sentence_reading":
+            question.question = `[${hanzi.character}] 안의 한자어의 독음(소리)을 <보기>에서 선택하세요.`
+            question.options = generateUniqueOptions(
+              hanzi.sound,
+              shuffled,
+              "sound"
+            )
+            question.correctAnswer = question.options.indexOf(hanzi.sound) + 1
+            break
+
+          case "subjective":
+            question.question = `한자의 훈(뜻)과 음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善 ( 착할 선 )\n\n${hanzi.character} (          )`
+            question.correctAnswer = `${hanzi.meaning} ${hanzi.sound}`
+            break
+        }
+
+        questions.push(question)
+        questionIndex++
+      }
+    })
 
     return questions
+  }
+
+  // 중복되지 않는 선택지 생성 함수
+  const generateUniqueOptions = (
+    correctAnswer: string,
+    shuffled: any[],
+    field: string
+  ) => {
+    const options = [correctAnswer]
+    const usedValues = new Set([correctAnswer])
+
+    while (options.length < 4 && usedValues.size < shuffled.length) {
+      const randomHanzi = shuffled[Math.floor(Math.random() * shuffled.length)]
+      let value = ""
+
+      if (field === "sound") {
+        value = randomHanzi.sound
+      } else if (field === "character") {
+        value = randomHanzi.character
+      } else if (field === "relatedWords") {
+        if (randomHanzi.relatedWords && randomHanzi.relatedWords.length > 0) {
+          const randomWord =
+            randomHanzi.relatedWords[
+              Math.floor(Math.random() * randomHanzi.relatedWords.length)
+            ]
+          value = randomWord.korean
+        } else {
+          continue
+        }
+      }
+
+      if (value && !usedValues.has(value)) {
+        options.push(value)
+        usedValues.add(value)
+      }
+    }
+
+    // 4개가 안 되면 나머지 채우기
+    while (options.length < 4) {
+      const randomHanzi = shuffled[Math.floor(Math.random() * shuffled.length)]
+      let value = ""
+
+      if (field === "sound") {
+        value = randomHanzi.sound
+      } else if (field === "character") {
+        value = randomHanzi.character
+      } else if (field === "relatedWords") {
+        if (randomHanzi.relatedWords && randomHanzi.relatedWords.length > 0) {
+          const randomWord =
+            randomHanzi.relatedWords[
+              Math.floor(Math.random() * randomHanzi.relatedWords.length)
+            ]
+          value = randomWord.korean
+        } else {
+          continue
+        }
+      }
+
+      if (value) {
+        options.push(value)
+      }
+    }
+
+    return options.sort(() => Math.random() - 0.5)
   }
 
   // 패턴별 문제 분류 (7-8급: 9가지 패턴)
@@ -304,6 +513,13 @@ export default function ExamGradePage({
     }
   }, [currentPattern, patterns.length, handleSubmitExam])
 
+  const handlePreviousPattern = useCallback(() => {
+    if (currentPattern > 0) {
+      setCurrentPattern(currentPattern - 1)
+      setCurrentQuestion(0)
+    }
+  }, [currentPattern])
+
   useEffect(() => {
     if (user && currentGradeInfo) {
       loadExamQuestions()
@@ -391,7 +607,8 @@ export default function ExamGradePage({
       {/* 헤더 */}
       <div className='bg-white shadow-sm border-b'>
         <div className='max-w-4xl mx-auto px-4 py-4'>
-          <div className='flex items-center justify-between'>
+          {/* 상단: 제목과 타이머 */}
+          <div className='flex items-center justify-between mb-4'>
             <div className='flex items-center space-x-4'>
               <Link
                 href='/games/exam'
@@ -411,18 +628,40 @@ export default function ExamGradePage({
             </div>
 
             <div className='flex items-center space-x-4'>
-              <div className='flex items-center space-x-2'>
-                <div className='flex items-center text-red-600'>
-                  <Clock className='w-5 h-5 mr-2' />
-                  <span className='font-mono text-lg font-bold'>
-                    {formatTime(timeLeft)}
-                  </span>
-                </div>
-                <div className='text-sm text-black'>
-                  {Object.keys(answers).length}/{examSession.questions.length}{" "}
-                  완료
-                </div>
+              <div className='flex items-center text-red-600'>
+                <Clock className='w-5 h-5 mr-2' />
+                <span className='font-mono text-lg font-bold'>
+                  {formatTime(timeLeft)}
+                </span>
               </div>
+            </div>
+          </div>
+
+          {/* 하단: 진행 상황과 패턴 네비게이션 */}
+          <div className='flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0'>
+            <div className='text-sm text-black'>
+              전체 진행: {Object.keys(answers).length}/
+              {examSession.questions.length} 완료
+            </div>
+
+            {/* 패턴 네비게이션 */}
+            <div className='flex items-center space-x-2'>
+              {currentPattern > 0 && (
+                <button
+                  onClick={handlePreviousPattern}
+                  className='px-3 py-1 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50'
+                >
+                  ← 이전 패턴
+                </button>
+              )}
+              {currentPattern < patterns.length - 1 && (
+                <button
+                  onClick={handleNextPattern}
+                  className='px-3 py-1 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50'
+                >
+                  다음 패턴 →
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -437,44 +676,78 @@ export default function ExamGradePage({
           <p className='text-black mb-4'>
             {patterns[currentPattern].description}
           </p>
-          <div className='text-sm text-black'>
-            문제 {currentQuestion + 1}/{currentPatternQuestions.length}
+          <div className='space-y-4'>
+            {/* 답안 완료 상태 */}
+            <div className='flex items-center justify-between'>
+              <div className='text-sm text-gray-600'>
+                답안 완료:{" "}
+                {
+                  Object.keys(answers).filter((key) =>
+                    currentPatternQuestions.some((q) => q.id === key)
+                  ).length
+                }
+                /{currentPatternQuestions.length}
+              </div>
+            </div>
+
+            {/* 문제 번호 네비게이션 */}
+            <div className='flex flex-wrap gap-1 justify-center'>
+              {currentPatternQuestions.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentQuestion(index)}
+                  className={`w-8 h-8 text-xs rounded border ${
+                    index === currentQuestion
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : answers[currentPatternQuestions[index].id]
+                      ? "bg-green-100 text-green-700 border-green-300"
+                      : "bg-gray-100 text-gray-600 border-gray-300"
+                  } hover:bg-blue-100`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* 문제 */}
         {currentQuestionData && (
-          <div className='bg-white rounded-lg shadow-lg p-8'>
+          <div className='bg-white rounded-lg shadow-lg p-4 sm:p-8'>
             <div className='mb-6'>
-              <h3 className='text-lg font-semibold text-black mb-4'>
+              <h3 className='text-lg font-semibold text-black mb-4 break-words'>
                 {currentQuestionData.question}
               </h3>
             </div>
 
             {/* 객관식 문제 */}
             {currentQuestionData.options && (
-              <div className='space-y-3'>
+              <div className='space-y-2 sm:space-y-3'>
                 {currentQuestionData.options.map((option, index) => (
                   <button
                     key={index}
                     onClick={() =>
                       handleAnswer(currentQuestionData.id, index + 1)
                     }
-                    className={`w-full p-4 text-left rounded-lg border-2 transition-colors ${
+                    className={`w-full p-3 sm:p-4 text-left rounded-lg border-2 transition-colors ${
                       answers[currentQuestionData.id] === index + 1
                         ? "border-blue-500 bg-blue-50 text-black"
                         : "border-gray-200 hover:border-gray-300 bg-white text-black"
                     }`}
                   >
-                    <span className='font-medium mr-3'>{index + 1}.</span>
-                    {option}
+                    <span className='font-medium mr-2 sm:mr-3'>
+                      {index + 1}.
+                    </span>
+                    <span className='break-words'>{option}</span>
                   </button>
                 ))}
               </div>
             )}
 
             {/* 주관식 문제 */}
-            {currentQuestionData.type === "subjective" && (
+            {(currentQuestionData.type === "subjective" ||
+              currentQuestionData.type === "hanzi_write" ||
+              currentQuestionData.type === "word_reading_write") && (
               <div className='space-y-4'>
                 <textarea
                   value={answers[currentQuestionData.id] || ""}
@@ -482,34 +755,43 @@ export default function ExamGradePage({
                     handleAnswer(currentQuestionData.id, e.target.value)
                   }
                   placeholder='한자의 훈과 음을 입력하세요 (예: 착할 선)'
-                  className='w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  className='w-full p-3 sm:p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base'
                   rows={3}
                 />
               </div>
             )}
 
             {/* 네비게이션 */}
-            <div className='flex justify-between items-center mt-8 pt-6 border-t'>
-              <div className='text-sm text-black'>
-                {currentQuestion + 1}/{currentPatternQuestions.length} 문제
+            <div className='flex justify-between items-center mt-6 sm:mt-8 pt-4 sm:pt-6 border-t'>
+              {/* 이전 문제 버튼 */}
+              <div className='flex-1'>
+                {currentQuestion > 0 && (
+                  <button
+                    onClick={() => setCurrentQuestion(currentQuestion - 1)}
+                    className='px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-black hover:bg-gray-50 text-xs sm:text-sm'
+                  >
+                    ← 이전 문제
+                  </button>
+                )}
               </div>
 
-              <div className='flex space-x-3'>
+              {/* 다음 문제/패턴 버튼 */}
+              <div className='flex-1 flex justify-end'>
                 {currentQuestion < currentPatternQuestions.length - 1 ? (
                   <button
                     onClick={() => setCurrentQuestion(currentQuestion + 1)}
-                    className='px-6 py-2 border border-gray-300 rounded-lg text-black hover:bg-gray-50'
+                    className='px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-black hover:bg-gray-50 text-xs sm:text-sm'
                   >
-                    다음 문제
+                    다음 문제 →
                   </button>
                 ) : (
                   <button
                     onClick={handleNextPattern}
                     disabled={isSubmitting}
-                    className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400'
+                    className='px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-xs sm:text-sm'
                   >
                     {currentPattern < patterns.length - 1
-                      ? "다음 패턴"
+                      ? "다음 패턴 →"
                       : "시험 완료"}
                   </button>
                 )}
