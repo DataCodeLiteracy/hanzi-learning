@@ -14,6 +14,10 @@ import {
   Trash2,
   TrendingUp,
   MessageSquare,
+  Award,
+  Target,
+  Calendar,
+  Trophy,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -701,6 +705,17 @@ export default function ProfilePage() {
                 </div>
                 <div className='text-sm text-gray-600'>
                   각 한자의 학습 현황을 확인하세요
+                </div>
+              </Link>
+              <Link
+                href='/profile/statistics/exam'
+                className='p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-center'
+              >
+                <div className='text-lg font-semibold text-orange-600 mb-2'>
+                  시험 통계
+                </div>
+                <div className='text-sm text-gray-600'>
+                  급수 시험 현황을 확인하세요
                 </div>
               </Link>
             </div>

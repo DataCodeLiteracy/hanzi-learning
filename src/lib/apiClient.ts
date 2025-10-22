@@ -2214,4 +2214,78 @@ export class ApiClient {
       throw new Error("모든 유저 조회에 실패했습니다.")
     }
   }
+
+  // 시험 결과로부터 한자 통계 업데이트
+  static async updateHanziStatisticsFromExam(
+    userId: string,
+    hanziId: string,
+    isCorrect: boolean,
+    examPassed: boolean
+  ): Promise<void> {
+    try {
+      // 기존 통계 찾기
+      const hanziStatsRef = collection(db, "hanziStatistics")
+      const q = query(
+        hanziStatsRef,
+        where("userId", "==", userId),
+        where("hanziId", "==", hanziId)
+      )
+      const snapshot = await getDocs(q)
+
+      if (snapshot.empty) {
+        // 새로운 통계 생성
+        const newStatsRef = doc(collection(db, "hanziStatistics"))
+        await setDoc(newStatsRef, {
+          id: newStatsRef.id,
+          userId,
+          hanziId,
+          totalStudied: 1,
+          correctAnswers: isCorrect ? 1 : 0,
+          wrongAnswers: isCorrect ? 0 : 1,
+          lastStudied: new Date().toISOString(),
+          accuracy: isCorrect ? 100 : 0,
+          isKnown: false,
+          // 시험 관련 필드 추가
+          examAttempts: 1,
+          examCorrect: isCorrect ? 1 : 0,
+          examPassed: examPassed ? 1 : 0,
+          examAccuracy: isCorrect ? 100 : 0,
+          lastExamDate: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        // 기존 통계 업데이트
+        const existingDoc = snapshot.docs[0]
+        const currentData = existingDoc.data()
+
+        await updateDoc(existingDoc.ref, {
+          totalStudied: (currentData.totalStudied || 0) + 1,
+          correctAnswers:
+            (currentData.correctAnswers || 0) + (isCorrect ? 1 : 0),
+          wrongAnswers: (currentData.wrongAnswers || 0) + (isCorrect ? 0 : 1),
+          lastStudied: new Date().toISOString(),
+          accuracy: Math.round(
+            (((currentData.correctAnswers || 0) + (isCorrect ? 1 : 0)) /
+              ((currentData.totalStudied || 0) + 1)) *
+              100
+          ),
+          // 시험 관련 필드 업데이트
+          examAttempts: (currentData.examAttempts || 0) + 1,
+          examCorrect: (currentData.examCorrect || 0) + (isCorrect ? 1 : 0),
+          examPassed: (currentData.examPassed || 0) + (examPassed ? 1 : 0),
+          examAccuracy: Math.round(
+            (((currentData.examCorrect || 0) + (isCorrect ? 1 : 0)) /
+              ((currentData.examAttempts || 0) + 1)) *
+              100
+          ),
+          lastExamDate: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error("시험 한자 통계 업데이트 실패:", error)
+      throw error
+    }
+  }
 }

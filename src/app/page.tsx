@@ -12,6 +12,7 @@ import {
   Gamepad2,
   Eye,
   TrendingUp,
+  Award,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -1412,7 +1413,7 @@ export default function Home() {
             </div>
 
             {/* 한자 정보 */}
-            <div>
+            <div className='mt-8'>
               <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6'>
                 한자 정보
               </h2>
@@ -1450,22 +1451,50 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* 학습 가이드 카드 (아래에 배치) */}
-              <div className='grid grid-cols-1 gap-4 sm:gap-6'>
-                <button
-                  onClick={() => setShowGuideModal(true)}
-                  className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
-                >
-                  <div className='w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg flex items-center justify-center mb-3 sm:mb-4'>
-                    <Trophy className='h-5 w-5 sm:h-6 sm:w-6 text-white' />
-                  </div>
-                  <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2'>
-                    학습 가이드
-                  </h3>
-                  <p className='text-xs sm:text-sm text-gray-600'>
-                    효과적인 한자 학습 방법과 팁을 확인하세요
-                  </p>
-                </button>
+              {/* 시험 섹션 */}
+              <div className='mt-8'>
+                <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6'>
+                  한자 실력 급수 시험
+                </h2>
+                <div className='grid grid-cols-1 gap-4 sm:gap-6'>
+                  <button
+                    onClick={() => (window.location.href = "/games/exam")}
+                    className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
+                  >
+                    <div className='w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg flex items-center justify-center mb-3 sm:mb-4'>
+                      <Trophy className='h-5 w-5 sm:h-6 sm:w-6 text-white' />
+                    </div>
+                    <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2'>
+                      급수 시험
+                    </h3>
+                    <p className='text-xs sm:text-sm text-gray-600'>
+                      공식 급수 시험으로 실력을 인증하고 자격증을 취득해보세요
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* 학습 가이드 섹션 */}
+              <div className='mt-8'>
+                <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6'>
+                  학습 가이드
+                </h2>
+                <div className='grid grid-cols-1 gap-4 sm:gap-6'>
+                  <button
+                    onClick={() => setShowGuideModal(true)}
+                    className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
+                  >
+                    <div className='w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg flex items-center justify-center mb-3 sm:mb-4'>
+                      <Trophy className='h-5 w-5 sm:h-6 sm:w-6 text-white' />
+                    </div>
+                    <h3 className='text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2'>
+                      학습 가이드
+                    </h3>
+                    <p className='text-xs sm:text-sm text-gray-600'>
+                      효과적인 한자 학습 방법과 팁을 확인하세요
+                    </p>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
