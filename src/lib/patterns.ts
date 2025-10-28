@@ -27,19 +27,19 @@ export const patterns = {
   blank_hanzi: {
     type: "blank_hanzi",
     name: "빈칸 한자 찾기",
-    description: "○에 들어갈 알맞은 한자를 선택하세요.",
+    description: "O에 들어갈 알맞은 한자를 선택하세요.",
     needsAI: true,
   },
   word_meaning_select: {
     type: "word_meaning_select",
     name: "한자어 뜻 찾기",
-    description: "[ ] 안의 한자어의 뜻을 찾아 번호를 쓰세요.",
-    needsAI: false,
+    description: "[ ] 안의 한자어의 뜻을 선택하세요.",
+    needsAI: true,
   },
   hanzi_write: {
     type: "hanzi_write",
     name: "한자 뜻과 음 쓰기",
-    description: "한자의 훈(뜻)과 음(소리)을 <보기>와 같이 한글로 쓰세요.",
+    description: "한자의 훈(뜻)과 음(소리)을 한글로 쓰세요.",
     needsAI: false,
   },
   word_reading_write: {
@@ -52,7 +52,7 @@ export const patterns = {
     type: "sentence_reading",
     name: "문장 독음 문제",
     description: "[ ] 안의 한자어의 독음(소리)을 선택하세요.",
-    needsAI: false,
+    needsAI: true,
   },
 } as const
 

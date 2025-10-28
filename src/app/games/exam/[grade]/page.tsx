@@ -105,6 +105,7 @@ export default function ExamGradePage({
   const [loadingMessage, setLoadingMessage] = useState("한자 데이터 분석 중...")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showDailyLimitModal, setShowDailyLimitModal] = useState(false)
 
   // 패턴 4 관련 상태
   const [pattern4Options, setPattern4Options] = useState<string[]>([])
@@ -119,112 +120,390 @@ export default function ExamGradePage({
   // 급수별 패턴 정보를 동적으로 가져오기
   const gradePatterns = getGradePatterns(grade)
 
-  // 9개 패턴별 시험 문제 생성 함수
-  const generateSimpleExamQuestions = async (
-    hanziList: any[],
-    questionCount: number
-  ): Promise<ExamQuestion[]> => {
-    // 1단계: IndexedDB에서 랜덤으로 50개 ID 추출
-    const shuffled = [...hanziList].sort(() => Math.random() - 0.5)
-    const selectedHanzi = shuffled.slice(0, questionCount)
+  // 한자 뜻을 자연스러운 형태로 변환하는 함수
+  const convertMeaningToNatural = (meaning: string): string => {
+    const conversions: Record<string, string> = {
+      무거울: "무거운",
+      작을: "작은",
+      클: "큰",
+      높을: "높은",
+      낮을: "낮은",
+      좋을: "좋은",
+      나쁠: "나쁜",
+      빠를: "빠른",
+      느릴: "느린",
+      밝을: "밝은",
+      어두울: "어두운",
+      따뜻할: "따뜻한",
+      차가울: "차가운",
+      많을: "많은",
+      적을: "적은",
+      새로울: "새로운",
+      오래될: "오래된",
+      젊을: "젊은",
+      늙을: "늙은",
+      아름다울: "아름다운",
+      못생길: "못생긴",
+      똑똑할: "똑똑한",
+      바쁠: "바쁜",
+      한가할: "한가한",
+      기쁠: "기쁜",
+      슬플: "슬픈",
+      화날: "화난",
+      무서울: "무서운",
+      재미있을: "재미있는",
+      지루할: "지루한",
+      편안할: "편안한",
+      불편할: "불편한",
+      깨끗할: "깨끗한",
+      더러울: "더러운",
+      건강할: "건강한",
+      아플: "아픈",
+      피곤할: "피곤한",
+      졸릴: "졸린",
+      배고플: "배고픈",
+      목마를: "목마른",
+      춥을: "추운",
+      더울: "더운",
+      습할: "습한",
+      건조할: "건조한",
+      시원할: "시원한",
+      조용할: "조용한",
+      시끌벅적할: "시끌벅적한",
+      평화로울: "평화로운",
+      위험할: "위험한",
+      안전할: "안전한",
+      쉬울: "쉬운",
+      어려울: "어려운",
+      중요할: "중요한",
+      필요할: "필요한",
+      불필요할: "불필요한",
+      유용할: "유용한",
+      쓸모없을: "쓸모없는",
+      가치있을: "가치있는",
+      소중할: "소중한",
+      특별할: "특별한",
+      일반적일: "일반적인",
+      보통일: "보통인",
+      평범할: "평범한",
+      특이할: "특이한",
+      이상할: "이상한",
+      정상일: "정상인",
+      비정상일: "비정상인",
+      올바를: "올바른",
+      틀릴: "틀린",
+      맞을: "맞는",
+      정확할: "정확한",
+      부정확할: "부정확한",
+      완전할: "완전한",
+      불완전할: "불완전한",
+      충분할: "충분한",
+      부족할: "부족한",
+      모든: "모든",
+      일부일: "일부인",
+      전체일: "전체인",
+      부분일: "부분인",
+      절반일: "절반인",
+      전부일: "전부인",
+      아무것도: "아무것도",
+      아무도: "아무도",
+      아무나: "아무나",
+      누구나: "누구나",
+      언제나: "언제나",
+      어디나: "어디나",
+      어떻게나: "어떻게나",
+      왜나: "왜나",
+      어디서나: "어디서나",
+      언제든지: "언제든지",
+      어디든지: "어디든지",
+      어떻게든지: "어떻게든지",
+      왜든지: "왜든지",
+      어디서든지: "어디서든지",
+      // 추가 변환
+      넉: "넷",
+      고를: "고르는",
+      벌일: "벌이는",
+      다스릴: "다스리는",
+      갖출: "갖추는",
+      시험할: "시험하는",
+      볼: "보는",
+      들: "들어가는",
+      나눌: "나누는",
+      생각: "생각하는",
+      물을: "물어보는",
+      느낄: "느끼는",
+      착할: "착한",
+      살: "사는",
+      설: "서는",
+      눈: "눈으로",
+      불: "불이",
+      두: "두 개의",
+      계집: "여자",
+      장인: "장인이",
+      지경: "경계",
+      셀: "계산하는",
+      일천: "천",
+      일백: "백",
+      가운데: "중간",
+      아홉: "아홉 개의",
+      문: "문이",
+      자태: "자세",
+      믿을: "믿는",
+      위: "위쪽",
+      정오: "정오에",
+      여덟: "여덟 개의",
+      모양: "형태",
+      손: "손으로",
+      돌: "돌이",
+      여섯: "여섯 개의",
+      임금: "왕이",
+      사내: "남자가",
+    }
 
-    console.log(
-      `🎯 1단계: 랜덤으로 선택된 ${questionCount}개 한자 ID:`,
-      selectedHanzi.map((h) => ({ id: h.id, character: h.character }))
+    return conversions[meaning] || meaning
+  }
+
+  // 1단계: 한자 분류 및 선택
+  const classifyAndSelectHanzi = useCallback(() => {
+    // 전체 문제 수 계산
+    const totalQuestions = gradePatterns.reduce(
+      (sum, pattern) => sum + pattern.questionCount,
+      0
     )
 
-    // 2단계: gradePatterns에 따라 패턴별로 배열 채우기
-    const currentPatterns = gradePatterns
-    const structuredQuestions: any[] = []
-    let hanziIndex = 0
-
-    currentPatterns.forEach((pattern: any) => {
-      for (let i = 0; i < pattern.questionCount; i++) {
-        if (hanziIndex >= selectedHanzi.length) break
-
-        const hanzi = selectedHanzi[hanziIndex]
-        const patternInfo = patterns[pattern.type as keyof typeof patterns]
-
-        // 기본 구조 생성
-        const question: any = {
-          type: pattern.type,
-          character: hanzi.character,
-          meaning: hanzi.meaning,
-          sound: hanzi.sound,
-          relatedWords: hanzi.relatedWords?.[0] || null, // 첫 번째 관련 단어만
-          aiText: "",
-        }
-
-        // needsAI가 true인 경우 aiText 채우기
-
-        if (
-          patternInfo &&
-          typeof patternInfo === "object" &&
-          "needsAI" in patternInfo &&
-          patternInfo.needsAI
-        ) {
-          if (pattern.type === "word_meaning") {
-            question.aiText = aiPrompts.word_meaning.userPrompt(hanzi)
-          } else if (pattern.type === "blank_hanzi") {
-            // isTextBook: true인 단어가 있는 경우만
-            let hasTextBookWord = false
-            let textBookWord = null
-
-            if (hanzi.relatedWords) {
-              if (Array.isArray(hanzi.relatedWords)) {
-                hasTextBookWord = hanzi.relatedWords.some(
-                  (word: any) => word.isTextBook
-                )
-                textBookWord = hanzi.relatedWords.find(
-                  (word: any) => word.isTextBook
-                )
-              } else if (hanzi.relatedWords.isTextBook) {
-                hasTextBookWord = true
-                textBookWord = hanzi.relatedWords
-              }
-            }
-
-            if (hasTextBookWord && textBookWord) {
-              question.aiText = aiPrompts.blank_hanzi.userPrompt({
-                ...hanzi,
-                relatedWord: {
-                  hanzi: textBookWord.hanzi,
-                  meaning: textBookWord.korean, // korean을 meaning으로 매핑
-                },
-              })
-              console.log(`🎯 패턴 5 AI 프롬프트 생성:`, {
-                character: hanzi.character,
-                relatedWord: textBookWord,
-                aiText: question.aiText,
-              })
-            } else {
-              console.log(
-                `🎯 패턴 5 건너뛰기 - isTextBook 단어 없음: ${hanzi.character}`,
-                {
-                  relatedWords: hanzi.relatedWords,
-                  hasTextBookWord,
-                  textBookWord,
-                }
-              )
-              // isTextBook 단어가 없으면 이 문제는 건너뛰기
-              hanziIndex-- // 인덱스를 되돌려서 다음 한자로 넘어가기
-              continue
-            }
-          }
-        }
-
-        structuredQuestions.push(question)
-        hanziIndex++
+    // isTextBook: true 패턴들의 문제수 합계 계산
+    let textBookNeeded = 0
+    gradePatterns.forEach((pattern: any) => {
+      if (pattern.isTextBook) {
+        textBookNeeded += pattern.questionCount
       }
     })
 
-    console.log(
-      `🎯 2단계: 패턴별로 구성된 ${structuredQuestions.length}개 문제:`,
-      structuredQuestions
+    const normalNeeded = totalQuestions - textBookNeeded
+
+    console.log(`🎯 패턴별 필요 한자 수:`, {
+      isTextBook필요: textBookNeeded,
+      일반필요: normalNeeded,
+      총필요: totalQuestions,
+    })
+
+    // isTextBook 한자들을 미리 필터링
+    const textBookHanzi = hanziList.filter((hanzi: any) => {
+      if (!hanzi.relatedWords) return false
+
+      if (Array.isArray(hanzi.relatedWords)) {
+        return hanzi.relatedWords.some((word: any) => word.isTextBook)
+      } else {
+        return hanzi.relatedWords.isTextBook
+      }
+    })
+
+    const normalHanzi = hanziList.filter(
+      (hanzi: any) => !textBookHanzi.includes(hanzi)
     )
 
-    // 3단계: 패턴별 정답 배열 생성
+    console.log(`🎯 한자 분류 결과:`, {
+      전체한자수: hanziList.length,
+      isTextBook한자수: textBookHanzi.length,
+      일반한자수: normalHanzi.length,
+    })
+
+    // 필요한 만큼 각각에서 랜덤 추출
+    const shuffledTextBook = [...textBookHanzi].sort(() => Math.random() - 0.5)
+    const shuffledNormal = [...normalHanzi].sort(() => Math.random() - 0.5)
+
+    // isTextBook 한자들을 필요한 수만큼 추출
+    const selectedTextBookHanzi = shuffledTextBook.slice(0, textBookNeeded)
+    // 나머지 문제수만큼 일반 한자들에서 추출
+    const selectedNormalHanzi = shuffledNormal.slice(0, normalNeeded)
+
+    console.log(`🎯 선택된 한자 수:`, {
+      선택된isTextBook수: selectedTextBookHanzi.length,
+      선택된일반수: selectedNormalHanzi.length,
+      총선택수: selectedTextBookHanzi.length + selectedNormalHanzi.length,
+    })
+
+    return {
+      selectedTextBookHanzi,
+      selectedNormalHanzi,
+      totalQuestions,
+    }
+  }, [hanziList, gradePatterns])
+
+  // 2단계: 패턴별 문제 생성
+  const generateQuestionsByPattern = useCallback(
+    (selectedTextBookHanzi: any[], selectedNormalHanzi: any[]) => {
+      const structuredQuestions: any[] = []
+      let textBookIndex = 0
+      let normalIndex = 0
+
+      gradePatterns.forEach((pattern: any) => {
+        let patternQuestionCount = 0
+        let attempts = 0
+        const maxAttempts = pattern.questionCount * 3 // 무한루프 방지
+
+        while (
+          patternQuestionCount < pattern.questionCount &&
+          attempts < maxAttempts
+        ) {
+          attempts++
+
+          // 패턴에 따라 적절한 한자 선택
+          let hanzi = null
+          if (pattern.isTextBook) {
+            if (textBookIndex >= selectedTextBookHanzi.length) {
+              textBookIndex = 0 // 처음부터 다시 시작
+            }
+            hanzi = selectedTextBookHanzi[textBookIndex]
+            textBookIndex++
+          } else {
+            if (normalIndex >= selectedNormalHanzi.length) {
+              normalIndex = 0 // 처음부터 다시 시작
+            }
+            hanzi = selectedNormalHanzi[normalIndex]
+            normalIndex++
+          }
+
+          if (!hanzi) {
+            console.log(
+              `⚠️ 패턴 ${pattern.pattern} 문제 ${
+                patternQuestionCount + 1
+              } 생성 실패: 한자 부족`
+            )
+            continue
+          }
+
+          const question = createQuestionByPattern(
+            pattern,
+            hanzi,
+            structuredQuestions.length
+          )
+
+          if (question) {
+            structuredQuestions.push(question)
+            patternQuestionCount++
+          }
+        }
+
+        // 패턴 9만 로그 출력
+        if (pattern.type === "sentence_reading") {
+          console.log(
+            `🎯 패턴 ${pattern.type} 생성 완료: ${patternQuestionCount}/${pattern.questionCount}개`
+          )
+        }
+      })
+
+      console.log(
+        `🎯 2단계 완료: 패턴별로 구성된 ${structuredQuestions.length}개 문제:`,
+        structuredQuestions
+      )
+
+      return structuredQuestions
+    },
+    [gradePatterns]
+  )
+
+  // 3단계: 개별 문제 생성
+  const createQuestionByPattern = useCallback(
+    (pattern: any, hanzi: any, questionIndex: number) => {
+      const patternInfo = patterns[pattern.type as keyof typeof patterns]
+
+      // 기본 구조 생성
+      const question: any = {
+        id: `q_${questionIndex}`, // ID 추가
+        type: pattern.type,
+        character: hanzi.character,
+        meaning: hanzi.meaning,
+        sound: hanzi.sound,
+        relatedWords: hanzi.relatedWords?.[0] || null, // 첫 번째 관련 단어만
+        aiText: "",
+      }
+
+      // 패턴별 특별 처리
+      switch (pattern.type) {
+        case "word_reading_write":
+          const textBookWord8 = findTextBookWord(hanzi)
+          if (textBookWord8) {
+            question.textBookWord = textBookWord8
+            question.correctAnswer = textBookWord8.korean
+          } else {
+            return null // 문제 생성 실패
+          }
+          break
+
+        case "blank_hanzi":
+          const textBookWord5 = findTextBookWord(hanzi)
+          if (textBookWord5) {
+            question.aiText = aiPrompts.blank_hanzi.userPrompt({
+              ...hanzi,
+              relatedWord: {
+                hanzi: textBookWord5.hanzi,
+                meaning: textBookWord5.korean,
+              },
+            })
+          } else {
+            return null // 문제 생성 실패
+          }
+          break
+
+        case "word_meaning_select":
+          const textBookWord6 = findTextBookWord(hanzi)
+          if (textBookWord6) {
+            question.textBookWord = textBookWord6
+            question.aiText = aiPrompts.word_meaning_select.userPrompt({
+              ...hanzi,
+              character: textBookWord6.hanzi,
+              meaning: textBookWord6.korean,
+            })
+          } else {
+            return null // 문제 생성 실패
+          }
+          break
+
+        case "sentence_reading":
+          const textBookWord9 = findTextBookWord(hanzi)
+          if (textBookWord9) {
+            question.textBookWord = textBookWord9
+            question.aiText = aiPrompts.sentence_reading.userPrompt({
+              ...hanzi,
+              character: textBookWord9.hanzi,
+              meaning: textBookWord9.korean,
+            })
+          } else {
+            return null // 문제 생성 실패
+          }
+          break
+
+        case "word_meaning":
+          const naturalMeaning = convertMeaningToNatural(hanzi.meaning)
+          question.aiText = aiPrompts.word_meaning.userPrompt({
+            ...hanzi,
+            meaning: naturalMeaning,
+          })
+          break
+      }
+
+      return question
+    },
+    [convertMeaningToNatural]
+  )
+
+  // isTextBook 단어 찾기 헬퍼 함수
+  const findTextBookWord = useCallback((hanzi: any) => {
+    if (!hanzi.relatedWords) return null
+
+    if (Array.isArray(hanzi.relatedWords)) {
+      return hanzi.relatedWords.find((word: any) => word.isTextBook)
+    } else if (hanzi.relatedWords.isTextBook) {
+      return hanzi.relatedWords
+    }
+    return null
+  }, [])
+
+  // 4단계: 정답 배열 생성 (문제 순서대로)
+  const generateCorrectAnswers = useCallback((structuredQuestions: any[]) => {
     const correctAnswers: any[] = []
+
     structuredQuestions.forEach((question, index) => {
       let correctAnswer: any = null
 
@@ -245,16 +524,27 @@ export default function ExamGradePage({
           correctAnswer = question.character
           break
         case "word_meaning_select":
-          correctAnswer = question.meaning
+          // AI가 생성한 정답이 있으면 사용, 없으면 기본값 사용
+          correctAnswer =
+            question.correctAnswer ||
+            question.textBookWord?.korean ||
+            question.relatedWords?.korean ||
+            question.meaning
           break
         case "hanzi_write":
-          correctAnswer = `${question.meaning},${question.sound}`
+          correctAnswer = `${question.meaning} ${question.sound}`
           break
         case "word_reading_write":
-          correctAnswer = question.relatedWords?.korean || question.sound
+          correctAnswer =
+            question.correctAnswer ||
+            question.textBookWord?.korean ||
+            question.sound
           break
         case "sentence_reading":
-          correctAnswer = question.relatedWords?.korean || question.sound
+          correctAnswer =
+            question.textBookWord?.korean ||
+            question.relatedWords?.korean ||
+            question.sound
           break
       }
 
@@ -266,23 +556,48 @@ export default function ExamGradePage({
       })
     })
 
-    // AI 처리 필요한 문제들 필터링
+    console.log(`🎯 정답 배열 생성 완료:`, {
+      문제수: structuredQuestions.length,
+      정답배열수: correctAnswers.length,
+      정답예시: correctAnswers.slice(0, 3).map((ca) => ({
+        문제번호: ca.questionIndex + 1,
+        타입: ca.type,
+        정답: ca.correctAnswer,
+      })),
+    })
+
+    return correctAnswers
+  }, [])
+
+  // 5단계: AI 처리
+  const processAIQuestions = useCallback(async (structuredQuestions: any[]) => {
     const aiQuestionsToProcess = structuredQuestions.filter((q) => q.aiText)
+
+    console.log(`🎯 AI 처리할 문제들:`, {
+      전체문제수: structuredQuestions.length,
+      AI처리필요: aiQuestionsToProcess.length,
+      패턴별분류: aiQuestionsToProcess.reduce((acc: any, q) => {
+        acc[q.type] = (acc[q.type] || 0) + 1
+        return acc
+      }, {}),
+    })
 
     if (aiQuestionsToProcess.length > 0) {
       setLoadingProgress(30)
-      setLoadingMessage("AI 문장 생성 중...")
+      setLoadingMessage("문제 문장 생성 중...")
+
+      // 순차적 진행률 표시
+      setTimeout(() => setLoadingProgress(40), 500)
+      setTimeout(() => setLoadingProgress(50), 1000)
+      setTimeout(() => setLoadingProgress(60), 1500)
 
       try {
-        // AI API 호출
         const response = await fetch("/api/generate-ai-exam-content", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             questions: aiQuestionsToProcess.map((q) => ({
-              id: `q_${structuredQuestions.indexOf(q)}`,
+              id: q.id,
               type: q.type,
               aiPrompt: q.aiText,
               hanziData: {
@@ -295,25 +610,16 @@ export default function ExamGradePage({
           }),
         })
 
-        if (!response.ok) {
-          throw new Error("AI 처리 실패")
-        }
+        if (!response.ok) throw new Error("AI 처리 실패")
 
         const aiResult = await response.json()
         console.log(`🎯 AI API 응답:`, aiResult)
 
         if (aiResult.success && aiResult.questions) {
-          // AI 처리된 결과를 structuredQuestions에 적용
           aiResult.questions.forEach((aiProcessed: any) => {
             const questionIndex = parseInt(aiProcessed.id.replace("q_", ""))
             if (structuredQuestions[questionIndex]) {
               let processedContent = aiProcessed.aiGeneratedContent
-              console.log(`🎯 AI 처리 중:`, {
-                aiProcessedId: aiProcessed.id,
-                questionIndex,
-                aiGeneratedContent: aiProcessed.aiGeneratedContent,
-                structuredQuestionsLength: structuredQuestions.length,
-              })
 
               // 패턴 5 (blank_hanzi) 후처리
               if (structuredQuestions[questionIndex].type === "blank_hanzi") {
@@ -332,12 +638,6 @@ export default function ExamGradePage({
                 }
 
                 if (relatedWord) {
-                  console.log(`🎯 패턴 5 후처리 시작:`, {
-                    originalContent: processedContent,
-                    relatedWord: relatedWord,
-                    targetCharacter: question.character,
-                  })
-
                   // 1단계: 한글 의미를 한자어로 바꾸기
                   processedContent = processedContent.replace(
                     new RegExp(relatedWord.korean, "g"),
@@ -349,49 +649,110 @@ export default function ExamGradePage({
                     new RegExp(question.character, "g"),
                     "○"
                   )
-
-                  console.log(`🎯 패턴 5 후처리 완료:`, {
-                    finalContent: processedContent,
-                  })
                 }
+              } else if (
+                structuredQuestions[questionIndex].type ===
+                "word_meaning_select"
+              ) {
+                // 패턴 6 (word_meaning_select) 후처리
+                // AI 응답에서 정답과 오답 추출
+                const lines = processedContent
+                  .split("\n")
+                  .filter((line: string) => line.trim())
+                let correctAnswer = ""
+                let wrongAnswers: string[] = []
+
+                lines.forEach((line: string) => {
+                  if (line.includes("정답:")) {
+                    correctAnswer = line.replace("정답:", "").trim()
+                  } else if (line.includes("오답")) {
+                    wrongAnswers.push(line.replace(/오답\d*:/, "").trim())
+                  }
+                })
+
+                // 정답이 제대로 파싱되지 않았을 경우 기본값 사용
+                if (!correctAnswer || wrongAnswers.length < 3) {
+                  correctAnswer =
+                    structuredQuestions[questionIndex].textBookWord?.korean ||
+                    structuredQuestions[questionIndex].relatedWords?.korean ||
+                    structuredQuestions[questionIndex].meaning
+
+                  // 더 의미있는 오답 생성
+                  const baseAnswer = correctAnswer
+                  wrongAnswers = [
+                    `${baseAnswer}의 반대`,
+                    `${baseAnswer}와 유사한`,
+                    `${baseAnswer}의 다른 의미`,
+                  ]
+                }
+
+                // 정답과 오답을 structuredQuestions에 저장
+                structuredQuestions[questionIndex].correctAnswer = correctAnswer
+                structuredQuestions[questionIndex].wrongAnswers = wrongAnswers
+                structuredQuestions[questionIndex].allOptions = [
+                  correctAnswer,
+                  ...wrongAnswers,
+                ].sort(() => Math.random() - 0.5)
               }
 
               structuredQuestions[questionIndex].aiGeneratedContent =
                 processedContent
-            } else {
-              console.warn(
-                `⚠️ structuredQuestions[${questionIndex}]가 존재하지 않음`
-              )
             }
           })
-        } else {
-          console.warn(`⚠️ AI API 응답이 예상과 다름:`, aiResult)
         }
+
+        setLoadingProgress(70)
+        setTimeout(() => setLoadingProgress(80), 100)
+        setTimeout(() => setLoadingProgress(90), 200)
       } catch (error) {
         console.warn("⚠️ AI 처리 실패했지만 시험 계속 진행:", error)
       }
     }
 
-    // 최종 배열을 상태에 저장
-    setFinalQuestionsArray(structuredQuestions)
+    return structuredQuestions
+  }, [])
+
+  // 메인 함수: 모든 단계를 통합
+  const generateSimpleExamQuestions = useCallback(async () => {
+    console.log(`🔄 시험 문제 로드 시작`)
+
+    // 1단계: 한자 분류 및 선택
+    const { selectedTextBookHanzi, selectedNormalHanzi } =
+      classifyAndSelectHanzi()
+
+    // 2단계: 패턴별 문제 생성
+    const structuredQuestions = generateQuestionsByPattern(
+      selectedTextBookHanzi,
+      selectedNormalHanzi
+    )
+
+    // 3단계: 정답 배열 생성 (문제 순서대로)
+    const correctAnswers = generateCorrectAnswers(structuredQuestions)
+
+    // 4단계: AI 처리
+    const finalQuestions = await processAIQuestions(structuredQuestions)
+
+    // 5단계: 상태 저장
+    setFinalQuestionsArray(finalQuestions)
     setCorrectAnswersArray(correctAnswers)
 
-    // 패턴 4번 보기 생성 (새로운 배열 구조 사용)
-    const pattern4Questions = structuredQuestions.filter(
+    // 6단계: 패턴 4 보기 생성
+    const pattern4Questions = finalQuestions.filter(
       (q) => q.type === "word_meaning"
     )
     if (pattern4Questions.length > 0) {
       const correctAnswers = pattern4Questions.map((q) => q.character)
       const uniqueAnswers = [...new Set(correctAnswers)]
 
-      // 정답들을 포함한 보기 구성 (정답이 보기에 반드시 포함되도록)
-      const allHanziCharacters = hanziList.map((h: any) => h.character)
+      const allHanziCharacters = [
+        ...selectedTextBookHanzi,
+        ...selectedNormalHanzi,
+      ].map((h: any) => h.character)
       const wrongAnswers = allHanziCharacters
         .filter((char: string) => !uniqueAnswers.includes(char))
         .sort(() => Math.random() - 0.5)
         .slice(0, 9 - uniqueAnswers.length)
 
-      // 정답을 먼저 넣고, 나머지 공간에 오답 추가
       const allOptions = [...uniqueAnswers, ...wrongAnswers]
       const shuffledOptions = allOptions.sort(() => Math.random() - 0.5)
 
@@ -399,247 +760,23 @@ export default function ExamGradePage({
       setCurrentPattern4Options(shuffledOptions)
     }
 
-    // 기존 로직 유지 (ExamQuestion[] 반환)
-    const questions: ExamQuestion[] = []
-    let questionIndex = 0
-
-    // 패턴별로 문제 생성 (기존 로직 유지)
-    currentPatterns.forEach((pattern: any, patternIndex: number) => {
-      for (let i = 0; i < pattern.questionCount; i++) {
-        const hanzi = selectedHanzi[questionIndex % selectedHanzi.length]
-        const questionId = `q_${questionIndex}`
-
-        let question: any = {
-          id: questionId,
-          type: pattern.pattern,
-          hanziData: hanzi,
-        }
-
-        // 패턴별 문제 생성
-        let questionResult: any = null
-        switch (pattern.pattern) {
-          case "sound":
-            question.question = `[${hanzi.character}] 안의 한자의 음(소리)으로 알맞은 것을 선택하세요.`
-            question.options = generateUniqueOptions(
-              hanzi.sound,
-              selectedHanzi,
-              "sound"
-            )
-            question.correctAnswer = question.options.indexOf(hanzi.sound) + 1
-            questionResult = question
-            break
-
-          case "meaning":
-            question.question = `[${hanzi.meaning}] 안의 뜻에 맞는 한자를 선택하세요.`
-            question.options = generateUniqueOptions(
-              hanzi.character,
-              selectedHanzi,
-              "character"
-            )
-            question.correctAnswer =
-              question.options.indexOf(hanzi.character) + 1
-            questionResult = question
-            break
-
-          case "word_reading":
-            if (hanzi.relatedWords && hanzi.relatedWords.length > 0) {
-              const randomWord =
-                hanzi.relatedWords[
-                  Math.floor(Math.random() * hanzi.relatedWords.length)
-                ]
-              question.question = `[${randomWord.hanzi}] 안의 한자어를 바르게 읽은 것을 선택하세요.`
-              question.options = generateUniqueOptions(
-                randomWord.korean,
-                selectedHanzi,
-                "relatedWords"
-              )
-              question.correctAnswer =
-                question.options.indexOf(randomWord.korean) + 1
-            } else {
-              // 관련 단어가 없으면 sound 문제로 대체
-              question.question = `[${hanzi.character}] 안의 한자의 음(소리)으로 알맞은 것을 선택하세요.`
-              question.options = generateUniqueOptions(
-                hanzi.sound,
-                selectedHanzi,
-                "sound"
-              )
-              question.correctAnswer = question.options.indexOf(hanzi.sound) + 1
-            }
-            questionResult = question
-            break
-
-          case "word_meaning":
-            // AI로 문장 생성 (서버에서 처리)
-            question.question = `[${hanzi.meaning}] 안의 뜻을 가진 한자를 선택하세요.`
-            question.needsAI = true
-            question.aiPrompt = aiPrompts.word_meaning.userPrompt(hanzi)
-            question.correctAnswer = hanzi.character
-            questionResult = question
-            break
-
-          case "blank_hanzi":
-            // isTextBook: true인 단어가 있는 한자만 사용 (반드시 있어야 함)
-            let hasTextBookWord = false
-            let textBookWord = null
-
-            console.log(`🎯 패턴 5 체크: ${hanzi.character}`, {
-              relatedWords: hanzi.relatedWords,
-              isArray: Array.isArray(hanzi.relatedWords),
-            })
-
-            if (hanzi.relatedWords) {
-              if (Array.isArray(hanzi.relatedWords)) {
-                hasTextBookWord = hanzi.relatedWords.some(
-                  (word: any) => word.isTextBook
-                )
-                textBookWord = hanzi.relatedWords.find(
-                  (word: any) => word.isTextBook
-                )
-              } else if (hanzi.relatedWords.isTextBook) {
-                hasTextBookWord = true
-                textBookWord = hanzi.relatedWords
-              }
-            }
-
-            console.log(`🎯 패턴 5 결과: ${hanzi.character}`, {
-              hasTextBookWord,
-              textBookWord,
-            })
-
-            if (hasTextBookWord && textBookWord) {
-              // korean 필드가 있는지 확인
-              if (!textBookWord.korean) {
-                console.warn(
-                  `⚠️ 패턴 5 건너뛰기 - korean 필드 없음: ${hanzi.character}, 관련단어: ${textBookWord.hanzi}`
-                )
-                questionResult = null
-                break
-              }
-
-              // 정답 글자 선택 (한자어에서 해당 한자가 들어갈 위치)
-              const targetCharacter = hanzi.character
-
-              console.log(`🎯 패턴 5 문제 생성:`, {
-                한자: hanzi.character,
-                뜻: hanzi.meaning,
-                음: hanzi.sound,
-                관련단어: textBookWord.hanzi,
-                한글의미: textBookWord.korean,
-                정답한자: targetCharacter,
-              })
-
-              question.question = ``
-              question.needsAI = true
-              // AI에게 한자어로 문장 생성 요청
-              question.aiPrompt = aiPrompts.blank_hanzi.userPrompt({
-                ...hanzi,
-                relatedWord: {
-                  hanzi: textBookWord.hanzi,
-                  meaning: textBookWord.korean, // korean 필드를 meaning으로 매핑
-                },
-                targetCharacter: targetCharacter,
-              })
-              question.options = generateUniqueOptions(
-                hanzi.character,
-                selectedHanzi,
-                "character"
-              )
-              question.correctAnswer =
-                question.options.indexOf(hanzi.character) + 1
-              questionResult = question
-            } else {
-              // isTextBook: true인 단어가 없으면 이 한자는 건너뛰기
-              console.warn(
-                `⚠️ 패턴 5 건너뛰기 - isTextBook 단어 없음: ${hanzi.character}`
-              )
-              questionResult = null // 이 한자는 사용하지 않음
-            }
-            break
-
-          case "word_meaning_select":
-            if (hanzi.relatedWords && hanzi.relatedWords.length > 0) {
-              const randomWord =
-                hanzi.relatedWords[
-                  Math.floor(Math.random() * hanzi.relatedWords.length)
-                ]
-              question.question = `[${randomWord.hanzi}] 안의 한자어의 뜻을 찾아 번호를 쓰세요.`
-              question.options = generateUniqueOptions(
-                randomWord.korean,
-                selectedHanzi,
-                "relatedWords"
-              )
-              question.correctAnswer =
-                question.options.indexOf(randomWord.korean) + 1
-            } else {
-              // 관련 단어가 없으면 meaning 문제로 대체
-              question.question = `[${hanzi.meaning}] 안의 뜻에 맞는 한자를 선택하세요.`
-              question.options = generateUniqueOptions(
-                hanzi.character,
-                selectedHanzi,
-                "character"
-              )
-              question.correctAnswer =
-                question.options.indexOf(hanzi.character) + 1
-            }
-            questionResult = question
-            break
-
-          case "hanzi_write":
-            question.question = `한자의 훈(뜻)과 음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善 ( 착할 선 )\n\n${hanzi.character} (          )`
-            question.correctAnswer = `${hanzi.meaning} ${hanzi.sound}`
-            questionResult = question
-            break
-
-          case "word_reading_write":
-            if (hanzi.relatedWords && hanzi.relatedWords.length > 0) {
-              const randomWord =
-                hanzi.relatedWords[
-                  Math.floor(Math.random() * hanzi.relatedWords.length)
-                ]
-              question.question = `한자어의 독음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善惡 ( 선악 )\n\n${randomWord.hanzi} (          )`
-              question.correctAnswer = randomWord.korean
-            } else {
-              // 관련 단어가 없으면 sound 문제로 대체
-              question.question = `한자의 음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善 ( 선 )\n\n${hanzi.character} (          )`
-              question.correctAnswer = hanzi.sound
-            }
-            questionResult = question
-            break
-
-          case "sentence_reading":
-            question.question = `[${hanzi.character}] 안의 한자어의 독음(소리)을 <보기>에서 선택하세요.`
-            question.options = generateUniqueOptions(
-              hanzi.sound,
-              selectedHanzi,
-              "sound"
-            )
-            question.correctAnswer = question.options.indexOf(hanzi.sound) + 1
-            questionResult = question
-            break
-
-          case "subjective":
-            question.question = `한자의 훈(뜻)과 음(소리)을 <보기>와 같이 한글로 쓰세요.\n\n<보기> 善 ( 착할 선 )\n\n${hanzi.character} (          )`
-            question.correctAnswer = `${hanzi.meaning} ${hanzi.sound}`
-            questionResult = question
-            break
-        }
-
-        // questionResult가 null이 아닌 경우만 questions 배열에 추가
-        if (questionResult) {
-          questions.push(questionResult)
-          questionIndex++
-        } else {
-          // questionResult가 null인 경우 (패턴 5에서 isTextBook 단어가 없는 경우)
-          // 다음 한자로 넘어가기 위해 questionIndex는 증가시키지 않음
-        }
-      }
+    console.log(`🎯 최종 문제 생성 완료:`, {
+      요청문제수: gradePatterns.reduce(
+        (sum, pattern) => sum + pattern.questionCount,
+        0
+      ),
+      실제생성수: finalQuestions.length,
+      정답배열수: correctAnswers.length,
     })
 
-    // AI 문제들 확인
-    const aiQuestions = questions.filter((q) => q.needsAI)
-
-    return questions
-  }
+    return finalQuestions
+  }, [
+    classifyAndSelectHanzi,
+    generateQuestionsByPattern,
+    generateCorrectAnswers,
+    processAIQuestions,
+    gradePatterns,
+  ])
 
   // 중복되지 않는 선택지 생성 함수
   const generateUniqueOptions = (
@@ -753,6 +890,24 @@ export default function ExamGradePage({
       setIsLoading(true)
       setError(null)
       setLoadingProgress(10)
+      setLoadingMessage("시험 가능 여부 확인 중...")
+
+      // 오늘 이미 시험을 봤는지 확인 (테스트를 위해 임시 비활성화)
+      // if (user) {
+      //   const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD 형식
+      //   const response = await fetch(
+      //     `/api/check-daily-exam?userId=${user.id}&date=${today}`
+      //   )
+      //   const result = await response.json()
+
+      //   if (result.hasTakenToday) {
+      //     setShowDailyLimitModal(true)
+      //     setIsLoading(false)
+      //     return
+      //   }
+      // }
+
+      setLoadingProgress(20)
       setLoadingMessage("한자 데이터 분석 중...")
 
       // 현재 급수에 맞는 한자 데이터 필터링
@@ -766,10 +921,17 @@ export default function ExamGradePage({
       setLoadingMessage("문제 생성 중...")
 
       // 클라이언트 사이드에서 문제 생성 (간단한 랜덤 선택)
-      const questions = await generateSimpleExamQuestions(
-        gradeHanzi,
-        currentGradeInfo.questionCount
-      )
+      const questions = await generateSimpleExamQuestions()
+
+      console.log(`🎯 생성된 문제 수 확인:`, {
+        요청문제수: currentGradeInfo.questionCount,
+        실제생성수: questions.length,
+        문제들: questions.map((q) => ({ id: q.id, type: q.type })),
+      })
+
+      if (questions.length === 0) {
+        throw new Error("문제 생성에 실패했습니다. 다시 시도해주세요.")
+      }
 
       const session: ExamSession = {
         id: `exam_${Date.now()}`,
@@ -833,19 +995,83 @@ export default function ExamGradePage({
 
       // 점수 계산
       let correctCount = 0
+      let answeredCount = 0
+      let unansweredCount = 0
+
       examSession.questions.forEach((question, index) => {
         const userAnswer = answers[question.id]
-        const correctAnswer = correctAnswersArray[index]
 
-        if (correctAnswer && userAnswer === correctAnswer.correctAnswer) {
+        // question.id에서 인덱스 추출 (q_0, q_1, ...)
+        const questionIndex = parseInt(question.id.replace("q_", ""))
+        const correctAnswer = correctAnswersArray[questionIndex]
+
+        console.log(`🎯 정답 찾기:`, {
+          questionId: question.id,
+          questionIndex: questionIndex,
+          correctAnswersArrayLength: correctAnswersArray.length,
+          correctAnswer: correctAnswer,
+        })
+
+        // 답안 제출 여부 확인
+        const hasAnswered =
+          userAnswer !== undefined && userAnswer !== null && userAnswer !== ""
+
+        if (hasAnswered) {
+          answeredCount++
+        } else {
+          unansweredCount++
+        }
+
+        // 사용자가 선택한 옵션의 텍스트 가져오기
+        let selectedOptionText = null
+        if (hasAnswered && question.options && userAnswer) {
+          const optionIndex = parseInt(String(userAnswer)) - 1 // 1-based to 0-based
+          selectedOptionText = question.options[optionIndex]
+        }
+
+        const isCorrect =
+          hasAnswered &&
+          correctAnswer &&
+          selectedOptionText === correctAnswer.correctAnswer
+
+        console.log(`🎯 정답 비교:`, {
+          questionId: question.id,
+          questionIndex: questionIndex,
+          userAnswer: userAnswer,
+          selectedOptionText: selectedOptionText,
+          hasAnswered: hasAnswered,
+          correctAnswer: correctAnswer?.correctAnswer,
+          questionOptions: question.options,
+          isCorrect: isCorrect,
+        })
+
+        // 답안이 있고 정답인 경우만 정답으로 처리
+        if (isCorrect) {
           correctCount++
         }
       })
 
-      const score = Math.round(
-        (correctCount / examSession.questions.length) * 100
-      )
+      console.log(`🎯 답안 제출 현황:`, {
+        총문제수: examSession.questions.length,
+        답안제출수: answeredCount,
+        미제출수: unansweredCount,
+        정답수: correctCount,
+      })
+
+      // 점수 계산: 문제당 점수 * 정답 문제수
+      const pointsPerQuestion = Math.round(100 / examSession.questions.length)
+      const score = Math.round(correctCount * pointsPerQuestion)
       const passed = score >= 70 // 70점 이상 통과
+
+      console.log(`🎯 점수 계산:`, {
+        총문제수: examSession.questions.length,
+        답안제출수: answeredCount,
+        미제출수: unansweredCount,
+        정답수: correctCount,
+        문제당점수: pointsPerQuestion,
+        최종점수: score,
+        통과여부: passed,
+      })
 
       // 시험 결과 저장
       const examResult = {
@@ -863,6 +1089,65 @@ export default function ExamGradePage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(examResult),
       })
+
+      // 오늘 시험 완료 기록 저장 (테스트를 위해 임시 비활성화)
+      // if (user) {
+      //   try {
+      //     await fetch("/api/save-daily-exam-record", {
+      //       method: "POST",
+      //       headers: { "Content-Type": "application/json" },
+      //       body: JSON.stringify({
+      //         userId: user.id,
+      //         grade: grade,
+      //         examDate: new Date().toISOString().split("T")[0],
+      //         score: score,
+      //         passed: passed,
+      //         correctCount: correctCount,
+      //         totalQuestions: examSession.questions.length,
+      //       }),
+      //     })
+      //     console.log(`🎯 오늘 시험 완료 기록 저장: ${grade}급`)
+      //   } catch (error) {
+      //     console.error("시험 완료 기록 저장 실패:", error)
+      //   }
+      // }
+
+      // 경험치 계산 및 반영 (합격 시 기본 50 + 정답 문제수, 불합격 시 정답 문제수만)
+      const isPassed = score >= 70
+      const baseExperience = isPassed ? 50 : 0
+      const experienceGained = baseExperience + correctCount
+
+      console.log(`🎯 경험치 계산:`, {
+        합격여부: isPassed,
+        기본경험치: baseExperience,
+        정답문제수: correctCount,
+        총획득경험치: experienceGained,
+      })
+
+      // 사용자 경험치 업데이트
+      if (user) {
+        try {
+          await fetch("/api/update-user-experience", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: user.id,
+              experienceGained: experienceGained,
+              activityType: "exam",
+              activityDetails: {
+                grade: grade,
+                score: score,
+                correctCount: correctCount,
+                totalQuestions: examSession.questions.length,
+                passed: passed,
+              },
+            }),
+          })
+          console.log(`🎯 경험치 업데이트 완료: +${experienceGained}`)
+        } catch (error) {
+          console.error("경험치 업데이트 실패:", error)
+        }
+      }
 
       // 사용자 통계 업데이트
       if (passed) {
@@ -988,7 +1273,7 @@ export default function ExamGradePage({
               잠시만 기다려주세요. (약 30초 소요)
             </p>
             <p className='text-sm text-gray-500'>
-              AI가 자연스러운 문장을 생성하고 있어요 ✨
+              자연스러운 문장을 생성하고 있어요 ✨
             </p>
           </div>
         </div>
@@ -1048,6 +1333,8 @@ export default function ExamGradePage({
   )
   const currentQuestionData = currentPatternQuestions[currentQuestion]
 
+  // 디버깅 로그 제거 (반복 출력 방지)
+
   // 새로운 배열 구조에 맞게 questionId 생성
   const currentQuestionId = currentQuestionData
     ? `q_${finalQuestionsArray.findIndex((q) => q === currentQuestionData)}`
@@ -1098,38 +1385,50 @@ export default function ExamGradePage({
         }
       case "word_meaning":
         return {
-          question: `[${questionData.meaning}] 뜻을 가진 한자를 선택하세요.`,
+          question: `[${convertMeaningToNatural(
+            questionData.meaning
+          )}] 뜻을 가진 한자를 선택하세요.`,
           options: [],
         }
       case "blank_hanzi":
         return {
-          question: `○에 들어갈 알맞은 한자를 보기에서 선택하세요.`,
+          question: `O에 들어갈 알맞은 한자를 보기에서 선택하세요.`,
           options: getOptions(questionData.character, "character"),
         }
       case "word_meaning_select":
         return {
           question: `[${
-            questionData.relatedWords?.hanzi || questionData.character
-          }] 한자어의 뜻을 찾아 번호를 쓰세요.`,
-          options: getOptions(questionData.meaning, "meaning"),
+            questionData.textBookWord?.hanzi ||
+            questionData.relatedWords?.hanzi ||
+            questionData.character
+          }] 한자어의 뜻을 선택하세요.`,
+          options:
+            questionData.allOptions && questionData.allOptions.length === 4
+              ? questionData.allOptions
+              : [
+                  questionData.textBookWord?.korean ||
+                    questionData.relatedWords?.korean ||
+                    questionData.meaning,
+                  "의미1",
+                  "의미2",
+                  "의미3",
+                ],
         }
       case "hanzi_write":
         return {
-          question: `한자의 훈(뜻)과 음(소리)을 <보기>와 같이 한글로 쓰세요.`,
           options: [],
         }
       case "word_reading_write":
         return {
-          question: `한자어의 독음(소리)을 <보기>와 같이 한글로 쓰세요.`,
+          // question: `한자어의 독음(소리)을 <보기>와 같이 한글로 쓰세요.`,
           options: [],
         }
       case "sentence_reading":
         return {
-          question: `[${
-            questionData.relatedWords?.hanzi || questionData.character
-          }] 한자어의 독음(소리)을 선택하세요.`,
           options: getOptions(
-            questionData.relatedWords?.korean || questionData.sound,
+            questionData.textBookWord?.korean ||
+              questionData.relatedWords?.korean ||
+              questionData.sound,
             "relatedWords"
           ),
         }
@@ -1252,9 +1551,10 @@ export default function ExamGradePage({
         {/* 문제 */}
         {currentQuestionData && (
           <div className='bg-white rounded-xl shadow-xl border border-gray-100 p-6 sm:p-8'>
-            {/* 패턴 4, 5가 아닌 경우에만 기본 문제 텍스트 표시 */}
+            {/* 패턴 4, 5, 9가 아닌 경우에만 기본 문제 텍스트 표시 */}
             {currentQuestionData.type !== "word_meaning" &&
-              currentQuestionData.type !== "blank_hanzi" && (
+              currentQuestionData.type !== "blank_hanzi" &&
+              currentQuestionData.type !== "sentence_reading" && (
                 <div className='mb-8'>
                   <h3 className='text-xl font-bold text-gray-800 mb-6 break-words leading-relaxed'>
                     {questionContent.question}
@@ -1341,8 +1641,17 @@ export default function ExamGradePage({
                           ""
                         if (!content) return ""
 
-                        // ○를 큰 빨간색으로 변경
-                        return content
+                        // 사용자가 선택한 정답이 있으면 ○를 선택한 한자로 대체
+                        const selectedAnswer = currentQuestionId
+                          ? answers[currentQuestionId]
+                          : null
+
+                        const displayContent = selectedAnswer
+                          ? content.replace(/○/g, selectedAnswer)
+                          : content
+
+                        // ○를 큰 빨간색으로 변경 (정답이 선택되지 않은 경우만)
+                        return displayContent
                           .split("")
                           .map((char: string, index: number) => {
                             if (char === "○") {
@@ -1376,11 +1685,11 @@ export default function ExamGradePage({
                               key={index}
                               onClick={() =>
                                 currentQuestionId &&
-                                handleAnswer(currentQuestionId, index + 1)
+                                handleAnswer(currentQuestionId, option)
                               }
                               className={`w-full p-4 text-left rounded-xl border-2 transition-all duration-200 transform hover:scale-[1.02] ${
                                 currentQuestionId &&
-                                answers[currentQuestionId] === index + 1
+                                answers[currentQuestionId] === option
                                   ? "border-blue-500 bg-blue-100 text-black shadow-lg"
                                   : "border-gray-200 hover:border-blue-300 bg-white text-black hover:bg-blue-50 hover:shadow-md"
                               }`}
@@ -1402,7 +1711,8 @@ export default function ExamGradePage({
             {/* 일반 객관식 문제 */}
             {questionContent.options &&
               currentQuestionData.type !== "word_meaning" &&
-              currentQuestionData.type !== "blank_hanzi" && (
+              currentQuestionData.type !== "blank_hanzi" &&
+              currentQuestionData.type !== "sentence_reading" && (
                 <div className='space-y-4'>
                   {questionContent.options.map(
                     (option: string, index: number) => (
@@ -1431,10 +1741,214 @@ export default function ExamGradePage({
                 </div>
               )}
 
-            {/* 주관식 문제 */}
-            {(currentQuestionData.type === "subjective" ||
-              currentQuestionData.type === "hanzi_write" ||
-              currentQuestionData.type === "word_reading_write") && (
+            {/* 패턴 7: 한자 쓰기 */}
+            {currentQuestionData.type === "hanzi_write" && (
+              <div className='space-y-4'>
+                <div className='bg-white p-6 rounded-xl shadow-sm border border-gray-200'>
+                  <div className='text-center mb-6'>
+                    <div className='text-6xl font-bold text-gray-800 mb-2'>
+                      {currentQuestionData?.character}
+                    </div>
+                  </div>
+                </div>
+
+                <div className='bg-white p-6 rounded-xl shadow-sm border border-gray-200'>
+                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    {/* 훈(뜻) 입력 */}
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700 mb-2'>
+                        훈(뜻)
+                      </label>
+                      <input
+                        type='text'
+                        value={
+                          currentQuestionId
+                            ? typeof answers[currentQuestionId] === "string"
+                              ? answers[currentQuestionId].split(" ")[0] || ""
+                              : ""
+                            : ""
+                        }
+                        onChange={(e) => {
+                          if (!currentQuestionId) return
+                          const currentAnswer = answers[currentQuestionId]
+                          const sound =
+                            typeof currentAnswer === "string"
+                              ? currentAnswer.split(" ")[1] || ""
+                              : ""
+                          handleAnswer(
+                            currentQuestionId,
+                            `${e.target.value} ${sound}`.trim()
+                          )
+                        }}
+                        placeholder='뜻을 입력하세요 (예: 착할)'
+                        className='w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-medium bg-white shadow-inner text-black'
+                      />
+                    </div>
+
+                    {/* 음(소리) 입력 */}
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700 mb-2'>
+                        음(소리)
+                      </label>
+                      <input
+                        type='text'
+                        value={
+                          currentQuestionId
+                            ? typeof answers[currentQuestionId] === "string"
+                              ? answers[currentQuestionId].split(" ")[1] || ""
+                              : ""
+                            : ""
+                        }
+                        onChange={(e) => {
+                          if (!currentQuestionId) return
+                          const currentAnswer = answers[currentQuestionId]
+                          const meaning =
+                            typeof currentAnswer === "string"
+                              ? currentAnswer.split(" ")[0] || ""
+                              : ""
+                          handleAnswer(
+                            currentQuestionId,
+                            `${meaning} ${e.target.value}`.trim()
+                          )
+                        }}
+                        placeholder='소리를 입력하세요 (예: 선)'
+                        className='w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-medium bg-white shadow-inner text-black'
+                      />
+                    </div>
+                  </div>
+
+                  {/* 현재 입력된 값 표시 */}
+                  {currentQuestionId && answers[currentQuestionId] && (
+                    <div className='mt-4 p-3 bg-gray-50 rounded-lg'>
+                      <p className='text-sm text-gray-600'>
+                        입력된 값:{" "}
+                        <span className='font-medium'>
+                          {answers[currentQuestionId]}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 패턴 8: 한자어 독음 쓰기 */}
+            {currentQuestionData.type === "word_reading_write" && (
+              <div className='space-y-6'>
+                {/* 보기 카드 - 고정 */}
+                <div className='bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200 shadow-lg'>
+                  <h4 className='text-xl font-bold text-blue-800 mb-4 text-center'>
+                    보기
+                  </h4>
+                  <div className='text-center'>
+                    <div className='inline-block bg-white rounded-lg p-4 border-2 border-gray-300 shadow-md'>
+                      <span className='text-2xl font-bold text-black'>
+                        一日
+                      </span>
+                      <span className='text-lg text-gray-600 mx-2'> ( </span>
+                      <span className='text-lg font-bold text-black'>일일</span>
+                      <span className='text-lg text-gray-600'> ) </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 실제 문제 */}
+                <div className='bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200 shadow-lg'>
+                  <div className='text-center'>
+                    <div className='text-4xl font-bold text-gray-800 mb-2'>
+                      {currentQuestionData.textBookWord?.hanzi ||
+                        currentQuestionData.character}
+                    </div>
+                    <p className='text-sm text-gray-600'>
+                      위 한자어의 독음을 입력하세요
+                    </p>
+                  </div>
+                </div>
+
+                {/* 독음 입력 */}
+                <div className='bg-white p-6 rounded-xl shadow-sm border border-gray-200'>
+                  <label className='block text-sm font-medium text-gray-700 mb-2'>
+                    독음(소리)을 한글로 입력하세요
+                  </label>
+                  <input
+                    type='text'
+                    value={
+                      currentQuestionId
+                        ? typeof answers[currentQuestionId] === "string"
+                          ? answers[currentQuestionId]
+                          : ""
+                        : ""
+                    }
+                    onChange={(e) => {
+                      if (!currentQuestionId) return
+                      handleAnswer(currentQuestionId, e.target.value)
+                    }}
+                    placeholder='독음을 입력하세요 (예: 질문)'
+                    className='w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-medium bg-white shadow-inner text-black'
+                  />
+
+                  {/* 현재 입력된 값 표시 */}
+                  {currentQuestionId && answers[currentQuestionId] && (
+                    <div className='mt-4 p-3 bg-gray-50 rounded-lg'>
+                      <p className='text-sm text-gray-600'>
+                        입력된 값:{" "}
+                        <span className='font-medium'>
+                          {answers[currentQuestionId]}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 패턴 9: 문장 읽기 */}
+            {currentQuestionData.type === "sentence_reading" && (
+              <div className='space-y-6'>
+                {/* AI 생성 문장 */}
+                <div className='bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200 shadow-lg'>
+                  <div className='text-xl font-bold text-gray-800 leading-relaxed'>
+                    {currentQuestionData.aiGeneratedContent ||
+                      "문장을 생성하는 중..."}
+                  </div>
+                </div>
+
+                {/* 보기 선택 */}
+                {currentQuestionData.aiGeneratedContent &&
+                  questionContent.options &&
+                  questionContent.options.length > 0 && (
+                    <div className='space-y-4'>
+                      {questionContent.options.map(
+                        (option: string, index: number) => (
+                          <button
+                            key={index}
+                            onClick={() =>
+                              currentQuestionId &&
+                              handleAnswer(currentQuestionId, index + 1)
+                            }
+                            className={`w-full p-4 text-left rounded-xl border-2 transition-all duration-200 transform hover:scale-[1.02] ${
+                              currentQuestionId &&
+                              answers[currentQuestionId] === index + 1
+                                ? "border-blue-500 bg-blue-100 text-black shadow-lg"
+                                : "border-gray-200 hover:border-blue-300 bg-white text-black hover:bg-blue-50 hover:shadow-md"
+                            }`}
+                          >
+                            <span className='font-bold mr-4 text-lg'>
+                              {index + 1}.
+                            </span>
+                            <span className='break-words text-lg font-medium'>
+                              {option}
+                            </span>
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {/* 다른 주관식 문제 */}
+            {currentQuestionData.type === "subjective" && (
               <div className='space-y-6'>
                 <div className='bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border-2 border-purple-200 shadow-lg'>
                   <textarea
@@ -1484,9 +1998,48 @@ export default function ExamGradePage({
                   >
                     {currentPattern < gradePatterns.length - 1
                       ? "다음 패턴 →"
-                      : "시험 완료"}
+                      : `시험 완료 (${Object.keys(answers).length}/${
+                          examSession.questions.length
+                        } 완료)`}
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 일일 시험 제한 모달 */}
+        {showDailyLimitModal && (
+          <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+            <div className='bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md mx-4'>
+              {/* 아이콘 */}
+              <div className='mb-6'>
+                <div className='w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto'>
+                  <Clock className='w-8 h-8 text-orange-600' />
+                </div>
+              </div>
+
+              <h3 className='text-2xl font-bold text-gray-800 mb-4'>
+                오늘 시험 완료
+              </h3>
+              <p className='text-gray-600 mb-6 leading-relaxed'>
+                오늘은 이미{" "}
+                <span className='font-bold text-blue-600'>{grade}급</span>{" "}
+                시험을 완료했습니다.
+                <br />
+                내일 다시 시도해주세요.
+              </p>
+
+              <div className='space-y-3'>
+                <button
+                  onClick={() => {
+                    setShowDailyLimitModal(false)
+                    router.push("/")
+                  }}
+                  className='w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium'
+                >
+                  메인 페이지로 돌아가기
+                </button>
               </div>
             </div>
           </div>
@@ -1495,9 +2048,33 @@ export default function ExamGradePage({
         {/* 제출 중 */}
         {isSubmitting && (
           <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-            <div className='bg-white rounded-lg p-8 text-center'>
-              <LoadingSpinner />
-              <p className='text-black'>시험 결과를 처리하는 중...</p>
+            <div className='bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md mx-4'>
+              {/* 로딩 스피너 */}
+              <div className='relative mb-6'>
+                <div className='animate-spin rounded-full h-16 w-16 border-4 border-blue-200 mx-auto'></div>
+                <div className='animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto absolute top-0 left-1/2 transform -translate-x-1/2'></div>
+                <div className='absolute inset-0 flex items-center justify-center'>
+                  <div className='w-6 h-6 bg-blue-600 rounded-full animate-pulse'></div>
+                </div>
+              </div>
+
+              <h3 className='text-xl font-bold text-gray-800 mb-2'>
+                시험 결과 처리 중
+              </h3>
+              <p className='text-gray-600 mb-4'>
+                점수를 계산하고 결과를 저장하고 있습니다...
+              </p>
+              <div className='flex justify-center space-x-1'>
+                <div className='w-2 h-2 bg-blue-600 rounded-full animate-bounce'></div>
+                <div
+                  className='w-2 h-2 bg-blue-600 rounded-full animate-bounce'
+                  style={{ animationDelay: "0.1s" }}
+                ></div>
+                <div
+                  className='w-2 h-2 bg-blue-600 rounded-full animate-bounce'
+                  style={{ animationDelay: "0.2s" }}
+                ></div>
+              </div>
             </div>
           </div>
         )}

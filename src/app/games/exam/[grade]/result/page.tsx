@@ -311,26 +311,10 @@ export default function ExamResultPage({
           {/* 액션 버튼 */}
           <div className='flex flex-col sm:flex-row gap-4'>
             <Link
-              href='/games/exam'
+              href='/'
               className='flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg text-center hover:bg-blue-700 transition-colors'
             >
-              다른 급수 시험 보기
-            </Link>
-
-            {!passed && (
-              <Link
-                href={`/games/exam/${grade}`}
-                className='flex-1 bg-gray-600 text-white py-3 px-6 rounded-lg text-center hover:bg-gray-700 transition-colors'
-              >
-                다시 시험 보기
-              </Link>
-            )}
-
-            <Link
-              href='/games'
-              className='flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg text-center hover:bg-blue-700 transition-colors'
-            >
-              학습 게임 하기
+              메인페이지로 돌아가기
             </Link>
           </div>
         </div>
