@@ -61,9 +61,11 @@ export async function POST(request: NextRequest) {
     })
 
     // 사용자 통계 업데이트
-    // 시험 완료 시 경험치 추가 (합격 여부와 관계없이 10exp)
-    const experiencePoints = 10
-    await ApiClient.updateUserExperience(examResult.userId, experiencePoints)
+    // 시험 완료 시 경험치 추가 (시간 내 완료 시 70exp, 시간 초과 시 10exp)
+    const timeLimit = 60 * 60 // 60분을 초로 변환
+    const actualDuration = examResult.actualDuration || 0
+    const experiencePoints = actualDuration <= timeLimit ? 70 : 10
+    await ApiClient.addUserExperience(examResult.userId, experiencePoints)
 
     // 사용자 시험 통계 업데이트
     await updateUserExamStatistics(examResult)
