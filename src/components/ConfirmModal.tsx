@@ -11,6 +11,7 @@ interface ConfirmModalProps {
   confirmText?: string
   cancelText?: string
   type?: "warning" | "info" | "success"
+  showCancel?: boolean
 }
 
 export default function ConfirmModal({
@@ -22,6 +23,7 @@ export default function ConfirmModal({
   confirmText = "확인",
   cancelText = "취소",
   type = "warning",
+  showCancel = true,
 }: ConfirmModalProps) {
   if (!isOpen) return null
 
@@ -81,12 +83,14 @@ export default function ConfirmModal({
 
         {/* 버튼 */}
         <div className='flex justify-end space-x-3'>
-          <button
-            onClick={onClose}
-            className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors'
-          >
-            {cancelText}
-          </button>
+          {showCancel && (
+            <button
+              onClick={onClose}
+              className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors'
+            >
+              {cancelText}
+            </button>
+          )}
           <button
             onClick={() => {
               onConfirm()

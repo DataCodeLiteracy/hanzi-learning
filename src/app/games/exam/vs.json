@@ -1,0 +1,402 @@
+[
+  {
+    "questionNumber": 1,
+    "questionId": "q_0",
+    "userAnswer": null,
+    "correctAnswer": "사",
+    "isCorrect": false,
+    "pattern": "sound"
+  },
+  {
+    "questionNumber": 2,
+    "questionId": "q_1",
+    "userAnswer": null,
+    "correctAnswer": "소",
+    "isCorrect": false,
+    "pattern": "sound"
+  },
+  {
+    "questionNumber": 3,
+    "questionId": "q_2",
+    "userAnswer": null,
+    "correctAnswer": "산",
+    "isCorrect": false,
+    "pattern": "sound"
+  },
+  {
+    "questionNumber": 4,
+    "questionId": "q_3",
+    "userAnswer": null,
+    "correctAnswer": "부",
+    "isCorrect": false,
+    "pattern": "sound"
+  },
+  {
+    "questionNumber": 5,
+    "questionId": "q_4",
+    "userAnswer": null,
+    "correctAnswer": "자",
+    "isCorrect": false,
+    "pattern": "sound"
+  },
+  {
+    "questionNumber": 6,
+    "questionId": "q_5",
+    "userAnswer": null,
+    "correctAnswer": "六",
+    "isCorrect": false,
+    "pattern": "meaning"
+  },
+  {
+    "questionNumber": 7,
+    "questionId": "q_6",
+    "userAnswer": null,
+    "correctAnswer": "金",
+    "isCorrect": false,
+    "pattern": "meaning"
+  },
+  {
+    "questionNumber": 8,
+    "questionId": "q_7",
+    "userAnswer": null,
+    "correctAnswer": "土",
+    "isCorrect": false,
+    "pattern": "meaning"
+  },
+  {
+    "questionNumber": 9,
+    "questionId": "q_8",
+    "userAnswer": null,
+    "correctAnswer": "王",
+    "isCorrect": false,
+    "pattern": "meaning"
+  },
+  {
+    "questionNumber": 10,
+    "questionId": "q_9",
+    "userAnswer": null,
+    "correctAnswer": "石",
+    "isCorrect": false,
+    "pattern": "meaning"
+  },
+  {
+    "questionNumber": 11,
+    "questionId": "q_10",
+    "userAnswer": null,
+    "correctAnswer": "규칙",
+    "isCorrect": false,
+    "pattern": "word_reading"
+  },
+  {
+    "questionNumber": 12,
+    "questionId": "q_11",
+    "userAnswer": null,
+    "correctAnswer": "준비",
+    "isCorrect": false,
+    "pattern": "word_reading"
+  },
+  {
+    "questionNumber": 13,
+    "questionId": "q_12",
+    "userAnswer": null,
+    "correctAnswer": "장면",
+    "isCorrect": false,
+    "pattern": "word_reading"
+  },
+  {
+    "questionNumber": 14,
+    "questionId": "q_13",
+    "userAnswer": null,
+    "correctAnswer": "계산",
+    "isCorrect": false,
+    "pattern": "word_reading"
+  },
+  {
+    "questionNumber": 15,
+    "questionId": "q_14",
+    "userAnswer": null,
+    "correctAnswer": "계산",
+    "isCorrect": false,
+    "pattern": "word_reading"
+  },
+  {
+    "questionNumber": 16,
+    "questionId": "q_15",
+    "userAnswer": null,
+    "correctAnswer": "안전",
+    "isCorrect": false,
+    "pattern": "word_reading"
+  },
+  {
+    "questionNumber": 17,
+    "questionId": "q_16",
+    "userAnswer": null,
+    "correctAnswer": "선심",
+    "isCorrect": false,
+    "pattern": "word_reading"
+  },
+  {
+    "questionNumber": 18,
+    "questionId": "q_17",
+    "userAnswer": null,
+    "correctAnswer": "女",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 19,
+    "questionId": "q_18",
+    "userAnswer": null,
+    "correctAnswer": "目",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 20,
+    "questionId": "q_19",
+    "userAnswer": null,
+    "correctAnswer": "口",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 21,
+    "questionId": "q_20",
+    "userAnswer": null,
+    "correctAnswer": "母",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 22,
+    "questionId": "q_21",
+    "userAnswer": null,
+    "correctAnswer": "九",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 23,
+    "questionId": "q_22",
+    "userAnswer": null,
+    "correctAnswer": "木",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 24,
+    "questionId": "q_23",
+    "userAnswer": null,
+    "correctAnswer": "江",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 25,
+    "questionId": "q_24",
+    "userAnswer": null,
+    "correctAnswer": "十",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 26,
+    "questionId": "q_25",
+    "userAnswer": null,
+    "correctAnswer": "人",
+    "isCorrect": false,
+    "pattern": "word_meaning"
+  },
+  {
+    "questionNumber": 27,
+    "questionId": "q_26",
+    "userAnswer": null,
+    "correctAnswer": "列",
+    "isCorrect": false,
+    "pattern": "blank_hanzi"
+  },
+  {
+    "questionNumber": 28,
+    "questionId": "q_27",
+    "userAnswer": null,
+    "correctAnswer": "分",
+    "isCorrect": false,
+    "pattern": "blank_hanzi"
+  },
+  {
+    "questionNumber": 29,
+    "questionId": "q_28",
+    "userAnswer": 3,
+    "correctAnswer": 3,
+    "isCorrect": true,
+    "pattern": "word_meaning_select"
+  },
+  {
+    "questionNumber": 30,
+    "questionId": "q_29",
+    "userAnswer": 1,
+    "correctAnswer": 1,
+    "isCorrect": true,
+    "pattern": "word_meaning_select"
+  },
+  {
+    "questionNumber": 31,
+    "questionId": "q_30",
+    "userAnswer": null,
+    "correctAnswer": "문 문",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 32,
+    "questionId": "q_31",
+    "userAnswer": null,
+    "correctAnswer": "날 출",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 33,
+    "questionId": "q_32",
+    "userAnswer": null,
+    "correctAnswer": "일천 천",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 34,
+    "questionId": "q_33",
+    "userAnswer": null,
+    "correctAnswer": "석 삼",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 35,
+    "questionId": "q_34",
+    "userAnswer": null,
+    "correctAnswer": "아들 자",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 36,
+    "questionId": "q_35",
+    "userAnswer": null,
+    "correctAnswer": "사내 남",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 37,
+    "questionId": "q_36",
+    "userAnswer": null,
+    "correctAnswer": "위 상",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 38,
+    "questionId": "q_37",
+    "userAnswer": null,
+    "correctAnswer": "다섯 오",
+    "isCorrect": false,
+    "pattern": "hanzi_write"
+  },
+  {
+    "questionNumber": 39,
+    "questionId": "q_38",
+    "userAnswer": null,
+    "correctAnswer": "활동",
+    "isCorrect": false,
+    "pattern": "word_reading_write"
+  },
+  {
+    "questionNumber": 40,
+    "questionId": "q_39",
+    "userAnswer": null,
+    "correctAnswer": "실감",
+    "isCorrect": false,
+    "pattern": "word_reading_write"
+  },
+  {
+    "questionNumber": 41,
+    "questionId": "q_40",
+    "userAnswer": null,
+    "correctAnswer": "신호",
+    "isCorrect": false,
+    "pattern": "word_reading_write"
+  },
+  {
+    "questionNumber": 42,
+    "questionId": "q_41",
+    "userAnswer": null,
+    "correctAnswer": "환경",
+    "isCorrect": false,
+    "pattern": "word_reading_write"
+  },
+  {
+    "questionNumber": 43,
+    "questionId": "q_42",
+    "userAnswer": null,
+    "correctAnswer": "정리",
+    "isCorrect": false,
+    "pattern": "word_reading_write"
+  },
+  {
+    "questionNumber": 44,
+    "questionId": "q_43",
+    "userAnswer": null,
+    "correctAnswer": "발음",
+    "isCorrect": false,
+    "pattern": "word_reading_write"
+  },
+  {
+    "questionNumber": 45,
+    "questionId": "q_44",
+    "userAnswer": null,
+    "correctAnswer": "활동",
+    "isCorrect": false,
+    "pattern": "sentence_reading"
+  },
+  {
+    "questionNumber": 46,
+    "questionId": "q_45",
+    "userAnswer": null,
+    "correctAnswer": "공부",
+    "isCorrect": false,
+    "pattern": "sentence_reading"
+  },
+  {
+    "questionNumber": 47,
+    "questionId": "q_46",
+    "userAnswer": null,
+    "correctAnswer": "실감",
+    "isCorrect": false,
+    "pattern": "sentence_reading"
+  },
+  {
+    "questionNumber": 48,
+    "questionId": "q_47",
+    "userAnswer": null,
+    "correctAnswer": "신호",
+    "isCorrect": false,
+    "pattern": "sentence_reading"
+  },
+  {
+    "questionNumber": 49,
+    "questionId": "q_48",
+    "userAnswer": null,
+    "correctAnswer": "변",
+    "isCorrect": false,
+    "pattern": "sentence_reading"
+  },
+  {
+    "questionNumber": 50,
+    "questionId": "q_49",
+    "userAnswer": null,
+    "correctAnswer": "민속",
+    "isCorrect": false,
+    "pattern": "sentence_reading"
+  }
+]

@@ -1,0 +1,302 @@
+[
+  {
+    "questionIndex": 0,
+    "type": "sound",
+    "character": "白",
+    "correctAnswer": "백"
+  },
+  {
+    "questionIndex": 1,
+    "type": "sound",
+    "character": "石",
+    "correctAnswer": "석"
+  },
+  {
+    "questionIndex": 2,
+    "type": "sound",
+    "character": "立",
+    "correctAnswer": "립"
+  },
+  {
+    "questionIndex": 3,
+    "type": "sound",
+    "character": "日",
+    "correctAnswer": "일"
+  },
+  {
+    "questionIndex": 4,
+    "type": "sound",
+    "character": "火",
+    "correctAnswer": "화"
+  },
+  {
+    "questionIndex": 5,
+    "type": "meaning",
+    "character": "入",
+    "correctAnswer": "入"
+  },
+  {
+    "questionIndex": 6,
+    "type": "meaning",
+    "character": "人",
+    "correctAnswer": "人"
+  },
+  {
+    "questionIndex": 7,
+    "type": "meaning",
+    "character": "兄",
+    "correctAnswer": "兄"
+  },
+  {
+    "questionIndex": 8,
+    "type": "meaning",
+    "character": "女",
+    "correctAnswer": "女"
+  },
+  {
+    "questionIndex": 9,
+    "type": "meaning",
+    "character": "父",
+    "correctAnswer": "父"
+  },
+  {
+    "questionIndex": 10,
+    "type": "word_reading",
+    "character": "民",
+    "correctAnswer": "민속"
+  },
+  {
+    "questionIndex": 11,
+    "type": "word_reading",
+    "character": "正",
+    "correctAnswer": "정직"
+  },
+  {
+    "questionIndex": 12,
+    "type": "word_reading",
+    "character": "直",
+    "correctAnswer": "정직"
+  },
+  {
+    "questionIndex": 13,
+    "type": "word_reading",
+    "character": "配",
+    "correctAnswer": "배열"
+  },
+  {
+    "questionIndex": 14,
+    "type": "word_reading",
+    "character": "信",
+    "correctAnswer": "신호"
+  },
+  {
+    "questionIndex": 15,
+    "type": "word_reading",
+    "character": "計",
+    "correctAnswer": "계산"
+  },
+  {
+    "questionIndex": 16,
+    "type": "word_reading",
+    "character": "育",
+    "correctAnswer": "체육"
+  },
+  {
+    "questionIndex": 17,
+    "type": "word_meaning",
+    "character": "三",
+    "correctAnswer": "三"
+  },
+  {
+    "questionIndex": 18,
+    "type": "word_meaning",
+    "character": "水",
+    "correctAnswer": "水"
+  },
+  {
+    "questionIndex": 19,
+    "type": "word_meaning",
+    "character": "木",
+    "correctAnswer": "木"
+  },
+  {
+    "questionIndex": 20,
+    "type": "word_meaning",
+    "character": "口",
+    "correctAnswer": "口"
+  },
+  {
+    "questionIndex": 21,
+    "type": "word_meaning",
+    "character": "五",
+    "correctAnswer": "五"
+  },
+  {
+    "questionIndex": 22,
+    "type": "word_meaning",
+    "character": "手",
+    "correctAnswer": "手"
+  },
+  {
+    "questionIndex": 23,
+    "type": "word_meaning",
+    "character": "小",
+    "correctAnswer": "小"
+  },
+  {
+    "questionIndex": 24,
+    "type": "word_meaning",
+    "character": "七",
+    "correctAnswer": "七"
+  },
+  {
+    "questionIndex": 25,
+    "type": "word_meaning",
+    "character": "中",
+    "correctAnswer": "中"
+  },
+  {
+    "questionIndex": 26,
+    "type": "blank_hanzi",
+    "character": "確",
+    "correctAnswer": "確"
+  },
+  {
+    "questionIndex": 27,
+    "type": "blank_hanzi",
+    "character": "整",
+    "correctAnswer": "整"
+  },
+  {
+    "questionIndex": 28,
+    "type": "word_meaning_select",
+    "character": "年",
+    "correctAnswer": 4
+  },
+  {
+    "questionIndex": 29,
+    "type": "word_meaning_select",
+    "character": "場",
+    "correctAnswer": 2
+  },
+  {
+    "questionIndex": 30,
+    "type": "hanzi_write",
+    "character": "六",
+    "correctAnswer": "여섯 륙"
+  },
+  {
+    "questionIndex": 31,
+    "type": "hanzi_write",
+    "character": "出",
+    "correctAnswer": "날 출"
+  },
+  {
+    "questionIndex": 32,
+    "type": "hanzi_write",
+    "character": "上",
+    "correctAnswer": "위 상"
+  },
+  {
+    "questionIndex": 33,
+    "type": "hanzi_write",
+    "character": "下",
+    "correctAnswer": "아래 하"
+  },
+  {
+    "questionIndex": 34,
+    "type": "hanzi_write",
+    "character": "門",
+    "correctAnswer": "문 문"
+  },
+  {
+    "questionIndex": 35,
+    "type": "hanzi_write",
+    "character": "二",
+    "correctAnswer": "두 이"
+  },
+  {
+    "questionIndex": 36,
+    "type": "hanzi_write",
+    "character": "母",
+    "correctAnswer": "어머니 모"
+  },
+  {
+    "questionIndex": 37,
+    "type": "hanzi_write",
+    "character": "土",
+    "correctAnswer": "흙 토"
+  },
+  {
+    "questionIndex": 38,
+    "type": "word_reading_write",
+    "character": "理",
+    "correctAnswer": "정리"
+  },
+  {
+    "questionIndex": 39,
+    "type": "word_reading_write",
+    "character": "想",
+    "correctAnswer": "상상"
+  },
+  {
+    "questionIndex": 40,
+    "type": "word_reading_write",
+    "character": "劃",
+    "correctAnswer": "계획"
+  },
+  {
+    "questionIndex": 41,
+    "type": "word_reading_write",
+    "character": "夫",
+    "correctAnswer": "공부"
+  },
+  {
+    "questionIndex": 42,
+    "type": "word_reading_write",
+    "character": "發",
+    "correctAnswer": "발음"
+  },
+  {
+    "questionIndex": 43,
+    "type": "word_reading_write",
+    "character": "間",
+    "correctAnswer": "시간"
+  },
+  {
+    "questionIndex": 44,
+    "type": "sentence_reading",
+    "character": "驗",
+    "correctAnswer": "체험"
+  },
+  {
+    "questionIndex": 45,
+    "type": "sentence_reading",
+    "character": "午",
+    "correctAnswer": "오전"
+  },
+  {
+    "questionIndex": 46,
+    "type": "sentence_reading",
+    "character": "法",
+    "correctAnswer": "문법"
+  },
+  {
+    "questionIndex": 47,
+    "type": "sentence_reading",
+    "character": "角",
+    "correctAnswer": "삼각형"
+  },
+  {
+    "questionIndex": 48,
+    "type": "sentence_reading",
+    "character": "動",
+    "correctAnswer": "활동"
+  },
+  {
+    "questionIndex": 49,
+    "type": "sentence_reading",
+    "character": "重",
+    "correctAnswer": "중요"
+  }
+]

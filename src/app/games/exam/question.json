@@ -1,0 +1,788 @@
+[
+  {
+    "id": "q_0",
+    "type": "sound",
+    "character": "白",
+    "meaning": "흰",
+    "sound": "백",
+    "relatedWords": {
+      "korean": "백지",
+      "isTextBook": false,
+      "hanzi": "白紙"
+    },
+    "aiText": "",
+    "options": ["년", "백", "구", "상"]
+  },
+  {
+    "id": "q_1",
+    "type": "sound",
+    "character": "石",
+    "meaning": "돌",
+    "sound": "석",
+    "relatedWords": {
+      "isTextBook": false,
+      "korean": "석기",
+      "hanzi": "石器"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_2",
+    "type": "sound",
+    "character": "立",
+    "meaning": "설",
+    "sound": "립",
+    "relatedWords": {
+      "korean": "입국",
+      "hanzi": "立國",
+      "isTextBook": false
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_3",
+    "type": "sound",
+    "character": "日",
+    "meaning": "날",
+    "sound": "일",
+    "relatedWords": {
+      "hanzi": "日光",
+      "isTextBook": false,
+      "korean": "일광"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_4",
+    "type": "sound",
+    "character": "火",
+    "meaning": "불",
+    "sound": "화",
+    "relatedWords": {
+      "isTextBook": false,
+      "hanzi": "火災",
+      "korean": "화재"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_5",
+    "type": "meaning",
+    "character": "入",
+    "meaning": "들",
+    "sound": "입",
+    "relatedWords": {
+      "korean": "입구",
+      "hanzi": "入口",
+      "isTextBook": false
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_6",
+    "type": "meaning",
+    "character": "人",
+    "meaning": "사람",
+    "sound": "인",
+    "relatedWords": {
+      "korean": "인간",
+      "isTextBook": false,
+      "hanzi": "人間"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_7",
+    "type": "meaning",
+    "character": "兄",
+    "meaning": "맏",
+    "sound": "형",
+    "relatedWords": {
+      "hanzi": "兄弟",
+      "isTextBook": false,
+      "korean": "형제"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_8",
+    "type": "meaning",
+    "character": "女",
+    "meaning": "계집",
+    "sound": "녀",
+    "relatedWords": {
+      "korean": "여자",
+      "hanzi": "女子",
+      "isTextBook": false
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_9",
+    "type": "meaning",
+    "character": "父",
+    "meaning": "아버지",
+    "sound": "부",
+    "relatedWords": {
+      "korean": "부모",
+      "isTextBook": false,
+      "hanzi": "父母"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_10",
+    "type": "word_reading",
+    "character": "民",
+    "meaning": "백성",
+    "sound": "민",
+    "relatedWords": {
+      "isTextBook": true,
+      "hanzi": "民俗",
+      "korean": "민속"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_11",
+    "type": "word_reading",
+    "character": "正",
+    "meaning": "바를",
+    "sound": "정",
+    "relatedWords": {
+      "hanzi": "正直",
+      "isTextBook": true,
+      "korean": "정직"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_12",
+    "type": "word_reading",
+    "character": "直",
+    "meaning": "곧을",
+    "sound": "직",
+    "relatedWords": {
+      "korean": "정직",
+      "isTextBook": true,
+      "hanzi": "正直"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_13",
+    "type": "word_reading",
+    "character": "配",
+    "meaning": "나눌",
+    "sound": "배",
+    "relatedWords": {
+      "hanzi": "配列",
+      "korean": "배열",
+      "isTextBook": true
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_14",
+    "type": "word_reading",
+    "character": "信",
+    "meaning": "믿을",
+    "sound": "신",
+    "relatedWords": {
+      "isTextBook": true,
+      "korean": "신호",
+      "hanzi": "信號"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_15",
+    "type": "word_reading",
+    "character": "計",
+    "meaning": "셀",
+    "sound": "계",
+    "relatedWords": {
+      "isTextBook": true,
+      "hanzi": "計算",
+      "meaning": "수를 헤아림.",
+      "korean": "계산"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_16",
+    "type": "word_reading",
+    "character": "育",
+    "meaning": "기를",
+    "sound": "육",
+    "relatedWords": {
+      "meaning": "일정한 운동 따위를 통하여 신체를 튼튼하게 단련시키는 일. 또는 그런 목적으로 하는 운동.",
+      "isTextBook": true,
+      "korean": "체육",
+      "hanzi": "體育"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_17",
+    "type": "word_meaning",
+    "character": "三",
+    "meaning": "석",
+    "sound": "삼",
+    "relatedWords": {
+      "hanzi": "三月",
+      "korean": "삼월",
+      "isTextBook": false
+    },
+    "aiText": "한자: 三, 뜻: 석, 음: 삼\n\n문장에서 [석]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"三\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"그는 [석] 명의 친구들과 함께 여행을 떠났다.\" (       )"
+  },
+  {
+    "id": "q_18",
+    "type": "word_meaning",
+    "character": "水",
+    "meaning": "물",
+    "sound": "수",
+    "relatedWords": {
+      "korean": "수도",
+      "hanzi": "水道",
+      "isTextBook": false
+    },
+    "aiText": "한자: 水, 뜻: 물, 음: 수\n\n문장에서 [물]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"水\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"강가에서 [물]소리가 들려왔다.\" (       )"
+  },
+  {
+    "id": "q_19",
+    "type": "word_meaning",
+    "character": "木",
+    "meaning": "나무",
+    "sound": "목",
+    "relatedWords": {
+      "isTextBook": false,
+      "hanzi": "木材",
+      "korean": "목재"
+    },
+    "aiText": "한자: 木, 뜻: 나무, 음: 목\n\n문장에서 [나무]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"木\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"공원에는 다양한 종류의 [나무]가 심어져 있다.\" (       )"
+  },
+  {
+    "id": "q_20",
+    "type": "word_meaning",
+    "character": "口",
+    "meaning": "입",
+    "sound": "구",
+    "relatedWords": {
+      "isTextBook": false,
+      "hanzi": "入口",
+      "korean": "입구"
+    },
+    "aiText": "한자: 口, 뜻: 입, 음: 구\n\n문장에서 [입]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"口\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"그는 [입]을 크게 벌리고 하품을 했다.\" (       )"
+  },
+  {
+    "id": "q_21",
+    "type": "word_meaning",
+    "character": "五",
+    "meaning": "다섯",
+    "sound": "오",
+    "relatedWords": {
+      "isTextBook": false,
+      "korean": "오월",
+      "hanzi": "五月"
+    },
+    "aiText": "한자: 五, 뜻: 다섯, 음: 오\n\n문장에서 [다섯]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"五\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"그는 [다섯] 명의 친구들과 함께 여행을 떠났다.\" (       )"
+  },
+  {
+    "id": "q_22",
+    "type": "word_meaning",
+    "character": "手",
+    "meaning": "손",
+    "sound": "수",
+    "relatedWords": {
+      "isTextBook": false,
+      "korean": "수술",
+      "hanzi": "手術"
+    },
+    "aiText": "한자: 手, 뜻: 손으로, 음: 수\n\n문장에서 [손으로]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"手\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"그는 [손으로] 직접 만든 도자기를 자랑스러워했다.\" (       )"
+  },
+  {
+    "id": "q_23",
+    "type": "word_meaning",
+    "character": "小",
+    "meaning": "작을",
+    "sound": "소",
+    "relatedWords": {
+      "korean": "소학",
+      "hanzi": "小學",
+      "isTextBook": false
+    },
+    "aiText": "한자: 小, 뜻: 작은, 음: 소\n\n문장에서 [작은]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"小\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"그녀는 [작은] 손으로 정성스럽게 꽃을 다듬었다.\" (       )"
+  },
+  {
+    "id": "q_24",
+    "type": "word_meaning",
+    "character": "七",
+    "meaning": "일곱",
+    "sound": "칠",
+    "relatedWords": {
+      "korean": "칠월",
+      "hanzi": "七月",
+      "isTextBook": false
+    },
+    "aiText": "한자: 七, 뜻: 일곱, 음: 칠\n\n문장에서 [일곱]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"七\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"매주 [일곱] 번의 운동을 목표로 하고 있어요.\" (       )"
+  },
+  {
+    "id": "q_25",
+    "type": "word_meaning",
+    "character": "中",
+    "meaning": "가운데",
+    "sound": "중",
+    "relatedWords": {
+      "hanzi": "中央",
+      "korean": "중앙",
+      "isTextBook": false
+    },
+    "aiText": "한자: 中, 뜻: 중간, 음: 중\n\n문장에서 [중간]로 표시하고, 따옴표 안에 문장을 생성한 후 괄호 (       )를 따옴표 밖에 배치하세요. \n\n중요: 한자의 뜻을 자연스러운 형태로 사용하세요:\n- \"무거울\" → \"무거운\"\n- \"작을\" → \"작은\" \n- \"넉\" → \"넷\" 또는 \"네\"\n- \"일곱\" → \"일곱\" (그대로)\n- \"맏\" → \"맏\" (그대로)\n- \"벨\" → \"벨\" (그대로)\n\n중요: \n- 정답 한자 \"中\"는 절대 문장 안에 포함하지 마세요\n- 보기나 선택지 번호(1. 2. 3. 4.)는 절대 포함하지 마세요\n- 순수하게 문장과 괄호만 생성하세요\n- 한자의 뜻을 자연스러운 형태로 사용하세요 (예: \"무거울\" → \"무거운\", \"작을\" → \"작은\")\n\n예시: \n- \"박람회에서 우수한 작품을 [여덟] 개를 선정했습니다.\" (       )\n- \"그는 [무거운] 짐을 들고 계단을 올라갔다.\" (       )\n- \"이 [작은] 집은 정말 아늑하다.\" (       )\n- \"우리 집안에서 [맏]이 가장 책임감이 크다.\" (       )",
+    "aiGeneratedContent": "\"회의는 항상 [중간]에 휴식 시간을 갖습니다.\" (       )"
+  },
+  {
+    "id": "q_26",
+    "type": "blank_hanzi",
+    "character": "確",
+    "meaning": "굳을",
+    "sound": "확",
+    "relatedWords": {
+      "isTextBook": true,
+      "hanzi": "正確",
+      "korean": "정확"
+    },
+    "aiText": "한자어: 正確 (한글 의미: 정확)\n정답 한자: 確\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 정답 한자 \"確\" 부분만 ○로 표시하고, 나머지 한자들은 그대로 표시하세요.\n\n중요 규칙:\n- 한자어를 그대로 문장에 사용하세요\n- 정답 한자 부분만 ○로 표시하세요 (나머지는 한자로 표시)\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 문장만 생성하고 다른 설명은 하지 마세요\n\n예시:\n- 한자어: 水泳 (한글 의미: 수영), 정답 한자: 水 → \"그 다이빙 선수는 ○泳 동작이 완벽했습니다.\"\n- 한자어: 木工 (한글 의미: 목공), 정답 한자: 木 → \"○工은 나무를 잘라 책상을 만들었습니다.\"\n- 한자어: 配列 (한글 의미: 배열), 정답 한자: 配 → \"컴퓨터 과학 수업에서는 데이터 ○列에 대해 배웠습니다.\"\n- 한자어: 整理 (한글 의미: 정리), 정답 한자: 整 → \"이 방은 너무 어지럽혀져 있어서 ○리가 필요합니다.\"\n- 한자어: 活動 (한글 의미: 활동), 정답 한자: 動 → \"그는 주말마다 다양한 活○에 참여합니다.\"",
+    "aiGeneratedContent": "그는 모든 데이터를 正○하게 분석했습니다."
+  },
+  {
+    "id": "q_27",
+    "type": "blank_hanzi",
+    "character": "整",
+    "meaning": "고를",
+    "sound": "정",
+    "relatedWords": {
+      "hanzi": "整理",
+      "isTextBook": true,
+      "korean": "정리"
+    },
+    "aiText": "한자어: 整理 (한글 의미: 정리)\n정답 한자: 整\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 정답 한자 \"整\" 부분만 ○로 표시하고, 나머지 한자들은 그대로 표시하세요.\n\n중요 규칙:\n- 한자어를 그대로 문장에 사용하세요\n- 정답 한자 부분만 ○로 표시하세요 (나머지는 한자로 표시)\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 문장만 생성하고 다른 설명은 하지 마세요\n\n예시:\n- 한자어: 水泳 (한글 의미: 수영), 정답 한자: 水 → \"그 다이빙 선수는 ○泳 동작이 완벽했습니다.\"\n- 한자어: 木工 (한글 의미: 목공), 정답 한자: 木 → \"○工은 나무를 잘라 책상을 만들었습니다.\"\n- 한자어: 配列 (한글 의미: 배열), 정답 한자: 配 → \"컴퓨터 과학 수업에서는 데이터 ○列에 대해 배웠습니다.\"\n- 한자어: 整理 (한글 의미: 정리), 정답 한자: 整 → \"이 방은 너무 어지럽혀져 있어서 ○리가 필요합니다.\"\n- 한자어: 活動 (한글 의미: 활동), 정답 한자: 動 → \"그는 주말마다 다양한 活○에 참여합니다.\"",
+    "aiGeneratedContent": "서류 ○리가 끝난 후, 업무 효율이 크게 향상되었습니다."
+  },
+  {
+    "id": "q_28",
+    "type": "word_meaning_select",
+    "character": "年",
+    "meaning": "해",
+    "sound": "년",
+    "relatedWords": {
+      "isTextBook": true,
+      "korean": "학년",
+      "hanzi": "學年"
+    },
+    "aiText": "한자어: 學年\n사전적 뜻: 학년\n\n이 한자어의 정확한 사전적 뜻과 유사하지만 틀린 뜻 3개를 생성해주세요.\n\n형식:\n정답: [정확한 사전적 뜻]\n오답1: [유사하지만 틀린 뜻]\n오답2: [유사하지만 틀린 뜻]  \n오답3: [유사하지만 틀린 뜻]\n\n예시:\n한자어: 學習\n사전적 뜻: 학습\n정답: 경험의 결과로 나타나는, 비교적 지속적인 행동의 변화나 그 잠재력의 변화. 또는 지식을 습득하는 과정.\n오답1: 동일한 성격의 데이터를 관리하기 쉽도록 하나로 묶는 일.\n오답2: 한 해 열두 달 가운데 넷째 달.\n오답3: 지식을 암기하는 것",
+    "textBookWord": {
+      "isTextBook": true,
+      "korean": "학년",
+      "hanzi": "學年"
+    },
+    "correctAnswer": "교육 과정에서의 한 해 동안의 학습 단위나 기간.",
+    "correctAnswerIndex": 4,
+    "wrongAnswers": [
+      "특정 학교에서 수여하는 학위의 종류.",
+      "학생들이 방학을 보내는 기간.",
+      "학교에서 제공되는 특별한 교육 프로그램이나 과목."
+    ],
+    "allOptions": [
+      "특정 학교에서 수여하는 학위의 종류.",
+      "학생들이 방학을 보내는 기간.",
+      "학교에서 제공되는 특별한 교육 프로그램이나 과목.",
+      "교육 과정에서의 한 해 동안의 학습 단위나 기간."
+    ],
+    "options": [
+      "특정 학교에서 수여하는 학위의 종류.",
+      "학생들이 방학을 보내는 기간.",
+      "학교에서 제공되는 특별한 교육 프로그램이나 과목.",
+      "교육 과정에서의 한 해 동안의 학습 단위나 기간."
+    ],
+    "aiGeneratedContent": "한자어: 學年\n사전적 뜻: 학년\n\n정답: 교육 과정에서의 한 해 동안의 학습 단위나 기간.\n오답1: 특정 학교에서 수여하는 학위의 종류.\n오답2: 학생들이 방학을 보내는 기간.\n오답3: 학교에서 제공되는 특별한 교육 프로그램이나 과목."
+  },
+  {
+    "id": "q_29",
+    "type": "word_meaning_select",
+    "character": "場",
+    "meaning": "마당",
+    "sound": "장",
+    "relatedWords": {
+      "isTextBook": true,
+      "hanzi": "場面",
+      "korean": "장면"
+    },
+    "aiText": "한자어: 場面\n사전적 뜻: 장면\n\n이 한자어의 정확한 사전적 뜻과 유사하지만 틀린 뜻 3개를 생성해주세요.\n\n형식:\n정답: [정확한 사전적 뜻]\n오답1: [유사하지만 틀린 뜻]\n오답2: [유사하지만 틀린 뜻]  \n오답3: [유사하지만 틀린 뜻]\n\n예시:\n한자어: 學習\n사전적 뜻: 학습\n정답: 경험의 결과로 나타나는, 비교적 지속적인 행동의 변화나 그 잠재력의 변화. 또는 지식을 습득하는 과정.\n오답1: 동일한 성격의 데이터를 관리하기 쉽도록 하나로 묶는 일.\n오답2: 한 해 열두 달 가운데 넷째 달.\n오답3: 지식을 암기하는 것",
+    "textBookWord": {
+      "isTextBook": true,
+      "hanzi": "場面",
+      "korean": "장면"
+    },
+    "correctAnswer": "사건이나 행동이 벌어지는 구체적인 정경이나 광경.",
+    "correctAnswerIndex": 2,
+    "wrongAnswers": [
+      "연극이나 영화에서 두드러지는 인물의 대사나 행동.",
+      "특정한 장소나 환경에서 발생하는 소리나 음악.",
+      "종이 위에 글자나 그림이 그려져 있는 부분."
+    ],
+    "allOptions": [
+      "연극이나 영화에서 두드러지는 인물의 대사나 행동.",
+      "사건이나 행동이 벌어지는 구체적인 정경이나 광경.",
+      "종이 위에 글자나 그림이 그려져 있는 부분.",
+      "특정한 장소나 환경에서 발생하는 소리나 음악."
+    ],
+    "options": [
+      "연극이나 영화에서 두드러지는 인물의 대사나 행동.",
+      "사건이나 행동이 벌어지는 구체적인 정경이나 광경.",
+      "종이 위에 글자나 그림이 그려져 있는 부분.",
+      "특정한 장소나 환경에서 발생하는 소리나 음악."
+    ],
+    "aiGeneratedContent": "한자어: 場面  \n사전적 뜻: 장면  \n\n정답: 사건이나 행동이 벌어지는 구체적인 정경이나 광경.  \n오답1: 연극이나 영화에서 두드러지는 인물의 대사나 행동.  \n오답2: 특정한 장소나 환경에서 발생하는 소리나 음악.  \n오답3: 종이 위에 글자나 그림이 그려져 있는 부분."
+  },
+  {
+    "id": "q_30",
+    "type": "hanzi_write",
+    "character": "六",
+    "meaning": "여섯",
+    "sound": "륙",
+    "relatedWords": {
+      "hanzi": "六月",
+      "korean": "유월",
+      "isTextBook": false
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_31",
+    "type": "hanzi_write",
+    "character": "出",
+    "meaning": "날",
+    "sound": "출",
+    "relatedWords": {
+      "hanzi": "出發",
+      "isTextBook": false,
+      "korean": "출발"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_32",
+    "type": "hanzi_write",
+    "character": "上",
+    "meaning": "위",
+    "sound": "상",
+    "relatedWords": {
+      "hanzi": "上昇",
+      "isTextBook": false,
+      "korean": "상승"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_33",
+    "type": "hanzi_write",
+    "character": "下",
+    "meaning": "아래",
+    "sound": "하",
+    "relatedWords": {
+      "hanzi": "下降",
+      "isTextBook": false,
+      "korean": "하강"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_34",
+    "type": "hanzi_write",
+    "character": "門",
+    "meaning": "문",
+    "sound": "문",
+    "relatedWords": {
+      "korean": "대문",
+      "hanzi": "大門",
+      "isTextBook": false
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_35",
+    "type": "hanzi_write",
+    "character": "二",
+    "meaning": "두",
+    "sound": "이",
+    "relatedWords": {
+      "hanzi": "二月",
+      "isTextBook": false,
+      "korean": "이월"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_36",
+    "type": "hanzi_write",
+    "character": "母",
+    "meaning": "어머니",
+    "sound": "모",
+    "relatedWords": {
+      "isTextBook": false,
+      "hanzi": "父母",
+      "korean": "부모"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_37",
+    "type": "hanzi_write",
+    "character": "土",
+    "meaning": "흙",
+    "sound": "토",
+    "relatedWords": {
+      "isTextBook": false,
+      "hanzi": "土地",
+      "korean": "토지"
+    },
+    "aiText": ""
+  },
+  {
+    "id": "q_38",
+    "type": "word_reading_write",
+    "character": "理",
+    "meaning": "다스릴",
+    "sound": "리",
+    "relatedWords": {
+      "hanzi": "整理",
+      "korean": "정리",
+      "isTextBook": true
+    },
+    "aiText": "",
+    "textBookWord": {
+      "hanzi": "整理",
+      "korean": "정리",
+      "isTextBook": true
+    },
+    "correctAnswer": "정리"
+  },
+  {
+    "id": "q_39",
+    "type": "word_reading_write",
+    "character": "想",
+    "meaning": "생각",
+    "sound": "상",
+    "relatedWords": {
+      "isTextBook": true,
+      "hanzi": "想像",
+      "korean": "상상"
+    },
+    "aiText": "",
+    "textBookWord": {
+      "isTextBook": true,
+      "hanzi": "想像",
+      "korean": "상상"
+    },
+    "correctAnswer": "상상"
+  },
+  {
+    "id": "q_40",
+    "type": "word_reading_write",
+    "character": "劃",
+    "meaning": "나눌",
+    "sound": "획",
+    "relatedWords": {
+      "isTextBook": true,
+      "korean": "계획",
+      "hanzi": "計劃"
+    },
+    "aiText": "",
+    "textBookWord": {
+      "isTextBook": true,
+      "korean": "계획",
+      "hanzi": "計劃"
+    },
+    "correctAnswer": "계획"
+  },
+  {
+    "id": "q_41",
+    "type": "word_reading_write",
+    "character": "夫",
+    "meaning": "지아비",
+    "sound": "부",
+    "relatedWords": {
+      "hanzi": "工夫",
+      "korean": "공부",
+      "isTextBook": true
+    },
+    "aiText": "",
+    "textBookWord": {
+      "hanzi": "工夫",
+      "korean": "공부",
+      "isTextBook": true
+    },
+    "correctAnswer": "공부"
+  },
+  {
+    "id": "q_42",
+    "type": "word_reading_write",
+    "character": "發",
+    "meaning": "필",
+    "sound": "발",
+    "relatedWords": {
+      "hanzi": "發音",
+      "isTextBook": true,
+      "korean": "발음"
+    },
+    "aiText": "",
+    "textBookWord": {
+      "hanzi": "發音",
+      "isTextBook": true,
+      "korean": "발음"
+    },
+    "correctAnswer": "발음"
+  },
+  {
+    "id": "q_43",
+    "type": "word_reading_write",
+    "character": "間",
+    "meaning": "사이",
+    "sound": "간",
+    "relatedWords": {
+      "korean": "시간",
+      "hanzi": "時間",
+      "isTextBook": true
+    },
+    "aiText": "",
+    "textBookWord": {
+      "korean": "시간",
+      "hanzi": "時間",
+      "isTextBook": true
+    },
+    "correctAnswer": "시간"
+  },
+  {
+    "id": "q_44",
+    "type": "sentence_reading",
+    "character": "驗",
+    "meaning": "시험할",
+    "sound": "험",
+    "relatedWords": {
+      "isTextBook": true,
+      "hanzi": "體驗",
+      "korean": "체험"
+    },
+    "aiText": "한자어: 體驗\n한글 의미: 체험\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 해당 한자어 부분을 [ ]로 표시하세요.\n\n예시:\n한자어: 規則\n한글 의미: 규칙\n생성 문장: \"우리 반 친구들은 모두 자발적으로 학급 [ 規則 ] 을 잘 지킵니다.\"\n\n중요 규칙:\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 한자어 부분만 [ ]로 표시하세요\n- 문장은 따옴표로 감싸지 마세요\n- 보기나 선택지는 포함하지 마세요",
+    "textBookWord": {
+      "isTextBook": true,
+      "hanzi": "體驗",
+      "korean": "체험"
+    },
+    "aiGeneratedContent": "이번 여행을 통해 다양한 문화를 직접 [ 體驗 ]할 수 있어서 정말 즐거웠습니다."
+  },
+  {
+    "id": "q_45",
+    "type": "sentence_reading",
+    "character": "午",
+    "meaning": "정오",
+    "sound": "오",
+    "relatedWords": {
+      "hanzi": "午前",
+      "korean": "오전",
+      "isTextBook": true
+    },
+    "aiText": "한자어: 午前\n한글 의미: 오전\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 해당 한자어 부분을 [ ]로 표시하세요.\n\n예시:\n한자어: 規則\n한글 의미: 규칙\n생성 문장: \"우리 반 친구들은 모두 자발적으로 학급 [ 規則 ] 을 잘 지킵니다.\"\n\n중요 규칙:\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 한자어 부분만 [ ]로 표시하세요\n- 문장은 따옴표로 감싸지 마세요\n- 보기나 선택지는 포함하지 마세요",
+    "textBookWord": {
+      "hanzi": "午前",
+      "korean": "오전",
+      "isTextBook": true
+    },
+    "aiGeneratedContent": "내일 [ 午前 ] 10시에 중요한 회의가 있으니 늦지 않도록 준비하세요."
+  },
+  {
+    "id": "q_46",
+    "type": "sentence_reading",
+    "character": "法",
+    "meaning": "법",
+    "sound": "법",
+    "relatedWords": {
+      "korean": "문법",
+      "isTextBook": true,
+      "hanzi": "文法"
+    },
+    "aiText": "한자어: 文法\n한글 의미: 문법\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 해당 한자어 부분을 [ ]로 표시하세요.\n\n예시:\n한자어: 規則\n한글 의미: 규칙\n생성 문장: \"우리 반 친구들은 모두 자발적으로 학급 [ 規則 ] 을 잘 지킵니다.\"\n\n중요 규칙:\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 한자어 부분만 [ ]로 표시하세요\n- 문장은 따옴표로 감싸지 마세요\n- 보기나 선택지는 포함하지 마세요",
+    "textBookWord": {
+      "korean": "문법",
+      "isTextBook": true,
+      "hanzi": "文法"
+    },
+    "aiGeneratedContent": "외국어를 배울 때 [ 文法 ]을 정확히 이해하는 것이 매우 중요합니다."
+  },
+  {
+    "id": "q_47",
+    "type": "sentence_reading",
+    "character": "角",
+    "meaning": "뿔",
+    "sound": "각",
+    "relatedWords": {
+      "isTextBook": true,
+      "korean": "삼각형",
+      "hanzi": "三角形"
+    },
+    "aiText": "한자어: 三角形\n한글 의미: 삼각형\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 해당 한자어 부분을 [ ]로 표시하세요.\n\n예시:\n한자어: 規則\n한글 의미: 규칙\n생성 문장: \"우리 반 친구들은 모두 자발적으로 학급 [ 規則 ] 을 잘 지킵니다.\"\n\n중요 규칙:\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 한자어 부분만 [ ]로 표시하세요\n- 문장은 따옴표로 감싸지 마세요\n- 보기나 선택지는 포함하지 마세요",
+    "textBookWord": {
+      "isTextBook": true,
+      "korean": "삼각형",
+      "hanzi": "三角形"
+    },
+    "aiGeneratedContent": "수학 시간에 우리는 [ 三角形 ]의 성질에 대해 배웠습니다."
+  },
+  {
+    "id": "q_48",
+    "type": "sentence_reading",
+    "character": "動",
+    "meaning": "움직일",
+    "sound": "동",
+    "relatedWords": {
+      "hanzi": "活動",
+      "isTextBook": true,
+      "korean": "활동"
+    },
+    "aiText": "한자어: 活動\n한글 의미: 활동\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 해당 한자어 부분을 [ ]로 표시하세요.\n\n예시:\n한자어: 規則\n한글 의미: 규칙\n생성 문장: \"우리 반 친구들은 모두 자발적으로 학급 [ 規則 ] 을 잘 지킵니다.\"\n\n중요 규칙:\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 한자어 부분만 [ ]로 표시하세요\n- 문장은 따옴표로 감싸지 마세요\n- 보기나 선택지는 포함하지 마세요",
+    "textBookWord": {
+      "hanzi": "活動",
+      "isTextBook": true,
+      "korean": "활동"
+    },
+    "aiGeneratedContent": "이번 주말에는 야외 [ 活動 ] 에 참여할 예정입니다."
+  },
+  {
+    "id": "q_49",
+    "type": "sentence_reading",
+    "character": "重",
+    "meaning": "무거울",
+    "sound": "중",
+    "relatedWords": {
+      "hanzi": "重要",
+      "korean": "중요",
+      "isTextBook": true
+    },
+    "aiText": "한자어: 重要\n한글 의미: 중요\n\n이 한자어를 사용하여 자연스러운 문장을 생성하세요. 문장에서 해당 한자어 부분을 [ ]로 표시하세요.\n\n예시:\n한자어: 規則\n한글 의미: 규칙\n생성 문장: \"우리 반 친구들은 모두 자발적으로 학급 [ 規則 ] 을 잘 지킵니다.\"\n\n중요 규칙:\n- 문장은 자연스럽고 이해하기 쉬워야 합니다\n- 한자어 부분만 [ ]로 표시하세요\n- 문장은 따옴표로 감싸지 마세요\n- 보기나 선택지는 포함하지 마세요",
+    "textBookWord": {
+      "hanzi": "重要",
+      "korean": "중요",
+      "isTextBook": true
+    },
+    "aiGeneratedContent": "이 프로젝트는 성공을 위해 [ 重要 ]한 역할을 할 것입니다."
+  }
+]

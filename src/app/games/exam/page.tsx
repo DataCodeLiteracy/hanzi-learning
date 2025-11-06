@@ -6,96 +6,135 @@ import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { Trophy, Clock, Target, Award, ArrowLeft, Settings } from "lucide-react"
 import Link from "next/link"
+import { gradeInfo } from "@/lib/gradeInfo"
+import { getGradePatterns } from "@/lib/gradePatterns"
+import { useSelectedHanzi } from "@/contexts/SelectedHanziContext"
 
-interface GradeInfo {
-  grade: number
-  name: string
-  questionCount: number
-  timeLimit: number
-  description: string
-  level: string
-}
-
-const gradeInfo: Record<number, GradeInfo> = {
-  8: {
-    grade: 8,
-    name: "8급",
-    questionCount: 50,
-    timeLimit: 60,
-    description: "기초 한자 학습",
-    level: "기초",
-  },
-  7: {
-    grade: 7,
-    name: "7급",
-    questionCount: 50,
-    timeLimit: 60,
-    description: "초급 한자 학습",
-    level: "초급",
-  },
-  6: {
-    grade: 6,
-    name: "6급",
-    questionCount: 80,
-    timeLimit: 60,
-    description: "중급 한자 학습",
-    level: "중급",
-  },
-  5: {
-    grade: 5,
-    name: "5급",
-    questionCount: 100,
-    timeLimit: 60,
-    description: "고급 한자 학습",
-    level: "고급",
-  },
-  4: {
-    grade: 4,
-    name: "4급",
-    questionCount: 100,
-    timeLimit: 60,
-    description: "전문 한자 학습",
-    level: "전문",
-  },
-  3: {
-    grade: 3,
-    name: "3급",
-    questionCount: 100,
-    timeLimit: 60,
-    description: "최고급 한자 학습",
-    level: "최고급",
-  },
-  2: {
-    grade: 2,
-    name: "2급",
-    questionCount: 100,
-    timeLimit: 60,
-    description: "마스터 한자 학습",
-    level: "마스터",
-  },
-  1: {
-    grade: 1,
-    name: "1급",
-    questionCount: 100,
-    timeLimit: 60,
-    description: "전문가 한자 학습",
-    level: "전문가",
-  },
-  0: {
-    grade: 0,
-    name: "사범급",
-    questionCount: 100,
-    timeLimit: 60,
-    description: "사범 한자 학습",
-    level: "사범",
-  },
+const gradeExtra: Record<number, { description: string; level: string }> = {
+  8: { description: "기초 한자 학습", level: "기초" },
+  7: { description: "초급 한자 학습", level: "초급" },
+  6: { description: "중급 한자 학습", level: "중급" },
+  5: { description: "고급 한자 학습", level: "고급" },
+  4: { description: "전문 한자 학습", level: "전문" },
+  3: { description: "최고급 한자 학습", level: "최고급" },
+  2: { description: "마스터 한자 학습", level: "마스터" },
+  1: { description: "전문가 한자 학습", level: "전문가" },
+  0: { description: "사범 한자 학습", level: "사범" },
 }
 
 export default function ExamPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
   const { userStatistics, hanziList, isLoading: dataLoading } = useData()
   const [currentGrade, setCurrentGrade] = useState<number | null>(null)
+  const { setSelected } = useSelectedHanzi()
   const [isLoading, setIsLoading] = useState(true)
+
+  // /games/exam 접근 시, 급수/패턴에 맞게 사전 선발(교과/일반) 구성 후 세션에 저장
+  useEffect(() => {
+    if (!currentGrade || !hanziList || hanziList.length === 0) return
+
+    try {
+      const patterns = getGradePatterns(currentGrade)
+      const totalQuestions = patterns.reduce(
+        (acc: number, p: any) => acc + p.questionCount,
+        0
+      )
+      const textBookNeeded = patterns
+        .filter((p: any) => p.isTextBook)
+        .reduce((acc: number, p: any) => acc + p.questionCount, 0)
+      const normalNeeded = totalQuestions - textBookNeeded
+
+      // 현 급수 한자만 사용
+      const gradeHanzi = hanziList.filter((h: any) => h.grade === currentGrade)
+      // 데이터가 아직 비어있으면 선발 보류
+      if (!gradeHanzi || gradeHanzi.length === 0) {
+        console.log("선발 대기: 급수 한자 데이터가 아직 비어있음", {
+          grade: currentGrade,
+          gradeHanziCount: gradeHanzi?.length ?? 0,
+        })
+        return
+      }
+      console.log("/games/exam 선발 시작", {
+        grade: currentGrade,
+        totalQuestions,
+        textBookNeeded,
+        normalNeeded,
+        gradeHanziCount: gradeHanzi.length,
+      })
+
+      const isTextBookWord = (rw: any) => {
+        if (!rw) return false
+        if (Array.isArray(rw)) return rw.some((w: any) => w?.isTextBook)
+        return !!rw.isTextBook
+      }
+
+      const textBookHanzi = gradeHanzi.filter((h: any) =>
+        isTextBookWord(h.relatedWords)
+      )
+      const normalHanzi = gradeHanzi.filter(
+        (h: any) => !isTextBookWord(h.relatedWords)
+      )
+      console.log("교과/일반 분리", {
+        textBookCount: textBookHanzi.length,
+        normalCount: normalHanzi.length,
+      })
+
+      const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5)
+      const selectedTextBook = shuffle(textBookHanzi).slice(
+        0,
+        Math.min(textBookNeeded, textBookHanzi.length)
+      )
+      const selectedNormal = shuffle(normalHanzi).slice(
+        0,
+        Math.min(normalNeeded, normalHanzi.length)
+      )
+
+      const payload = {
+        grade: currentGrade,
+        textBookIds: selectedTextBook.map((h: any) => h.id),
+        normalIds: selectedNormal.map((h: any) => h.id),
+        counts: { totalQuestions, textBookNeeded, normalNeeded },
+      }
+
+      // Context에 저장
+      console.log("📝 Context에 저장 시작:", {
+        grade: currentGrade,
+        textBookIdsCount: payload.textBookIds.length,
+        normalIdsCount: payload.normalIds.length,
+        textBookIds: payload.textBookIds,
+        normalIds: payload.normalIds,
+        payload,
+      })
+      setSelected(currentGrade, {
+        textBookIds: payload.textBookIds,
+        normalIds: payload.normalIds,
+        counts: payload.counts,
+      })
+      console.log("✅ Context에 저장 완료")
+
+      // localStorage 직접 확인
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("hanzi_learning_selected_hanzi")
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            console.log("✅ localStorage 저장 확인:", {
+              grade: currentGrade,
+              storedData: parsed[currentGrade],
+              textBookIdsCount: parsed[currentGrade]?.textBookIds?.length || 0,
+              normalIdsCount: parsed[currentGrade]?.normalIds?.length || 0,
+            })
+          } else {
+            console.warn("⚠️ localStorage에 저장되지 않음")
+          }
+        } catch (error) {
+          console.error("❌ localStorage 확인 실패:", error)
+        }
+      }
+    } catch (e) {
+      // 선발 실패 시 무시(세부 페이지에서 자체 선택)
+    }
+  }, [currentGrade, hanziList])
 
   useEffect(() => {
     const loadUserGrade = async () => {
@@ -150,6 +189,7 @@ export default function ExamPage() {
   }
 
   const currentGradeInfo = currentGrade ? gradeInfo[currentGrade] : null
+  const currentGradeExtra = currentGrade ? gradeExtra[currentGrade] : null
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
@@ -204,7 +244,7 @@ export default function ExamPage() {
               </h2>
               <div className='mb-1'>
                 <span className='inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800'>
-                  {currentGradeInfo.level} 레벨
+                  {currentGradeExtra?.level} 레벨
                 </span>
               </div>
             </div>
@@ -308,15 +348,18 @@ export default function ExamPage() {
             </div>
 
             <div className='text-center'>
-              <Link
-                href={`/games/exam/${currentGradeInfo.grade}`}
+              <button
+                onClick={() => {
+                  // localStorage에 이미 저장되어 있으므로 새로고침되면서 이동
+                  window.location.href = `/games/exam/${currentGrade}`
+                }}
                 className='inline-flex items-center px-5 sm:px-6 py-2 sm:py-3 border border-transparent text-sm sm:text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors w-full sm:w-auto'
               >
                 <Trophy className='-ml-1 mr-2 h-4 w-4 sm:h-5 sm:w-5' />
                 <span className='text-sm'>
                   {currentGradeInfo.name} 시험 시작하기
                 </span>
-              </Link>
+              </button>
             </div>
           </div>
         ) : (

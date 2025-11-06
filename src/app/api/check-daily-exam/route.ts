@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 해당 날짜에 시험 기록이 있는지 확인
-    const dailyExamRef = collection(db, "dailyExamRecords")
+    // examStatistics 컬렉션에서 해당 날짜에 시험 기록이 있는지 확인
+    const examStatsRef = collection(db, "examStatistics")
     const q = query(
-      dailyExamRef,
+      examStatsRef,
       where("userId", "==", userId),
       where("examDate", "==", date)
     )
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const querySnapshot = await getDocs(q)
     const hasTakenToday = !querySnapshot.empty
 
-    console.log(`🎯 일일 시험 확인:`, {
+    console.log(`🎯 일일 시험 확인 (examStatistics):`, {
       userId: userId,
       date: date,
       hasTakenToday: hasTakenToday,

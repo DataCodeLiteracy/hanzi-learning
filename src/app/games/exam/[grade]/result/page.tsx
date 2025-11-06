@@ -23,6 +23,20 @@ interface ExamResult {
   correctAnswers: number
   duration: number
   actualDuration?: number // 실제 소요 시간 (초)
+  experienceGained?: number // 획득한 경험치
+  previousTotalExperience?: number // 기존 총 경험치
+  newTotalExperience?: number // 새로운 총 경험치
+  examId?: string // 시험 ID
+  experienceAlreadyApplied?: boolean // 경험치가 이미 반영되었는지
+  wrongAnswers?: Array<{
+    questionNumber: number
+    userAnswer: string
+    correctAnswer: string
+    pattern: string
+    questionText?: string
+    options?: string[]
+    character?: string
+  }> // 틀린 문제들
 }
 
 export default function ExamResultPage({
@@ -31,13 +45,15 @@ export default function ExamResultPage({
   params: Promise<{ grade: string }>
 }) {
   const { user, loading: authLoading, initialLoading } = useAuth()
-  const { refreshUserStatistics } = useData()
+  const { refreshUserStatistics, userStatistics } = useData()
   const searchParams = useSearchParams()
 
   const resolvedParams = use(params)
   const grade = parseInt(resolvedParams.grade)
   const score = parseInt(searchParams.get("score") || "0")
   const passed = searchParams.get("passed") === "true"
+  const duration = parseInt(searchParams.get("duration") || "0")
+  const examId = searchParams.get("examId")
 
   const [isLoading, setIsLoading] = useState(true)
   const [examResult, setExamResult] = useState<ExamResult | null>(null)
@@ -52,16 +68,105 @@ export default function ExamResultPage({
     try {
       setIsLoading(true)
 
-      // 시험 결과 데이터 구성
-      const result: ExamResult = {
-        score,
-        passed,
-        grade,
-        totalQuestions: getQuestionCount(grade),
-        correctAnswers: Math.round((score / 100) * getQuestionCount(grade)),
-        duration: 0, // 실제로는 시험 시간을 계산해야 함
+      // sessionStorage에서 시험 결과 데이터 확인 (URL 파라미터가 없거나 유실된 경우)
+      const storageKey = examId
+        ? `exam_result_${examId}`
+        : `exam_result_${grade}_${user?.id}`
+      let storedResult: ExamResult | null = null
+
+      try {
+        const stored = sessionStorage.getItem(storageKey)
+        if (stored) {
+          storedResult = JSON.parse(stored)
+          console.log("🔍 sessionStorage에서 시험 결과 복원:", storedResult)
+        }
+      } catch (error) {
+        console.error("sessionStorage 파싱 실패:", error)
       }
 
+      // URL 파라미터가 있으면 우선 사용, 없으면 sessionStorage에서 가져오기
+      const finalScore = score > 0 ? score : storedResult?.score || 0
+      const finalPassed = passed || storedResult?.passed || false
+      const finalDuration =
+        duration > 0 ? duration : storedResult?.duration || 0
+      const finalExamId = examId || storedResult?.examId
+
+      // sessionStorage에 결과 저장 (있으면 업데이트, 없으면 생성)
+      if (finalScore > 0 || storedResult) {
+        const resultData = {
+          score: finalScore,
+          passed: finalPassed,
+          grade: grade,
+          duration: finalDuration,
+          examId: finalExamId,
+        }
+        sessionStorage.setItem(storageKey, JSON.stringify(resultData))
+        console.log("🔍 sessionStorage에 시험 결과 저장:", resultData)
+      }
+
+      // 기존 총 경험치 가져오기
+      const previousTotalExperience = user?.experience || 0
+
+      // 경험치가 이미 반영되었는지 확인 (sessionStorage에서)
+      const experienceAppliedKey = `exam_experience_applied_${
+        finalExamId || `${grade}_${user?.id}`
+      }`
+      const experienceAlreadyApplied =
+        sessionStorage.getItem(experienceAppliedKey) === "true"
+
+      console.log("🔍 경험치 반영 상태 확인:", {
+        experienceAlreadyApplied,
+        examId: finalExamId,
+      })
+
+      // 이번에 얻은 경험치 계산 (storedResult가 있으면 그 값 사용)
+      let experienceGained = storedResult?.experienceGained
+      if (!experienceGained) {
+        experienceGained = finalPassed
+          ? (finalScore === 100 ? 100 : 50) +
+            Math.round((finalScore / 100) * getQuestionCount(grade))
+          : Math.round((finalScore / 100) * getQuestionCount(grade))
+      }
+
+      // 새로운 총 경험치 계산
+      const newTotalExperience = previousTotalExperience + experienceGained
+
+      // 시험 결과 데이터 구성
+      // 틀린 문제 정보 가져오기 (examId가 있는 경우)
+      let wrongAnswers: ExamResult["wrongAnswers"] = []
+      if (finalExamId && user) {
+        try {
+          const response = await fetch(
+            `/api/exam-statistics/${finalExamId}?userId=${user.id}`
+          )
+          if (response.ok) {
+            const examData = await response.json()
+            wrongAnswers = examData.wrongAnswers || []
+          }
+        } catch (error) {
+          console.error("틀린 문제 정보 로드 실패:", error)
+        }
+      }
+
+      const result: ExamResult = {
+        score: finalScore,
+        passed: finalPassed,
+        grade,
+        totalQuestions: getQuestionCount(grade),
+        correctAnswers: Math.round(
+          (finalScore / 100) * getQuestionCount(grade)
+        ),
+        duration: finalDuration,
+        actualDuration: finalDuration,
+        experienceGained: experienceGained,
+        previousTotalExperience: previousTotalExperience,
+        newTotalExperience: newTotalExperience,
+        wrongAnswers: wrongAnswers,
+        examId: finalExamId,
+        experienceAlreadyApplied: experienceAlreadyApplied,
+      }
+
+      console.log("🔍 결과 페이지 틀린 문제 데이터:", wrongAnswers)
       setExamResult(result)
 
       // 사용자 통계 새로고침
@@ -71,6 +176,69 @@ export default function ExamResultPage({
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const getUserAnswerText = (wrong: any) => {
+    if (wrong.pattern === "word_meaning_select") {
+      // word_meaning_select는 번호만 표시
+      const userAnswerNum = wrong.userSelectedNumber || 
+        (typeof wrong.userAnswer === "number" ? wrong.userAnswer : parseInt(String(wrong.userAnswer)))
+      
+      if (!userAnswerNum || isNaN(userAnswerNum)) {
+        return "미답변"
+      }
+      
+      return `${userAnswerNum}번`
+    }
+    
+    if (wrong.pattern === "blank_hanzi") {
+      // blank_hanzi는 character로 표시
+      // userAnswer가 숫자면 options에서 character 찾기
+      if (typeof wrong.userAnswer === "number") {
+        const userIndex = wrong.userAnswer - 1
+        return wrong.options?.[userIndex] || wrong.character || "미답변"
+      }
+      return wrong.userAnswer || wrong.character || "미답변"
+    }
+    
+    if (wrong.pattern === "word_meaning") {
+      // word_meaning 패턴은 character로 표시
+      // userAnswer가 숫자면 options에서 character 찾기
+      if (typeof wrong.userAnswer === "number") {
+        const userIndex = wrong.userAnswer - 1
+        return wrong.options?.[userIndex] || wrong.character || "미답변"
+      }
+      return wrong.userAnswer || wrong.character || "미답변"
+    }
+    
+    return wrong.userAnswer || "미답변"
+  }
+
+  const getCorrectAnswerText = (wrong: any) => {
+    if (wrong.pattern === "word_meaning_select") {
+      // word_meaning_select는 번호만 표시
+      const correctAnswerNum = typeof wrong.correctAnswer === "number" 
+        ? wrong.correctAnswer 
+        : parseInt(String(wrong.correctAnswer))
+      
+      if (!correctAnswerNum || isNaN(correctAnswerNum)) {
+        return "1번"
+      }
+      
+      return `${correctAnswerNum}번`
+    }
+    
+    if (wrong.pattern === "blank_hanzi") {
+      // blank_hanzi는 character로 표시
+      return wrong.character || wrong.correctAnswer || ""
+    }
+    
+    if (wrong.pattern === "word_meaning") {
+      // word_meaning 패턴은 character로 표시
+      return wrong.character || wrong.correctAnswer || ""
+    }
+    
+    return wrong.correctAnswer || ""
   }
 
   const getQuestionCount = (grade: number) => {
@@ -212,49 +380,129 @@ export default function ExamResultPage({
           </div>
 
           {/* 상세 결과 */}
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
-            <div className='bg-blue-50 rounded-lg p-6 text-center'>
-              <Target className='w-8 h-8 text-blue-600 mx-auto mb-3' />
-              <div className='text-2xl font-bold text-blue-600'>
+          <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mb-6'>
+            <div className='bg-blue-50 rounded-lg p-4 text-center'>
+              <Target className='w-6 h-6 text-blue-600 mx-auto mb-2' />
+              <div className='text-lg font-bold text-blue-600'>
                 {examResult.correctAnswers}/{examResult.totalQuestions}
               </div>
-              <div className='text-sm text-black'>정답 수</div>
+              <div className='text-xs text-black'>정답</div>
             </div>
 
-            <div className='bg-green-50 rounded-lg p-6 text-center'>
-              <Trophy className='w-8 h-8 text-green-600 mx-auto mb-3' />
-              <div className='text-2xl font-bold text-green-600'>
+            <div className='bg-green-50 rounded-lg p-4 text-center'>
+              <Trophy className='w-6 h-6 text-green-600 mx-auto mb-2' />
+              <div className='text-lg font-bold text-green-600'>
                 {examResult.score}점
               </div>
-              <div className='text-sm text-black'>점수</div>
+              <div className='text-xs text-black'>점수</div>
             </div>
 
-            <div className='bg-blue-50 rounded-lg p-6 text-center'>
-              <Award className='w-8 h-8 text-blue-600 mx-auto mb-3' />
-              <div className='text-2xl font-bold text-blue-600'>
-                {getGradeName(grade)}
+            <div className='bg-purple-50 rounded-lg p-4 text-center'>
+              <Award className='w-6 h-6 text-purple-600 mx-auto mb-2' />
+              <div className='text-lg font-bold text-purple-600'>
+                +{examResult.experienceGained || 0}
               </div>
-              <div className='text-sm text-black'>시험 급수</div>
+              <div className='text-xs text-black'>획득 경험치</div>
+              <div className='text-xs text-gray-600 mt-1'>
+                {examResult.previousTotalExperience || 0} →{" "}
+                {examResult.newTotalExperience || 0}
+              </div>
+            </div>
+
+            <div className='bg-orange-50 rounded-lg p-4 text-center'>
+              <Clock className='w-6 h-6 text-orange-600 mx-auto mb-2' />
+              <div className='text-lg font-bold text-orange-600'>
+                {examResult.actualDuration && examResult.actualDuration >= 3600
+                  ? `${Math.floor(
+                      examResult.actualDuration / 3600
+                    )}시간 ${Math.floor(
+                      (examResult.actualDuration % 3600) / 60
+                    )}분`
+                  : examResult.actualDuration
+                  ? `${Math.floor(examResult.actualDuration / 60)}분 ${
+                      examResult.actualDuration % 60
+                    }초`
+                  : "0분 0초"}
+              </div>
+              <div className='text-xs text-black'>소요시간</div>
             </div>
           </div>
 
-          {/* 실제 소요 시간 표시 */}
-          {examResult.actualDuration && (
-            <div className='bg-purple-50 rounded-lg p-6 mb-8'>
-              <div className='flex items-center justify-center mb-4'>
-                <Clock className='w-8 h-8 text-purple-600 mr-3' />
-                <h3 className='text-lg font-semibold text-purple-800'>
-                  시험 소요 시간
-                </h3>
+          {/* 틀린 문제 표시 */}
+          {examResult.wrongAnswers && examResult.wrongAnswers.length > 0 && (
+            <div className='bg-red-50 rounded-lg p-6 mb-8'>
+              <div className='flex items-center justify-between mb-4'>
+                <div className='flex items-center'>
+                  <XCircle className='w-6 h-6 text-red-600 mr-2' />
+                  <h3 className='text-lg font-semibold text-red-800'>
+                    틀린 문제 ({examResult.wrongAnswers.length}개)
+                  </h3>
+                </div>
+                {examId && (
+                  <Link
+                    href={`/games/exam/${grade}/wrong-answers?examId=${examId}`}
+                    onClick={() => {
+                      // 오답 페이지로 이동할 때 결과 페이지 정보를 sessionStorage에 저장
+                      const resultData = {
+                        score,
+                        passed,
+                        duration,
+                        examId,
+                        grade,
+                        totalQuestions: examResult?.totalQuestions || getQuestionCount(grade),
+                        correctAnswers: examResult?.correctAnswers || 0,
+                        experienceGained: examResult?.experienceGained || 0,
+                        previousTotalExperience: examResult?.previousTotalExperience || 0,
+                        newTotalExperience: examResult?.newTotalExperience || 0,
+                        actualDuration: examResult?.actualDuration || duration,
+                      }
+                      const storageKey = `exam_result_nav_${examId}`
+                      sessionStorage.setItem(storageKey, JSON.stringify(resultData))
+                      console.log("🔍 결과 페이지 정보 저장 (오답 페이지로 이동):", resultData)
+                    }}
+                    className='inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium'
+                  >
+                    상세 보기
+                  </Link>
+                )}
               </div>
-              <div className='text-center'>
-                <div className='text-3xl font-bold text-purple-600 mb-2'>
-                  {Math.floor(examResult.actualDuration / 60)}분{" "}
-                  {examResult.actualDuration % 60}초
-                </div>
-                <div className='text-sm text-black'>
-                  총 {examResult.actualDuration}초 동안 시험을 진행했습니다
-                </div>
+              <div className='space-y-3'>
+                {examResult.wrongAnswers.slice(0, 3).map((wrong, index) => (
+                  <div
+                    key={index}
+                    className='bg-white rounded-lg p-4 border border-red-200'
+                  >
+                    <div className='flex items-center justify-between mb-2'>
+                      <div className='font-semibold text-black'>
+                        {wrong.questionNumber}번 문제
+                      </div>
+                      <div className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded'>
+                        {wrong.pattern}
+                      </div>
+                    </div>
+
+                    {wrong.character && (
+                      <div className='text-sm text-gray-700 mb-2'>
+                        한자:{" "}
+                        <span className='font-medium'>{wrong.character}</span>
+                      </div>
+                    )}
+
+                    <div className='flex items-center justify-between'>
+                      <div className='text-red-600 font-medium'>
+                        내 답: {getUserAnswerText(wrong)}
+                      </div>
+                      <div className='text-green-600 font-medium'>
+                        정답: {getCorrectAnswerText(wrong)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {examResult.wrongAnswers.length > 3 && (
+                  <div className='text-center text-sm text-gray-600'>
+                    ... 외 {examResult.wrongAnswers.length - 3}개 더
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -303,7 +551,8 @@ export default function ExamResultPage({
                 : `아쉽게 불합격이지만, 조금만 더 공부하면 통과할 수 있습니다. 관련 한자들을 다시 학습해보세요.`}
             </p>
             <div className='text-sm text-black'>
-              • 경험치 10점 획득 • 시험 완료 기록 저장 •
+              • 경험치 {examResult.experienceGained || 0}점 획득 (총{" "}
+              {examResult.newTotalExperience || 0}점) • 시험 완료 기록 저장 •
               {passed ? "다음 급수 시험 해제" : "다시 시험 도전 가능"}
             </div>
           </div>

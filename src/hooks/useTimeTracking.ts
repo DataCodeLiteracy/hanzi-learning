@@ -66,9 +66,6 @@ export function useTimeTracking({
       }
     }, 1000)
 
-    console.log(
-      `🕐 세션 시작: ${activity} (현재 총 학습시간: ${totalStudyTime}초)`
-    )
     return sessionId
   }, [userId, type, activity, loadTotalStudyTime, totalStudyTime])
 
