@@ -415,14 +415,25 @@ export default function ExamPage() {
             <div className='text-center'>
               <button
                 onClick={() => {
+                  // 일일 제한 확인 중이면 클릭 무시
+                  if (checkingDailyLimit) {
+                    return
+                  }
                   // localStorage에 이미 저장되어 있으므로 새로고침되면서 이동
                   window.location.href = `/games/exam/${currentGrade}`
                 }}
-                className='inline-flex items-center px-5 sm:px-6 py-2 sm:py-3 border border-transparent text-sm sm:text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors w-full sm:w-auto'
+                disabled={checkingDailyLimit}
+                className={`inline-flex items-center px-5 sm:px-6 py-2 sm:py-3 border border-transparent text-sm sm:text-base font-medium rounded-lg shadow-sm transition-colors w-full sm:w-auto ${
+                  checkingDailyLimit
+                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                    : "text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                }`}
               >
                 <Trophy className='-ml-1 mr-2 h-4 w-4 sm:h-5 sm:w-5' />
                 <span className='text-sm'>
-                  {currentGradeInfo.name} 시험 시작하기
+                  {checkingDailyLimit
+                    ? "시험 정보 확인 중..."
+                    : `${currentGradeInfo.name} 시험 시작하기`}
                 </span>
               </button>
             </div>

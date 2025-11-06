@@ -12,6 +12,7 @@ interface ConfirmModalProps {
   cancelText?: string
   type?: "warning" | "info" | "success"
   showCancel?: boolean
+  showCloseButton?: boolean
 }
 
 export default function ConfirmModal({
@@ -24,6 +25,7 @@ export default function ConfirmModal({
   cancelText = "취소",
   type = "warning",
   showCancel = true,
+  showCloseButton = true,
 }: ConfirmModalProps) {
   if (!isOpen) return null
 
@@ -63,26 +65,28 @@ export default function ConfirmModal({
       />
 
       {/* 모달 */}
-      <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
+      <div className='relative bg-white rounded-lg shadow-xl w-full mx-4 p-6' style={{ maxWidth: '500px' }}>
         {/* 헤더 */}
         <div className='flex items-center justify-between mb-4'>
           <div className='flex items-center space-x-3'>
             {getIcon()}
             <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
           </div>
-          <button
-            onClick={onClose}
-            className='text-gray-400 hover:text-gray-600 transition-colors'
-          >
-            <X className='h-5 w-5' />
-          </button>
+          {showCloseButton && (
+            <button
+              onClick={onClose}
+              className='text-gray-400 hover:text-gray-600 transition-colors'
+            >
+              <X className='h-5 w-5' />
+            </button>
+          )}
         </div>
 
         {/* 메시지 */}
         <p className='text-gray-600 mb-6'>{message}</p>
 
         {/* 버튼 */}
-        <div className='flex justify-end space-x-3'>
+        <div className={`flex ${showCancel ? 'justify-end space-x-3' : 'justify-center'}`}>
           {showCancel && (
             <button
               onClick={onClose}
@@ -96,7 +100,9 @@ export default function ConfirmModal({
               onConfirm()
               onClose()
             }}
-            className={`px-4 py-2 text-white rounded-md transition-colors ${getConfirmButtonClass()}`}
+            className={`px-4 py-2 text-white rounded-md transition-colors ${getConfirmButtonClass()} ${
+              !showCancel ? 'w-full' : ''
+            }`}
           >
             {confirmText}
           </button>

@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { aiPrompts } from "@/lib/aiPrompts"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Lazy initialization: 함수 내부에서 필요할 때만 생성
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    throw new Error(
+      "Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable."
+    )
+  }
+  return new OpenAI({
+    apiKey,
+  })
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +39,7 @@ export async function POST(request: NextRequest) {
 
       if (question.aiPrompt) {
         try {
+          const openai = getOpenAIClient()
           const completion = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [

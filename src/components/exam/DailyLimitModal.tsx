@@ -18,6 +18,7 @@ export default function DailyLimitModal({ show, grade, onClose }: Props) {
       confirmText='메인 페이지로 돌아가기'
       type='info'
       showCancel={false}
+      showCloseButton={false}
     />
   )
 }

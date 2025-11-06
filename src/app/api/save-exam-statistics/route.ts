@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/firebase"
 import {
-  collection,
-  addDoc,
   doc,
   getDoc,
   updateDoc,
@@ -205,8 +203,8 @@ export async function POST(request: NextRequest) {
         grade,
         score,
         passed,
-        correctCount,
-        totalQuestions
+        correctCount, // 사용됨 (통계 계산용)
+        totalQuestions // 사용됨 (통계 계산용)
       )
 
       // 한자 통계 업데이트 (hanziStatistics) - 필요시 추가
@@ -244,8 +242,8 @@ async function updateUserStatistics(
   grade: number,
   score: number,
   passed: boolean,
-  correctCount: number,
-  totalQuestions: number
+  _correctCount: number, // 향후 사용 예정
+  _totalQuestions: number // 향후 사용 예정
 ) {
   try {
     // 기존 사용자 통계 조회
