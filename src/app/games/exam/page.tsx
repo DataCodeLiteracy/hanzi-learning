@@ -4,8 +4,10 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
+import DailyLimitModal from "@/components/exam/DailyLimitModal"
 import { Trophy, Clock, Target, Award, ArrowLeft, Settings } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { gradeInfo } from "@/lib/gradeInfo"
 import { getGradePatterns } from "@/lib/gradePatterns"
 import { useSelectedHanzi } from "@/contexts/SelectedHanziContext"
@@ -28,6 +30,9 @@ export default function ExamPage() {
   const [currentGrade, setCurrentGrade] = useState<number | null>(null)
   const { setSelected } = useSelectedHanzi()
   const [isLoading, setIsLoading] = useState(true)
+  const [showDailyLimitModal, setShowDailyLimitModal] = useState(false)
+  const [checkingDailyLimit, setCheckingDailyLimit] = useState(true)
+  const router = useRouter()
 
   // /games/exam 접근 시, 급수/패턴에 맞게 사전 선발(교과/일반) 구성 후 세션에 저장
   useEffect(() => {
@@ -136,6 +141,60 @@ export default function ExamPage() {
     }
   }, [currentGrade, hanziList])
 
+  // 오늘 시험 여부 확인
+  useEffect(() => {
+    const checkDailyLimit = async () => {
+      if (!user) {
+        setCheckingDailyLimit(false)
+        return
+      }
+
+      try {
+        const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD 형식
+
+        // 타임아웃 설정 (5초)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+        const response = await fetch(
+          `/api/check-daily-exam?userId=${user.id}&date=${today}`,
+          { signal: controller.signal }
+        )
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          console.error("하루 1회 제한 확인 API 오류:", response.status)
+          // API 오류 시에도 시험 진행 허용
+          setCheckingDailyLimit(false)
+          return
+        }
+
+        const result = await response.json()
+        console.log("🔍 하루 1회 제한 확인 결과:", result)
+
+        if (result.hasTakenToday) {
+          console.log("🚫 오늘 이미 시험을 봤습니다. 모달 표시")
+          setShowDailyLimitModal(true)
+        }
+      } catch (error) {
+        console.error("하루 1회 제한 확인 실패:", error)
+        // 타임아웃이거나 네트워크 오류인 경우 시험 진행 허용
+        if (error instanceof Error && error.name === "AbortError") {
+          console.warn("⚠️ 하루 1회 제한 확인 타임아웃, 시험 진행 허용")
+        }
+      } finally {
+        setCheckingDailyLimit(false)
+      }
+    }
+
+    if (user) {
+      checkDailyLimit()
+    } else {
+      setCheckingDailyLimit(false)
+    }
+  }, [user])
+
   useEffect(() => {
     const loadUserGrade = async () => {
       if (!user) return
@@ -163,8 +222,14 @@ export default function ExamPage() {
     }
   }, [user])
 
-  // 로딩 중
-  if (authLoading || initialLoading || dataLoading || isLoading) {
+  // 로딩 중 (일일 제한 확인 포함)
+  if (
+    authLoading ||
+    initialLoading ||
+    dataLoading ||
+    isLoading ||
+    checkingDailyLimit
+  ) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='시험 정보를 불러오는 중...' />
@@ -376,6 +441,18 @@ export default function ExamPage() {
           </div>
         )}
       </div>
+
+      {/* 일일 시험 제한 모달 */}
+      {showDailyLimitModal && currentGrade && (
+        <DailyLimitModal
+          show={showDailyLimitModal}
+          grade={currentGrade}
+          onClose={() => {
+            setShowDailyLimitModal(false)
+            router.push("/")
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import {
   getDoc,
   updateDoc,
   setDoc,
+  serverTimestamp,
 } from "firebase/firestore"
 import { ApiClient } from "@/lib/apiClient"
 
@@ -47,34 +48,74 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 시험 통계 문서 생성
-    const examStatsData = {
-      examId: examId || `exam_${userId}_${grade}_${Date.now()}`,
-      userId,
+    // examDate 정규화
+    const normalizedExamDate =
+      examDate || new Date().toISOString().split("T")[0]
+
+    // examId 생성 (wrongAnswers 참조용)
+    const finalExamId =
+      examId || `exam_${userId}_${grade}_${Date.now()}`
+
+    // wrongAnswers를 별도 컬렉션에 저장
+    let wrongAnswersRef = null
+    if (wrongAnswers && wrongAnswers.length > 0) {
+      const wrongAnswersData = {
+        examId: finalExamId,
+        userId,
+        examDate: normalizedExamDate,
+        wrongAnswers: wrongAnswers,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+      const wrongAnswersDocRef = doc(
+        db,
+        "examWrongAnswers",
+        finalExamId
+      )
+      await setDoc(wrongAnswersDocRef, wrongAnswersData)
+      wrongAnswersRef = finalExamId
+    }
+
+    // 사용자별 examStatistics 문서 참조
+    const userExamStatsRef = doc(db, "examStatistics", userId)
+
+    // 기존 문서 조회
+    const userExamStatsDoc = await getDoc(userExamStatsRef)
+    const existingData = userExamStatsDoc.exists()
+      ? userExamStatsDoc.data()
+      : { userId, exams: {}, lastUpdated: null }
+
+    // 해당 날짜의 시험 데이터 생성
+    const examData = {
+      examId: finalExamId,
       grade,
       score,
       passed,
       correctCount,
       totalQuestions,
-      examDate: examDate || new Date().toISOString().split("T")[0],
       duration: duration || 0,
-      wrongAnswers: wrongAnswers || [],
       patternStats: patternStats || {},
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      wrongAnswersRef: wrongAnswersRef, // wrongAnswers 컬렉션 참조
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     }
 
-    // examStatistics 컬렉션에 추가 (examId가 있으면 해당 ID로 저장)
-    let examStatsRef
-    if (examId) {
-      await setDoc(doc(db, "examStatistics", examId), examStatsData)
-      examStatsRef = { id: examId }
-    } else {
-      examStatsRef = await addDoc(
-        collection(db, "examStatistics"),
-        examStatsData
-      )
+    // exams 맵에 추가 (날짜를 키로 사용)
+    const updatedExams = {
+      ...existingData.exams,
+      [normalizedExamDate]: examData,
     }
+
+    // 문서 업데이트
+    await setDoc(
+      userExamStatsRef,
+      {
+        userId,
+        exams: updatedExams,
+        lastUpdated: serverTimestamp(),
+      },
+      { merge: true }
+    )
 
     // 사용자 통계 업데이트
     const userRef = doc(db, "users", userId)
@@ -140,7 +181,9 @@ export async function POST(request: NextRequest) {
         grade,
         score,
         passed,
-        examStatsId: examStatsRef.id,
+        examDate: normalizedExamDate,
+        examId: finalExamId,
+        wrongAnswersRef: wrongAnswersRef,
         gradeStats: updatedGradeStats,
       })
 
@@ -173,7 +216,9 @@ export async function POST(request: NextRequest) {
         success: true,
         message: "시험 통계가 성공적으로 저장되었습니다.",
         data: {
-          examStatsId: examStatsRef.id,
+          examId: finalExamId,
+          examDate: normalizedExamDate,
+          wrongAnswersRef: wrongAnswersRef,
           gradeStats: updatedGradeStats,
           overallStats: updatedStats,
         },

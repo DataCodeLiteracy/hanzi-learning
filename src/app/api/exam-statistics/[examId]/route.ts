@@ -21,37 +21,69 @@ export async function GET(
       )
     }
 
-    // examStatistics 컬렉션에서 해당 시험 정보 조회
-    const examDoc = await getDoc(doc(db, "examStatistics", examId))
+    // 사용자별 examStatistics 문서 조회
+    const userExamStatsRef = doc(db, "examStatistics", userId)
+    const userExamStatsDoc = await getDoc(userExamStatsRef)
 
-    if (!examDoc.exists) {
+    if (!userExamStatsDoc.exists()) {
       return NextResponse.json(
         { error: "시험 정보를 찾을 수 없습니다." },
         { status: 404 }
       )
     }
 
-    const examData = examDoc.data()
-    console.log("🔍 API에서 조회한 시험 데이터:", examData)
-    console.log("🔍 틀린 문제 데이터:", examData?.wrongAnswers)
+    const userExamStats = userExamStatsDoc.data()
+    
+    // exams 맵에서 examId로 시험 찾기
+    let examData = null
+    let examDate = null
+    
+    if (userExamStats.exams) {
+      for (const [date, exam] of Object.entries(userExamStats.exams)) {
+        if ((exam as any).examId === examId) {
+          examData = exam as any
+          examDate = date
+          break
+        }
+      }
+    }
 
-    // 사용자 확인
-    if (examData?.userId !== userId) {
+    if (!examData) {
       return NextResponse.json(
-        { error: "접근 권한이 없습니다." },
-        { status: 403 }
+        { error: "시험 정보를 찾을 수 없습니다." },
+        { status: 404 }
       )
     }
+
+    // wrongAnswers 별도 컬렉션에서 조회
+    let wrongAnswers: any[] = []
+    if (examData.wrongAnswersRef) {
+      const wrongAnswersDoc = await getDoc(
+        doc(db, "examWrongAnswers", examData.wrongAnswersRef)
+      )
+      if (wrongAnswersDoc.exists()) {
+        const wrongAnswersData = wrongAnswersDoc.data()
+        wrongAnswers = wrongAnswersData.wrongAnswers || []
+      }
+    }
+
+    console.log("🔍 API에서 조회한 시험 데이터:", {
+      examId,
+      examDate,
+      grade: examData.grade,
+      score: examData.score,
+      wrongAnswersCount: wrongAnswers.length,
+    })
 
     // 틀린 문제 정보 반환
     return NextResponse.json({
       examId: examId,
       grade: examData.grade,
-      date: examData.examDate,
+      date: examDate,
       score: examData.score,
       passed: examData.passed,
-      duration: examData.duration || examData.examDurationSeconds || 0, // 소요 시간 (초)
-      wrongAnswers: examData.wrongAnswers || [],
+      duration: examData.duration || 0,
+      wrongAnswers: wrongAnswers,
     })
   } catch (error) {
     console.error("시험 정보 조회 실패:", error)
