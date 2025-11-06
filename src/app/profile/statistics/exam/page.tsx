@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Trophy,
   Target,
-  Calendar,
   TrendingUp,
   Award,
 } from "lucide-react"
@@ -55,20 +54,45 @@ export default function ExamStatisticsPage() {
   const [recentExams, setRecentExams] = useState<ExamResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    if (user && !authLoading && !initialLoading && !dataLoading) {
-      loadExamStatistics()
-    }
-  }, [user, authLoading, initialLoading, dataLoading])
-
-  const loadExamStatistics = async () => {
+  const loadExamStatistics = useCallback(async () => {
     try {
       setIsLoading(true)
 
       // 사용자 시험 통계 조회
-      const userStats = await ApiClient.getDocument("userStatistics", user!.id)
-      if (userStats && (userStats as any).examStats) {
-        setExamStats((userStats as any).examStats)
+      interface UserStatisticsWithExamStats {
+        examStats?: {
+          totalExams: number
+          passedExams: number
+          totalScore: number
+          averageScore: number
+          highestScore: number
+          currentStreak: number
+          longestStreak: number
+          lastExamDate: string | null
+          gradeStats: {
+            [grade: number]: {
+              totalExams: number
+              passedExams: number
+              averageScore: number
+              lastExamDate: string | null
+            }
+          }
+        }
+      }
+      const userStats = await ApiClient.getDocument<UserStatisticsWithExamStats>("userStatistics", user!.id)
+      if (userStats && userStats.examStats) {
+        // gradeStats를 number 키로 변환
+        const examStats: ExamStats = {
+          ...userStats.examStats,
+          gradeStats: Object.entries(userStats.examStats.gradeStats || {}).reduce((acc, [key, value]) => {
+            const grade = Number(key)
+            if (!isNaN(grade) && value && typeof value === "object") {
+              acc[grade] = value as ExamStats["gradeStats"][number]
+            }
+            return acc
+          }, {} as ExamStats["gradeStats"]),
+        }
+        setExamStats(examStats)
       }
 
       // 최근 시험 결과 조회는 일단 빈 배열로 설정
@@ -79,7 +103,13 @@ export default function ExamStatisticsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (user && !authLoading && !initialLoading && !dataLoading) {
+      loadExamStatistics()
+    }
+  }, [user, authLoading, initialLoading, dataLoading, loadExamStatistics])
 
   const getGradeName = (grade: number): string => {
     const gradeNames: { [key: number]: string } = {

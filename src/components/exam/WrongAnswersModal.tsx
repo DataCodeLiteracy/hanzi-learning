@@ -1,6 +1,6 @@
 "use client"
 
-import { X, XCircle, BookOpen } from "lucide-react"
+import { X, XCircle } from "lucide-react"
 
 interface WrongAnswer {
   questionNumber: number
@@ -31,7 +31,7 @@ export default function WrongAnswersModal({
   wrongAnswers,
   grade,
   score,
-  passed,
+  passed: _passed,
   date,
 }: WrongAnswersModalProps) {
   if (!isOpen) return null
@@ -228,7 +228,9 @@ export default function WrongAnswersModal({
                               const isCorrectAnswer =
                                 wrong.pattern === "word_meaning_select"
                                   ? optionIndex ===
-                                    parseInt(wrong.correctAnswer as any) - 1
+                                    (typeof wrong.correctAnswer === "number" 
+                                      ? wrong.correctAnswer 
+                                      : parseInt(String(wrong.correctAnswer))) - 1
                                   : option === wrong.correctAnswer
                               const isUserAnswer =
                                 wrong.pattern === "word_meaning_select"

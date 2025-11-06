@@ -10,6 +10,7 @@ import {
   getSelectedOptionText,
   isCorrectAnswer,
 } from "@/lib/optionUtils"
+import type { CorrectAnswerItem, ExamQuestionDetail } from "@/types/exam"
 
 export interface ScoreSummary {
   answeredCount: number
@@ -65,10 +66,10 @@ export function useExamActions() {
   const submitExam = async (params: {
     user: { id: string } | null
     grade: number
-    examSession: { questions: Array<{ id: string; type: string }> } | null
+    examSession: { questions: ExamQuestionDetail[] } | null
     answers: Record<string, string | number>
-    correctAnswersArray: any[]
-    finalQuestionsArray: any[]
+    correctAnswersArray: CorrectAnswerItem[]
+    finalQuestionsArray: ExamQuestionDetail[]
     currentPattern4Options: string[]
     examDurationSeconds: number
     passScore: number
@@ -97,14 +98,15 @@ export function useExamActions() {
     let unansweredCount = 0
 
     // 유저 답안과 정답 비교 배열
-    const answerComparison: Array<{
+    interface AnswerComparisonItem {
       questionNumber: number
       questionId: string
-      userAnswer: any
-      correctAnswer: any
+      userAnswer: string | number | null
+      correctAnswer: string | number | null
       isCorrect: boolean
       pattern: string
-    }> = []
+    }
+    const answerComparison: AnswerComparisonItem[] = []
 
     examSession.questions.forEach((question, index) => {
       const userAnswer = answers[question.id]
@@ -118,8 +120,9 @@ export function useExamActions() {
 
       if (hasAnswered && correctAnswer) {
         // optionUtils의 getSelectedOptionText와 isCorrectAnswer 사용
+        const questionDetail = question as ExamQuestionDetail
         const selectedOptionText = getSelectedOptionText(
-          question,
+          questionDetail,
           userAnswer,
           finalQuestionsArray,
           currentPattern4Options
@@ -127,7 +130,7 @@ export function useExamActions() {
 
         const correctText = correctAnswer?.correctAnswer
         const isCorrect = isCorrectAnswer(
-          question,
+          questionDetail,
           userAnswer,
           correctAnswer,
           selectedOptionText,
@@ -190,15 +193,16 @@ export function useExamActions() {
           return null
         }
 
+        const questionDetail = question as ExamQuestionDetail
         const selectedOptionText = getSelectedOptionText(
-          question,
+          questionDetail,
           userAnswer,
           finalQuestionsArray,
           currentPattern4Options
         )
 
         const isCorrect = isCorrectAnswer(
-          question,
+          questionDetail,
           userAnswer,
           correctAnswer,
           selectedOptionText,
@@ -206,15 +210,27 @@ export function useExamActions() {
         )
 
         if (!isCorrect) {
-          const q = finalQuestionsArray.find((q: any) => q.id === question.id)
-          const wrongAnswerData: any = {
+          const q = finalQuestionsArray.find((q: ExamQuestionDetail) => q.id === question.id)
+          interface WrongAnswerData {
+            questionNumber: number
+            questionId: string
+            questionIndex: number
+            userAnswer: string | number
+            correctAnswer: string | number
+            pattern: string
+            character?: string
+            questionText: string
+            options?: string[]
+            userSelectedNumber?: number
+          }
+          const wrongAnswerData: WrongAnswerData = {
             questionNumber: index + 1,
             questionId: question.id,
             questionIndex: index,
             userAnswer,
             correctAnswer: correctAnswer?.correctAnswer || "",
             pattern: question.type,
-            character: (q as any)?.character,
+            character: q?.character,
             questionText: "",
             options: q?.options || [],
           }
@@ -257,7 +273,7 @@ export function useExamActions() {
         })
         const json = await res.json().catch(() => ({}))
         SaveExamStatisticsResponseSchema.parse(json)
-      } catch (e) {
+      } catch {
         // noop: 로깅은 상위에서
       }
     }
@@ -307,7 +323,7 @@ export function useExamActions() {
           const json2 = await res2.json().catch(() => ({}))
           UpdateStudyTimeResponseSchema.parse(json2)
         }
-      } catch (e) {
+      } catch {
         // noop
       }
     }

@@ -26,6 +26,8 @@ export default function WorksheetPage() {
   )
   const [isLoadingHanzi, setIsLoadingHanzi] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  // modificationCount는 사용되지 않지만 setModificationCount로 리렌더링 트리거
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [modificationCount, setModificationCount] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
 

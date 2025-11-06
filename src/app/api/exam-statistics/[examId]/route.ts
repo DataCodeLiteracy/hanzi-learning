@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 
+interface ExamData {
+  examId?: string
+  grade: number
+  score: number
+  passed: boolean
+  duration?: number
+  wrongAnswersRef?: string
+}
+
+interface WrongAnswerData {
+  questionNumber: number
+  questionId?: string
+  questionIndex?: number
+  userAnswer: string | number
+  userSelectedNumber?: number
+  correctAnswer: string | number
+  pattern: string
+  character?: string
+  questionText?: string
+  options?: string[]
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ examId: string }> }
@@ -40,8 +62,9 @@ export async function GET(
     
     if (userExamStats.exams) {
       for (const [date, exam] of Object.entries(userExamStats.exams)) {
-        if ((exam as any).examId === examId) {
-          examData = exam as any
+        const examEntry = exam as ExamData
+        if (examEntry.examId === examId) {
+          examData = examEntry
           examDate = date
           break
         }
@@ -56,7 +79,7 @@ export async function GET(
     }
 
     // wrongAnswers 별도 컬렉션에서 조회
-    let wrongAnswers: any[] = []
+    let wrongAnswers: WrongAnswerData[] = []
     if (examData.wrongAnswersRef) {
       const wrongAnswersDoc = await getDoc(
         doc(db, "examWrongAnswers", examData.wrongAnswersRef)

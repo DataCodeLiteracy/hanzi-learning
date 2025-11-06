@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import ConfirmModal from "@/components/ConfirmModal"
+import Image from "next/image"
 import {
   ArrowLeft,
   User,
@@ -14,10 +15,6 @@ import {
   Trash2,
   TrendingUp,
   MessageSquare,
-  Award,
-  Target,
-  Calendar,
-  Trophy,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -49,12 +46,12 @@ import {
 export default function ProfilePage() {
   const {
     user,
-    loading: authLoading,
+    loading: _authLoading,
     initialLoading,
     isAuthenticated,
     signOutUser,
   } = useAuth()
-  const { userStatistics, learningSessions, clearIndexedDB } = useData()
+  const { userStatistics: _userStatistics, learningSessions, clearIndexedDB } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [gameStatistics, setGameStatistics] = useState<Record<
@@ -117,7 +114,8 @@ export default function ProfilePage() {
     }
   }, [user])
 
-  // 목표 설정 핸들러
+  // 목표 설정 핸들러 (향후 사용 예정)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleGoalSubmit = async () => {
     if (user && inputGoal !== todayGoal.toString()) {
       try {
@@ -208,10 +206,13 @@ export default function ProfilePage() {
           <div className='bg-white rounded-lg shadow-lg p-3'>
             <div className='flex items-center space-x-4 mb-6'>
               {user?.photoURL ? (
-                <img
+                <Image
                   src={user.photoURL}
                   alt={user.displayName || ""}
+                  width={64}
+                  height={64}
                   className='w-16 h-16 rounded-full'
+                  unoptimized
                 />
               ) : (
                 <div className='w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center'>

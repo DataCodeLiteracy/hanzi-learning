@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 import {
@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 interface WritingSubmission {
   id: string
@@ -28,11 +29,19 @@ interface WritingSubmission {
 }
 
 interface HanziStatistics {
-  id: string
+  hanziId: string
   character: string
-  totalWrited: number
-  lastWrited: string
-  grade: number
+  meaning: string
+  sound: string
+  gradeNumber: number
+  totalStudied: number
+  correctAnswers: number
+  wrongAnswers: number
+  accuracy: number
+  lastStudied: string | null
+  isKnown?: boolean
+  totalWrited?: number
+  lastWrited?: string
 }
 
 export default function WritingGalleryPage() {
@@ -52,7 +61,7 @@ export default function WritingGalleryPage() {
   const [sortOrder, setSortOrder] = useState<string>("desc") // asc, desc
 
   // 갤러리 데이터 로드
-  const loadSubmissions = async () => {
+  const loadSubmissions = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
@@ -79,17 +88,17 @@ export default function WritingGalleryPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, selectedGrade, selectedDate])
 
   // 한자 통계 로드
-  const loadHanziStatistics = async () => {
+  const loadHanziStatistics = useCallback(async () => {
     if (!user || !user.id) return
 
     try {
       const { ApiClient } = await import("@/lib/apiClient")
       const stats = await ApiClient.getHanziStatisticsNew(user.id)
       if (stats && Array.isArray(stats)) {
-        setHanziStats(stats as any)
+        setHanziStats(stats)
       } else {
         console.warn("Hanzi statistics 데이터가 올바르지 않습니다:", stats)
         setHanziStats([])
@@ -98,7 +107,7 @@ export default function WritingGalleryPage() {
       console.error("Hanzi statistics load error:", err)
       setHanziStats([])
     }
-  }
+  }, [user])
 
   // 필터링 및 정렬된 제출물
   const filteredSubmissions = submissions
@@ -170,7 +179,7 @@ export default function WritingGalleryPage() {
   useEffect(() => {
     loadSubmissions()
     loadHanziStatistics()
-  }, [user, selectedGrade, selectedDate])
+  }, [loadSubmissions, loadHanziStatistics])
 
   // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
   if (initialLoading) {
@@ -433,10 +442,12 @@ export default function WritingGalleryPage() {
                   >
                     {/* 이미지 */}
                     <div className='aspect-square bg-gray-100 relative'>
-                      <img
+                      <Image
                         src={submission.imageUrl}
                         alt={`한자 쓰기 연습 - ${submission.grade}급`}
-                        className='w-full h-full object-cover'
+                        fill
+                        className='object-cover'
+                        unoptimized
                       />
 
                       {/* 상태 배지 */}

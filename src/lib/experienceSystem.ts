@@ -120,6 +120,8 @@ export function calculateLevelProgress(experience: number): number {
  */
 export function calculateExperienceToNextLevel(experience: number): number {
   const currentLevel = calculateLevel(experience)
+  // currentLevelExp는 현재 사용되지 않음 (향후 사용 예정)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const currentLevelExp = calculateRequiredExperience(currentLevel)
   const nextLevelExp = calculateRequiredExperience(currentLevel + 1)
 

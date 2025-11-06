@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { XCircle, ArrowLeft, BookOpen } from "lucide-react"
@@ -127,13 +127,7 @@ export default function WrongAnswersPage({
     return `/games/exam/${grade}/result`
   }
 
-  useEffect(() => {
-    if (!authLoading && !initialLoading && user && examId) {
-      loadWrongAnswers()
-    }
-  }, [authLoading, initialLoading, user, examId])
-
-  const loadWrongAnswers = async () => {
+  const loadWrongAnswers = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -155,7 +149,13 @@ export default function WrongAnswersPage({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user, examId])
+
+  useEffect(() => {
+    if (!authLoading && !initialLoading && user && examId) {
+      loadWrongAnswers()
+    }
+  }, [authLoading, initialLoading, user, examId, loadWrongAnswers])
 
   const getPatternName = (pattern: string) => {
     const patternNames: Record<string, string> = {
@@ -425,7 +425,9 @@ export default function WrongAnswersPage({
                             const isCorrectAnswer =
                               wrong.pattern === "word_meaning_select"
                                 ? optionIndex ===
-                                  parseInt(wrong.correctAnswer as any) - 1
+                                  (typeof wrong.correctAnswer === "number" 
+                                    ? wrong.correctAnswer 
+                                    : parseInt(String(wrong.correctAnswer))) - 1
                                 : option === wrong.correctAnswer
                             const isUserAnswer =
                               wrong.pattern === "word_meaning_select"
@@ -513,7 +515,9 @@ export default function WrongAnswersPage({
                       const isCorrectAnswer =
                         wrong.pattern === "word_meaning_select"
                           ? optionIndex ===
-                            parseInt(wrong.correctAnswer as any) - 1
+                            (typeof wrong.correctAnswer === "number" 
+                              ? wrong.correctAnswer 
+                              : parseInt(String(wrong.correctAnswer))) - 1
                           : option === wrong.correctAnswer
                       const isUserAnswer =
                         wrong.pattern === "word_meaning_select"

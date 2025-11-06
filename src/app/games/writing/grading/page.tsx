@@ -7,6 +7,7 @@ import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, Upload, Camera, X, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 interface FinalResult {
   finalCount: number
@@ -265,10 +266,13 @@ export default function GradingPage() {
                 </button>
               </div>
               <div className='text-center'>
-                <img
+                <Image
                   src={previewUrl!}
                   alt='Uploaded'
-                  className='max-w-full max-h-96 mx-auto rounded-lg shadow-sm'
+                  width={800}
+                  height={600}
+                  className='max-w-full max-h-96 mx-auto rounded-lg shadow-sm object-contain'
+                  unoptimized
                 />
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ApiClient } from "@/lib/apiClient"
@@ -70,85 +70,6 @@ export default function TextbookWordsPage() {
   const [meaningInput, setMeaningInput] = useState("")
   const [isSubmittingMeaning, setIsSubmittingMeaning] = useState(false)
 
-  // 8급 데이터 기본 로딩
-  const loadData = async (grade: number = 8) => {
-    if (grade === 8) setLoading(true)
-    else setIsLoadingGrade(true)
-
-    try {
-      const hanziData = await ApiClient.getHanziByGrade(grade)
-      // setHanziList(hanziData) // This line was removed as per the edit hint
-
-      const words = extractTextbookWords(hanziData, grade, hanziData)
-      setTextbookWords(words)
-    } catch (error) {
-      console.error("데이터 로드 실패:", error)
-    } finally {
-      if (grade === 8) setLoading(false)
-      else setIsLoadingGrade(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData(8) // 8급 기본 로드
-  }, []) // loadData를 dependency에서 제거
-
-  // 사용자 정보 로드 후 선호 급수 반영
-  useEffect(() => {
-    if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
-      setSelectedGrade(user.preferredGrade)
-      loadData(user.preferredGrade)
-    }
-  }, [user])
-
-  // 급수 변경 시 데이터 로드
-  const handleGradeChange = async (grade: number) => {
-    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
-
-    setSelectedGrade(grade)
-    await loadData(grade)
-  }
-
-  // 교과서 한자어 추출 함수
-  const extractTextbookWords = (
-    hanziList: Hanzi[],
-    grade: number,
-    allHanziList: Hanzi[]
-  ): TextbookWord[] => {
-    const wordMap = new Map<string, TextbookWord>()
-
-    // 선택한 급수의 한자만 필터링
-    const gradeHanzi = hanziList.filter((hanzi) => hanzi.grade === grade)
-
-    gradeHanzi.forEach((hanzi) => {
-      if (hanzi.relatedWords) {
-        hanzi.relatedWords.forEach((relatedWord) => {
-          if (relatedWord.isTextBook) {
-            // 이미 존재하는 단어인지 확인
-            if (!wordMap.has(relatedWord.hanzi)) {
-              // 해당 단어를 구성하는 한자들 찾기 (전체 한자 목록에서 찾기)
-              const includedHanzi = findIncludedHanzi(
-                relatedWord.hanzi,
-                allHanziList,
-                selectedGrade
-              )
-
-              wordMap.set(relatedWord.hanzi, {
-                word: relatedWord.hanzi,
-                korean: relatedWord.korean,
-                hanzi: relatedWord.hanzi,
-                meaning: relatedWord.meaning, // 뜻 정보 추가
-                includedHanzi,
-              })
-            }
-          }
-        })
-      }
-    })
-
-    return Array.from(wordMap.values())
-  }
-
   // 단어를 구성하는 한자들 찾기
   const findIncludedHanzi = (
     word: string,
@@ -200,7 +121,87 @@ export default function TextbookWordsPage() {
     return includedHanzi
   }
 
-  // 급수별 한자 수 계산
+  // 교과서 한자어 추출 함수
+  const extractTextbookWords = useCallback((
+    hanziList: Hanzi[],
+    grade: number,
+    allHanziList: Hanzi[]
+  ): TextbookWord[] => {
+    const wordMap = new Map<string, TextbookWord>()
+
+    // 선택한 급수의 한자만 필터링
+    const gradeHanzi = hanziList.filter((hanzi) => hanzi.grade === grade)
+
+    gradeHanzi.forEach((hanzi) => {
+      if (hanzi.relatedWords) {
+        hanzi.relatedWords.forEach((relatedWord) => {
+          if (relatedWord.isTextBook) {
+            // 이미 존재하는 단어인지 확인
+            if (!wordMap.has(relatedWord.hanzi)) {
+              // 해당 단어를 구성하는 한자들 찾기 (전체 한자 목록에서 찾기)
+              const includedHanzi = findIncludedHanzi(
+                relatedWord.hanzi,
+                allHanziList,
+                selectedGrade
+              )
+
+              wordMap.set(relatedWord.hanzi, {
+                word: relatedWord.hanzi,
+                korean: relatedWord.korean,
+                hanzi: relatedWord.hanzi,
+                meaning: relatedWord.meaning, // 뜻 정보 추가
+                includedHanzi,
+              })
+            }
+          }
+        })
+      }
+    })
+
+    return Array.from(wordMap.values())
+  }, [selectedGrade])
+
+  // 8급 데이터 기본 로딩
+  const loadData = useCallback(async (grade: number = 8) => {
+    if (grade === 8) setLoading(true)
+    else setIsLoadingGrade(true)
+
+    try {
+      const hanziData = await ApiClient.getHanziByGrade(grade)
+      // setHanziList(hanziData) // This line was removed as per the edit hint
+
+      const words = extractTextbookWords(hanziData, grade, hanziData)
+      setTextbookWords(words)
+    } catch (error) {
+      console.error("데이터 로드 실패:", error)
+    } finally {
+      if (grade === 8) setLoading(false)
+      else setIsLoadingGrade(false)
+    }
+  }, [extractTextbookWords])
+
+  useEffect(() => {
+    loadData(8) // 8급 기본 로드
+  }, [loadData])
+
+  // 사용자 정보 로드 후 선호 급수 반영
+  useEffect(() => {
+    if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
+      setSelectedGrade(user.preferredGrade)
+      loadData(user.preferredGrade)
+    }
+  }, [user, selectedGrade, loadData])
+
+  // 급수 변경 시 데이터 로드
+  const handleGradeChange = useCallback(async (grade: number) => {
+    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
+
+    setSelectedGrade(grade)
+    await loadData(grade)
+  }, [selectedGrade, loadData])
+
+  // 급수별 한자 수 계산 (향후 사용 예정)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getGradeCounts = async () => {
     const counts: { [grade: number]: number } = {}
 
@@ -270,7 +271,7 @@ export default function TextbookWordsPage() {
   }
 
   // 한자 클릭 핸들러
-  const handleHanziClick = (hanzi: any) => {
+  const handleHanziClick = (hanzi: HanziItem) => {
     setSelectedItem({
       type: "hanzi",
       data: hanzi,
@@ -573,7 +574,7 @@ export default function TextbookWordsPage() {
                       </div>
                     </td>
                     {[0, 1, 2, 3].map((i) => {
-                      const hanzi = word.includedHanzi[i]
+                      const hanzi: HanziItem | undefined = word.includedHanzi[i]
                       return (
                         <td
                           key={i}

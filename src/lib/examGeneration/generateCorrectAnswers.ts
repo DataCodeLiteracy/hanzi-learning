@@ -36,7 +36,12 @@ export const generateCorrectAnswers = (
         break
       case "word_meaning_select": {
         // correctAnswerIndex가 없으면 문제가 있으므로 로그 출력
-        const correctAnswerIndex = (question as any).correctAnswerIndex
+        const wordMeaningSelectQuestion = question as ExamQuestionDetail & {
+          type: "word_meaning_select"
+          correctAnswerIndex?: number
+          options?: string[]
+        }
+        const correctAnswerIndex = wordMeaningSelectQuestion.correctAnswerIndex
         console.log(`🔍 generateCorrectAnswers - word_meaning_select:`, {
           questionIndex: index,
           questionId: question.id,
@@ -55,7 +60,7 @@ export const generateCorrectAnswers = (
               questionIndex: index,
               questionId: question.id,
               character: question.character,
-              options: (question as any).options,
+              options: wordMeaningSelectQuestion.options,
               allKeys: Object.keys(question),
             }
           )

@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -18,6 +18,7 @@ import {
   XCircle,
 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 interface WritingSubmission {
   id: string
@@ -98,7 +99,7 @@ export default function AdminWritingGalleryPage() {
   }, [user, authLoading, router])
 
   // 데이터 로드
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user?.isAdmin) return
 
     setLoading(true)
@@ -144,7 +145,7 @@ export default function AdminWritingGalleryPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   // 상태 업데이트
   const updateSubmissionStatus = async (
@@ -429,7 +430,7 @@ export default function AdminWritingGalleryPage() {
 
   useEffect(() => {
     loadData()
-  }, [user])
+  }, [loadData])
 
   // 로딩 중
   if (authLoading || loading) {
@@ -780,10 +781,12 @@ export default function AdminWritingGalleryPage() {
                     className='aspect-video bg-gray-100 relative cursor-pointer hover:opacity-90 transition-opacity'
                     onClick={() => handleImageClick(submission)}
                   >
-                    <img
+                    <Image
                       src={submission.imageUrl}
                       alt={`${submission.character} 쓰기 연습`}
-                      className='w-full h-full object-cover'
+                      fill
+                      className='object-cover'
+                      unoptimized
                     />
                     <div className='absolute top-2 left-2'>
                       <span className='px-2 py-1 bg-black bg-opacity-50 text-white text-xs rounded'>
@@ -1055,11 +1058,14 @@ export default function AdminWritingGalleryPage() {
             </div>
 
             {/* 이미지 컨테이너 */}
-            <div className='bg-white rounded-b-lg flex-1 flex items-center justify-center p-4 overflow-hidden'>
-              <img
+            <div className='bg-white rounded-b-lg flex-1 flex items-center justify-center p-4 overflow-hidden relative'>
+              <Image
                 src={selectedImage.url}
                 alt={`${selectedImage.character} 쓰기 연습`}
+                width={1200}
+                height={800}
                 className='max-w-full max-h-full object-contain rounded-lg shadow-lg'
+                unoptimized
               />
             </div>
 

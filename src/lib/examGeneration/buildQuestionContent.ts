@@ -1,7 +1,12 @@
 import { convertMeaningToNatural } from "@/lib/convertMeaningToNatural"
 import { generateUniqueOptions as buildUniqueOptions } from "@/lib/optionUtils"
+import type { ExamQuestionDetail } from "@/types/exam"
+import type { Hanzi } from "@/types/index"
 
-export function buildQuestionContent(questionData: any, hanziList: any[]) {
+export function buildQuestionContent(
+  questionData: ExamQuestionDetail,
+  hanziList: Hanzi[]
+) {
   if (!questionData) return { question: "", options: [] as string[] }
 
   const getOptions = (correctAnswer: string, field: string) => {
@@ -27,16 +32,20 @@ export function buildQuestionContent(questionData: any, hanziList: any[]) {
         question: `[${questionData.meaning}] 뜻에 맞는 한자를 선택하세요.`,
         options: getOptions(questionData.character, "character"),
       }
-    case "word_reading":
+    case "word_reading": {
+      const relatedWord = Array.isArray(questionData.relatedWords)
+        ? questionData.relatedWords[0]
+        : questionData.relatedWords
       return {
         question: `[${
-          questionData.relatedWords?.hanzi || questionData.character
+          relatedWord?.hanzi || questionData.character
         }] 한자어를 바르게 읽은 것을 선택하세요.`,
         options: getOptions(
-          questionData.relatedWords?.korean || questionData.sound,
+          relatedWord?.korean || questionData.sound,
           "relatedWords"
         ),
       }
+    }
     case "word_meaning":
       return {
         question: `[${convertMeaningToNatural(
@@ -65,15 +74,20 @@ export function buildQuestionContent(questionData: any, hanziList: any[]) {
       return {
         options: [],
       }
-    case "sentence_reading":
+    case "sentence_reading": {
       // 정답은 textBookWord.korean (단어 음)을 사용해야 함
+      const relatedWord = Array.isArray(questionData.relatedWords)
+        ? questionData.relatedWords[0]
+        : questionData.relatedWords
       const correctAnswerText =
         questionData.textBookWord?.korean ||
-        questionData.relatedWords?.korean ||
-        questionData.sound
+        relatedWord?.korean ||
+        questionData.sound ||
+        ""
       return {
         options: getOptions(correctAnswerText, "textBookWord"),
       }
+    }
     default:
       return { question: "", options: [] as string[] }
   }

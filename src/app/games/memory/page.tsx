@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
@@ -86,7 +86,10 @@ export default function MemoryGame() {
           setShowErrorModal(true)
         }
       } catch (error) {
-        console.error("초기 데이터 로드 실패:", error)
+        console.error(
+          "초기 데이터 로드 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
       }
     }
 
@@ -105,49 +108,80 @@ export default function MemoryGame() {
     return () => window.removeEventListener("resize", checkScreenSize)
   }, [])
 
+  // 급수 변경 핸들러
+  const handleGradeChange = useCallback(
+    async (grade: number) => {
+      if (grade === currentGrade) return // 같은 급수면 불필요한 호출 방지
+
+      setCurrentGrade(grade)
+      setIsLoadingGrade(true)
+
+      try {
+        const gradeData = await ApiClient.getHanziByGrade(grade)
+
+        if (gradeData.length === 0) {
+          setGradeError(
+            `선택한 급수(${
+              grade === 5.5
+                ? "준5급"
+                : grade === 4.5
+                ? "준4급"
+                : grade === 3.5
+                ? "준3급"
+                : `${grade}급`
+            })에 데이터가 없습니다.`
+          )
+          setShowErrorModal(true)
+        } else {
+          setGradeError("")
+          setShowErrorModal(false)
+        }
+      } catch (error) {
+        console.error(
+          "급수 데이터 로드 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
+        setGradeError("데이터 로드 중 오류가 발생했습니다.")
+        setShowErrorModal(true)
+      } finally {
+        setIsLoadingGrade(false)
+      }
+    },
+    [currentGrade]
+  )
+
   // 사용자 정보 로드 후 선호 급수 반영
   useEffect(() => {
     if (user?.preferredGrade && user.preferredGrade !== currentGrade) {
       setCurrentGrade(user.preferredGrade)
       handleGradeChange(user.preferredGrade)
     }
-  }, [user])
+  }, [user, currentGrade, handleGradeChange])
 
-  // 급수 변경 핸들러
-  const handleGradeChange = async (grade: number) => {
-    if (grade === currentGrade) return // 같은 급수면 불필요한 호출 방지
+  // 프리뷰 시간 계산 함수
+  const getPreviewTime = useCallback(() => {
+    const totalPairs = Math.floor((gridSize.cols * gridSize.rows) / 2)
 
-    setCurrentGrade(grade)
-    setIsLoadingGrade(true)
-
-    try {
-      const gradeData = await ApiClient.getHanziByGrade(grade)
-
-      if (gradeData.length === 0) {
-        setGradeError(
-          `선택한 급수(${
-            grade === 5.5
-              ? "준5급"
-              : grade === 4.5
-              ? "준4급"
-              : grade === 3.5
-              ? "준3급"
-              : `${grade}급`
-          })에 데이터가 없습니다.`
-        )
-        setShowErrorModal(true)
-      } else {
-        setGradeError("")
-        setShowErrorModal(false)
-      }
-    } catch (error) {
-      console.error("급수 데이터 로드 실패:", error)
-      setGradeError("데이터 로드 중 오류가 발생했습니다.")
-      setShowErrorModal(true)
-    } finally {
-      setIsLoadingGrade(false)
+    switch (difficulty) {
+      case "easy":
+        // 쉬움: 타일 수에 따라 차등
+        if (totalPairs <= 8) return 10 // 4x4: 10초
+        else if (totalPairs <= 12) return 15 // 4x6, 5x5: 15초
+        else return 20 // 5x6: 20초
+      case "medium":
+        // 중간: 쉬움의 70%
+        if (totalPairs <= 8) return 7
+        else if (totalPairs <= 12) return 10
+        else return 14
+      case "hard":
+        // 어려움: 쉬움의 50%
+        if (totalPairs <= 8) return 5
+        else if (totalPairs <= 12) return 7
+        else return 10
+      default:
+        return 10
     }
-  }
+  }, [gridSize, difficulty])
 
   // 난이도 정보 가져오기 함수
   const getDifficultyInfo = (level: "easy" | "medium" | "hard") => {
@@ -183,81 +217,82 @@ export default function MemoryGame() {
   }
 
   // 난이도 설정 함수
-  const setDifficultySettings = (
-    difficultyLevel: "easy" | "medium" | "hard"
-  ) => {
-    const totalPairs = (gridSize.cols * gridSize.rows) / 2
+  const setDifficultySettings = useCallback(
+    (difficultyLevel: "easy" | "medium" | "hard") => {
+      const totalPairs = (gridSize.cols * gridSize.rows) / 2
 
-    switch (difficultyLevel) {
-      case "easy":
-        setTimeLimit(0) // 무제한
-        setFlipLimit(0) // 무제한
-        setRemainingTime(0) // 무제한
-        setRemainingFlips(0) // 무제한
-        break
-      case "medium":
-        // 타일 수에 따라 시간과 횟수 조정
-        if (totalPairs <= 6) {
-          setTimeLimit(180) // 3x4: 3분
-          setFlipLimit(totalPairs * 3)
-          setRemainingTime(180)
-          setRemainingFlips(totalPairs * 3)
-        } else if (totalPairs <= 8) {
-          setTimeLimit(300) // 4x4: 5분
-          setFlipLimit(totalPairs * 3)
-          setRemainingTime(300)
-          setRemainingFlips(totalPairs * 3)
-        } else if (totalPairs <= 12) {
-          setTimeLimit(420) // 4x6: 7분
-          setFlipLimit(totalPairs * 3)
-          setRemainingTime(420)
-          setRemainingFlips(totalPairs * 3)
-        } else if (totalPairs <= 14) {
-          setTimeLimit(480) // 4x7: 8분
-          setFlipLimit(totalPairs * 3)
-          setRemainingTime(480)
-          setRemainingFlips(totalPairs * 3)
-        } else {
-          setTimeLimit(600) // 5x6: 10분
-          setFlipLimit(totalPairs * 3)
-          setRemainingTime(600)
-          setRemainingFlips(totalPairs * 3)
-        }
-        break
-      case "hard":
-        // 타일 수에 따라 시간과 횟수 조정
-        if (totalPairs <= 6) {
-          setTimeLimit(120) // 3x4: 2분
-          setFlipLimit(totalPairs * 2)
-          setRemainingTime(120)
-          setRemainingFlips(totalPairs * 2)
-        } else if (totalPairs <= 8) {
-          setTimeLimit(180) // 4x4: 3분
-          setFlipLimit(totalPairs * 2)
-          setRemainingTime(180)
-          setRemainingFlips(totalPairs * 2)
-        } else if (totalPairs <= 12) {
-          setTimeLimit(240) // 4x6: 4분
-          setFlipLimit(totalPairs * 2)
-          setRemainingTime(240)
-          setRemainingFlips(totalPairs * 2)
-        } else if (totalPairs <= 14) {
-          setTimeLimit(300) // 4x7: 5분
-          setFlipLimit(totalPairs * 2)
-          setRemainingTime(300)
-          setRemainingFlips(totalPairs * 2)
-        } else {
-          setTimeLimit(360) // 5x6: 6분
-          setFlipLimit(totalPairs * 2)
-          setRemainingTime(360)
-          setRemainingFlips(totalPairs * 2)
-        }
-        break
-    }
-  }
+      switch (difficultyLevel) {
+        case "easy":
+          setTimeLimit(0) // 무제한
+          setFlipLimit(0) // 무제한
+          setRemainingTime(0) // 무제한
+          setRemainingFlips(0) // 무제한
+          break
+        case "medium":
+          // 타일 수에 따라 시간과 횟수 조정
+          if (totalPairs <= 6) {
+            setTimeLimit(180) // 3x4: 3분
+            setFlipLimit(totalPairs * 3)
+            setRemainingTime(180)
+            setRemainingFlips(totalPairs * 3)
+          } else if (totalPairs <= 8) {
+            setTimeLimit(300) // 4x4: 5분
+            setFlipLimit(totalPairs * 3)
+            setRemainingTime(300)
+            setRemainingFlips(totalPairs * 3)
+          } else if (totalPairs <= 12) {
+            setTimeLimit(420) // 4x6: 7분
+            setFlipLimit(totalPairs * 3)
+            setRemainingTime(420)
+            setRemainingFlips(totalPairs * 3)
+          } else if (totalPairs <= 14) {
+            setTimeLimit(480) // 4x7: 8분
+            setFlipLimit(totalPairs * 3)
+            setRemainingTime(480)
+            setRemainingFlips(totalPairs * 3)
+          } else {
+            setTimeLimit(600) // 5x6: 10분
+            setFlipLimit(totalPairs * 3)
+            setRemainingTime(600)
+            setRemainingFlips(totalPairs * 3)
+          }
+          break
+        case "hard":
+          // 타일 수에 따라 시간과 횟수 조정
+          if (totalPairs <= 6) {
+            setTimeLimit(120) // 3x4: 2분
+            setFlipLimit(totalPairs * 2)
+            setRemainingTime(120)
+            setRemainingFlips(totalPairs * 2)
+          } else if (totalPairs <= 8) {
+            setTimeLimit(180) // 4x4: 3분
+            setFlipLimit(totalPairs * 2)
+            setRemainingTime(180)
+            setRemainingFlips(totalPairs * 2)
+          } else if (totalPairs <= 12) {
+            setTimeLimit(240) // 4x6: 4분
+            setFlipLimit(totalPairs * 2)
+            setRemainingTime(240)
+            setRemainingFlips(totalPairs * 2)
+          } else if (totalPairs <= 14) {
+            setTimeLimit(300) // 4x7: 5분
+            setFlipLimit(totalPairs * 2)
+            setRemainingTime(300)
+            setRemainingFlips(totalPairs * 2)
+          } else {
+            setTimeLimit(360) // 5x6: 6분
+            setFlipLimit(totalPairs * 2)
+            setRemainingTime(360)
+            setRemainingFlips(totalPairs * 2)
+          }
+          break
+      }
+    },
+    [gridSize]
+  )
 
   // 게임 초기화 함수 정의
-  const initializeGame = async () => {
+  const initializeGame = useCallback(async () => {
     setIsGeneratingCards(true)
     setGradeError("")
 
@@ -360,12 +395,32 @@ export default function MemoryGame() {
         setIsProcessing(false)
       }, 1000)
     } catch (error) {
-      console.error("게임 초기화 실패:", error)
+      console.error(
+        "게임 초기화 실패:",
+        error instanceof Error ? error.message : String(error)
+      )
       setIsGeneratingCards(false)
       setGradeError("게임 초기화 중 오류가 발생했습니다.")
       setShowErrorModal(true)
     }
-  }
+  }, [
+    hanziList,
+    currentGrade,
+    gridSize,
+    getPreviewTime,
+    setGradeError,
+    setShowErrorModal,
+    setCards,
+    setFlippedCards,
+    setMatchedPairs,
+    setGameStarted,
+    setGameEnded,
+    setShowPreview,
+    setTimeLeft,
+    setTotalTime,
+    setIsGeneratingCards,
+    setIsProcessing,
+  ])
 
   // 게임 초기화
   useEffect(() => {
@@ -378,21 +433,28 @@ export default function MemoryGame() {
     ) {
       initializeGame()
     }
-  }, [currentGrade, gridSize, showGameSettings])
+  }, [
+    currentGrade,
+    gridSize,
+    showGameSettings,
+    gameEnded,
+    hasUpdatedStats,
+    initializeGame,
+  ])
 
   // 타일 크기 변경 시 난이도 설정 재적용
   useEffect(() => {
     if (!showGameSettings) {
       setDifficultySettings(difficulty)
     }
-  }, [gridSize, difficulty, showGameSettings])
+  }, [gridSize, difficulty, showGameSettings, setDifficultySettings])
 
   // 타일 크기나 난이도 변경 시 프리뷰 시간 업데이트
   useEffect(() => {
-    if (showGameSettings) {
+    if (showGameSettings && getPreviewTime) {
       setTimeLeft(getPreviewTime())
     }
-  }, [gridSize, difficulty, showGameSettings])
+  }, [gridSize, difficulty, showGameSettings, getPreviewTime])
 
   // 프리뷰 타이머
   useEffect(() => {
@@ -503,7 +565,10 @@ export default function MemoryGame() {
 
             console.log("✅ 카드 뒤집기 통계 업데이트 완료")
           } catch (error) {
-            console.error("경험치 저장 실패:", error)
+            console.error(
+              "경험치 저장 실패:",
+              error instanceof Error ? error.message : String(error)
+            )
           }
         }
 
@@ -521,6 +586,7 @@ export default function MemoryGame() {
     updateUserExperience,
     difficulty,
     hasUpdatedStats,
+    endSession,
   ])
 
   // 게임 시작 처리
@@ -528,8 +594,11 @@ export default function MemoryGame() {
     setShowGameSettings(false)
     // 게임 시작 시 시간 추적 시작
     if (user) {
-      startSession().catch((error: any) => {
-        console.error("시간 추적 시작 실패:", error)
+      startSession().catch((error) => {
+        console.error(
+          "시간 추적 시작 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
       })
     }
   }
@@ -563,31 +632,6 @@ export default function MemoryGame() {
     setHasUpdatedStats(false) // 통계 업데이트 플래그 리셋
   }
 
-  // 프리뷰 시간 계산 함수
-  const getPreviewTime = () => {
-    const totalPairs = Math.floor((gridSize.cols * gridSize.rows) / 2)
-
-    switch (difficulty) {
-      case "easy":
-        // 쉬움: 타일 수에 따라 차등
-        if (totalPairs <= 8) return 10 // 4x4: 10초
-        else if (totalPairs <= 12) return 15 // 4x6, 5x5: 15초
-        else return 20 // 5x6: 20초
-      case "medium":
-        // 중간: 쉬움의 70%
-        if (totalPairs <= 8) return 7
-        else if (totalPairs <= 12) return 10
-        else return 14
-      case "hard":
-        // 어려움: 쉬움의 50%
-        if (totalPairs <= 8) return 5
-        else if (totalPairs <= 12) return 7
-        else return 10
-      default:
-        return 10
-    }
-  }
-
   // 매칭 성공 시 한자별 통계만 업데이트 (경험치는 게임 완료 시에만)
   const updateMatchedHanziStats = async (matchedCards: Card[]) => {
     if (!user) return
@@ -607,7 +651,10 @@ export default function MemoryGame() {
         }
       }
     } catch (error) {
-      console.error("한자 통계 업데이트 실패:", error)
+      console.error(
+        "한자 통계 업데이트 실패:",
+        error instanceof Error ? error.message : String(error)
+      )
     }
   }
 

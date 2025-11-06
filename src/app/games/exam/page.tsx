@@ -5,12 +5,14 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import DailyLimitModal from "@/components/exam/DailyLimitModal"
-import { Trophy, Clock, Target, Award, ArrowLeft, Settings } from "lucide-react"
+import { Trophy, Clock, Target, ArrowLeft, Settings } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { gradeInfo } from "@/lib/gradeInfo"
 import { getGradePatterns } from "@/lib/gradePatterns"
 import { useSelectedHanzi } from "@/contexts/SelectedHanziContext"
+import type { Hanzi } from "@/types/index"
+import type { RelatedWord } from "@/types/index"
 
 const gradeExtra: Record<number, { description: string; level: string }> = {
   8: { description: "기초 한자 학습", level: "기초" },
@@ -26,7 +28,11 @@ const gradeExtra: Record<number, { description: string; level: string }> = {
 
 export default function ExamPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
-  const { userStatistics, hanziList, isLoading: dataLoading } = useData()
+  const {
+    userStatistics: _userStatistics,
+    hanziList,
+    isLoading: dataLoading,
+  } = useData()
   const [currentGrade, setCurrentGrade] = useState<number | null>(null)
   const { setSelected } = useSelectedHanzi()
   const [isLoading, setIsLoading] = useState(true)
@@ -40,17 +46,26 @@ export default function ExamPage() {
 
     try {
       const patterns = getGradePatterns(currentGrade)
+      interface GradePattern {
+        type: string
+        name: string
+        description: string
+        questionCount: number
+        isTextBook?: boolean
+      }
       const totalQuestions = patterns.reduce(
-        (acc: number, p: any) => acc + p.questionCount,
+        (acc: number, p: GradePattern) => acc + p.questionCount,
         0
       )
       const textBookNeeded = patterns
-        .filter((p: any) => p.isTextBook)
-        .reduce((acc: number, p: any) => acc + p.questionCount, 0)
+        .filter((p: GradePattern) => p.isTextBook)
+        .reduce((acc: number, p: GradePattern) => acc + p.questionCount, 0)
       const normalNeeded = totalQuestions - textBookNeeded
 
       // 현 급수 한자만 사용
-      const gradeHanzi = hanziList.filter((h: any) => h.grade === currentGrade)
+      const gradeHanzi = hanziList.filter(
+        (h: Hanzi) => h.grade === currentGrade
+      )
       // 데이터가 아직 비어있으면 선발 보류
       if (!gradeHanzi || gradeHanzi.length === 0) {
         console.log("선발 대기: 급수 한자 데이터가 아직 비어있음", {
@@ -67,17 +82,19 @@ export default function ExamPage() {
         gradeHanziCount: gradeHanzi.length,
       })
 
-      const isTextBookWord = (rw: any) => {
+      const isTextBookWord = (
+        rw: RelatedWord | RelatedWord[] | undefined
+      ): boolean => {
         if (!rw) return false
-        if (Array.isArray(rw)) return rw.some((w: any) => w?.isTextBook)
+        if (Array.isArray(rw)) return rw.some((w: RelatedWord) => w?.isTextBook)
         return !!rw.isTextBook
       }
 
-      const textBookHanzi = gradeHanzi.filter((h: any) =>
+      const textBookHanzi = gradeHanzi.filter((h: Hanzi) =>
         isTextBookWord(h.relatedWords)
       )
       const normalHanzi = gradeHanzi.filter(
-        (h: any) => !isTextBookWord(h.relatedWords)
+        (h: Hanzi) => !isTextBookWord(h.relatedWords)
       )
       console.log("교과/일반 분리", {
         textBookCount: textBookHanzi.length,
@@ -96,8 +113,8 @@ export default function ExamPage() {
 
       const payload = {
         grade: currentGrade,
-        textBookIds: selectedTextBook.map((h: any) => h.id),
-        normalIds: selectedNormal.map((h: any) => h.id),
+        textBookIds: selectedTextBook.map((h: Hanzi) => h.id),
+        normalIds: selectedNormal.map((h: Hanzi) => h.id),
         counts: { totalQuestions, textBookNeeded, normalNeeded },
       }
 
@@ -133,13 +150,16 @@ export default function ExamPage() {
             console.warn("⚠️ localStorage에 저장되지 않음")
           }
         } catch (error) {
-          console.error("❌ localStorage 확인 실패:", error)
+          console.error(
+            "❌ localStorage 확인 실패:",
+            error instanceof Error ? error.message : String(error)
+          )
         }
       }
-    } catch (e) {
+    } catch {
       // 선발 실패 시 무시(세부 페이지에서 자체 선택)
     }
-  }, [currentGrade, hanziList])
+  }, [currentGrade, hanziList, setSelected])
 
   // 오늘 시험 여부 확인
   useEffect(() => {
@@ -178,7 +198,10 @@ export default function ExamPage() {
           setShowDailyLimitModal(true)
         }
       } catch (error) {
-        console.error("하루 1회 제한 확인 실패:", error)
+        console.error(
+          "하루 1회 제한 확인 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
         // 타임아웃이거나 네트워크 오류인 경우 시험 진행 허용
         if (error instanceof Error && error.name === "AbortError") {
           console.warn("⚠️ 하루 1회 제한 확인 타임아웃, 시험 진행 허용")
@@ -208,7 +231,10 @@ export default function ExamPage() {
           setCurrentGrade(8)
         }
       } catch (error) {
-        console.error("사용자 급수 로드 실패:", error)
+        console.error(
+          "사용자 급수 로드 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
         setCurrentGrade(8)
       } finally {
         setIsLoading(false)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -16,6 +16,19 @@ import {
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 
+interface WrongAnswerData {
+  questionNumber: number
+  questionId: string
+  questionIndex: number
+  userAnswer: string | number
+  correctAnswer: string | number
+  pattern: string
+  character?: string
+  questionText: string
+  options?: string[]
+  userSelectedNumber?: number
+}
+
 interface ExamResult {
   score: number
   passed: boolean
@@ -29,16 +42,7 @@ interface ExamResult {
   newTotalExperience?: number // 새로운 총 경험치
   examId?: string // 시험 ID
   experienceAlreadyApplied?: boolean // 경험치가 이미 반영되었는지
-  wrongAnswers?: Array<{
-    questionNumber: number
-    userAnswer: string
-    userSelectedNumber?: number // 실제 선택한 번호 (word_meaning_select용)
-    correctAnswer: string
-    pattern: string
-    questionText?: string
-    options?: string[]
-    character?: string
-  }> // 틀린 문제들
+  wrongAnswers?: WrongAnswerData[] // 틀린 문제들
 }
 
 export default function ExamResultPage({
@@ -47,7 +51,7 @@ export default function ExamResultPage({
   params: Promise<{ grade: string }>
 }) {
   const { user, loading: authLoading, initialLoading } = useAuth()
-  const { refreshUserStatistics, userStatistics } = useData()
+  const { refreshUserStatistics, userStatistics: _userStatistics } = useData()
   const searchParams = useSearchParams()
 
   const resolvedParams = use(params)
@@ -61,13 +65,7 @@ export default function ExamResultPage({
   const [examResult, setExamResult] = useState<ExamResult | null>(null)
   const [showWrongAnswersModal, setShowWrongAnswersModal] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      loadExamResult()
-    }
-  }, [user, score, passed])
-
-  const loadExamResult = async () => {
+  const loadExamResult = useCallback(async () => {
     try {
       setIsLoading(true)
 
@@ -84,7 +82,7 @@ export default function ExamResultPage({
           console.log("🔍 sessionStorage에서 시험 결과 복원:", storedResult)
         }
       } catch (error) {
-        console.error("sessionStorage 파싱 실패:", error)
+        console.error("sessionStorage 파싱 실패:", error instanceof Error ? error.message : String(error))
       }
 
       // URL 파라미터가 있으면 우선 사용, 없으면 sessionStorage에서 가져오기
@@ -147,7 +145,7 @@ export default function ExamResultPage({
             wrongAnswers = examData.wrongAnswers || []
           }
         } catch (error) {
-          console.error("틀린 문제 정보 로드 실패:", error)
+          console.error("틀린 문제 정보 로드 실패:", error instanceof Error ? error.message : String(error))
         }
       }
 
@@ -175,25 +173,34 @@ export default function ExamResultPage({
       // 사용자 통계 새로고침
       await refreshUserStatistics()
     } catch (error) {
-      console.error("시험 결과 로드 실패:", error)
+      console.error("시험 결과 로드 실패:", error instanceof Error ? error.message : String(error))
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user, grade, examId, score, passed, duration, refreshUserStatistics])
 
-  const getUserAnswerText = (wrong: any) => {
+  useEffect(() => {
+    if (user) {
+      loadExamResult()
+    }
+  }, [user, loadExamResult])
+
+  const getUserAnswerText = (wrong: WrongAnswerData) => {
     if (wrong.pattern === "word_meaning_select") {
       // word_meaning_select는 번호만 표시
-      const userAnswerNum = wrong.userSelectedNumber || 
-        (typeof wrong.userAnswer === "number" ? wrong.userAnswer : parseInt(String(wrong.userAnswer)))
-      
+      const userAnswerNum =
+        wrong.userSelectedNumber ||
+        (typeof wrong.userAnswer === "number"
+          ? wrong.userAnswer
+          : parseInt(String(wrong.userAnswer)))
+
       if (!userAnswerNum || isNaN(userAnswerNum)) {
         return "미답변"
       }
-      
+
       return `${userAnswerNum}번`
     }
-    
+
     if (wrong.pattern === "blank_hanzi") {
       // blank_hanzi는 character로 표시
       // userAnswer가 숫자면 options에서 character 찾기
@@ -203,7 +210,7 @@ export default function ExamResultPage({
       }
       return wrong.userAnswer || wrong.character || "미답변"
     }
-    
+
     if (wrong.pattern === "word_meaning") {
       // word_meaning 패턴은 character로 표시
       // userAnswer가 숫자면 options에서 character 찾기
@@ -213,34 +220,35 @@ export default function ExamResultPage({
       }
       return wrong.userAnswer || wrong.character || "미답변"
     }
-    
+
     return wrong.userAnswer || "미답변"
   }
 
-  const getCorrectAnswerText = (wrong: any) => {
+  const getCorrectAnswerText = (wrong: WrongAnswerData) => {
     if (wrong.pattern === "word_meaning_select") {
       // word_meaning_select는 번호만 표시
-      const correctAnswerNum = typeof wrong.correctAnswer === "number" 
-        ? wrong.correctAnswer 
-        : parseInt(String(wrong.correctAnswer))
-      
+      const correctAnswerNum =
+        typeof wrong.correctAnswer === "number"
+          ? wrong.correctAnswer
+          : parseInt(String(wrong.correctAnswer))
+
       if (!correctAnswerNum || isNaN(correctAnswerNum)) {
         return "1번"
       }
-      
+
       return `${correctAnswerNum}번`
     }
-    
+
     if (wrong.pattern === "blank_hanzi") {
       // blank_hanzi는 character로 표시
       return wrong.character || wrong.correctAnswer || ""
     }
-    
+
     if (wrong.pattern === "word_meaning") {
       // word_meaning 패턴은 character로 표시
       return wrong.character || wrong.correctAnswer || ""
     }
-    
+
     return wrong.correctAnswer || ""
   }
 
@@ -441,14 +449,16 @@ export default function ExamResultPage({
                     틀린 문제 ({examResult.wrongAnswers.length}개)
                   </h3>
                 </div>
-                {examId && examResult.wrongAnswers && examResult.wrongAnswers.length > 0 && (
-                  <button
-                    onClick={() => setShowWrongAnswersModal(true)}
-                    className='inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium'
-                  >
-                    상세 보기
-                  </button>
-                )}
+                {examId &&
+                  examResult.wrongAnswers &&
+                  examResult.wrongAnswers.length > 0 && (
+                    <button
+                      onClick={() => setShowWrongAnswersModal(true)}
+                      className='inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium'
+                    >
+                      상세 보기
+                    </button>
+                  )}
               </div>
               <div className='space-y-3'>
                 {examResult.wrongAnswers.slice(0, 3).map((wrong, index) => (
@@ -560,14 +570,14 @@ export default function ExamResultPage({
           onClose={() => setShowWrongAnswersModal(false)}
           wrongAnswers={examResult.wrongAnswers.map((wrong) => ({
             questionNumber: wrong.questionNumber,
-            questionId: `q_${wrong.questionNumber - 1}`,
-            questionIndex: wrong.questionNumber - 1,
-            userAnswer: wrong.userAnswer,
+            questionId: wrong.questionId || `q_${wrong.questionNumber - 1}`,
+            questionIndex: wrong.questionIndex ?? wrong.questionNumber - 1,
+            userAnswer: String(wrong.userAnswer),
             userSelectedNumber: wrong.userSelectedNumber,
-            correctAnswer: wrong.correctAnswer,
+            correctAnswer: String(wrong.correctAnswer),
             pattern: wrong.pattern,
             character: wrong.character,
-            questionText: wrong.questionText,
+            questionText: wrong.questionText || "",
             options: wrong.options,
           }))}
           grade={grade}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
-import { useData } from "@/contexts/DataContext"
+// useData는 현재 사용되지 않음 (향후 사용 예정)
 import LoadingSpinner from "@/components/LoadingSpinner"
 import {
   ArrowLeft,
@@ -22,7 +22,7 @@ import {
 export default function GameStatisticsPage() {
   const {
     user,
-    loading: authLoading,
+    loading: _authLoading,
     initialLoading,
     isAuthenticated,
   } = useAuth()

@@ -1,8 +1,11 @@
+import type { Hanzi } from "@/types/index"
+import type { RelatedWord } from "@/types/index"
+
 export const generateUniqueOptions = (
   correctAnswer: string,
-  pool: any[],
+  pool: Hanzi[],
   field: string
-) => {
+): string[] => {
   const options = [correctAnswer]
   const usedValues = new Set([correctAnswer])
   let attempts = 0
@@ -11,33 +14,47 @@ export const generateUniqueOptions = (
   // 정답의 글자 수 계산 (한글 기준)
   const correctAnswerLength = correctAnswer ? correctAnswer.length : 0
 
-  const pickValue = (h: any) => {
+  const pickValue = (h: Hanzi): string => {
     if (field === "sound") return h.sound
     if (field === "character") return h.character
     if (field === "relatedWords") {
       if (Array.isArray(h.relatedWords)) {
         const rw =
           h.relatedWords[Math.floor(Math.random() * h.relatedWords.length)]
-        return rw?.korean
+        return rw?.korean || ""
       }
-      return h.relatedWords?.korean
+      if (
+        h.relatedWords &&
+        !Array.isArray(h.relatedWords) &&
+        typeof h.relatedWords === "object" &&
+        "korean" in h.relatedWords
+      ) {
+        return (h.relatedWords as RelatedWord).korean || ""
+      }
+      return ""
     }
     if (field === "textBookWord") {
-      // textBookWord가 있는 경우 그 korean을 사용
-      if (h.textBookWord?.korean) return h.textBookWord.korean
-      // textBookWord가 없으면 relatedWords에서 isTextBook === true인 것 찾기
+      // relatedWords에서 isTextBook === true인 것 찾기
       if (Array.isArray(h.relatedWords)) {
-        const textBookWord = h.relatedWords.find((rw: any) => rw?.isTextBook)
+        const textBookWord = h.relatedWords.find(
+          (rw: RelatedWord) => rw?.isTextBook
+        )
         if (textBookWord?.korean) return textBookWord.korean
       }
-      if (h.relatedWords?.isTextBook) {
-        return h.relatedWords.korean
-      }
+      // Hanzi 타입의 relatedWords는 항상 배열이므로 단일 객체 체크는 불필요
       // 없으면 첫 번째 relatedWords의 korean 사용
       if (Array.isArray(h.relatedWords) && h.relatedWords.length > 0) {
-        return h.relatedWords[0]?.korean
+        return h.relatedWords[0]?.korean || ""
       }
-      return h.relatedWords?.korean
+      if (
+        h.relatedWords &&
+        !Array.isArray(h.relatedWords) &&
+        typeof h.relatedWords === "object" &&
+        "korean" in h.relatedWords
+      ) {
+        return (h.relatedWords as RelatedWord).korean || ""
+      }
+      return ""
     }
     return ""
   }
@@ -125,11 +142,12 @@ export const generateUniqueOptions = (
 }
 
 import { patterns } from "@/lib/patterns"
+import type { ExamQuestionDetail } from "@/types/exam"
 
 export const getSelectedOptionText = (
-  question: any,
-  userAnswer: any,
-  finalQuestionsArray: any[],
+  question: ExamQuestionDetail,
+  userAnswer: string | number | undefined | null,
+  finalQuestionsArray: ExamQuestionDetail[],
   pattern4Options: string[]
 ): string | null => {
   if (userAnswer === undefined || userAnswer === null || userAnswer === "") {
@@ -142,7 +160,9 @@ export const getSelectedOptionText = (
   // blank_hanzi 패턴: 숫자면 options에서 character 찾기
   if (question.type === "blank_hanzi") {
     if (typeof userAnswer === "number") {
-      const q = finalQuestionsArray.find((q: any) => q.id === question.id)
+      const q = finalQuestionsArray.find(
+        (q: ExamQuestionDetail) => q.id === question.id
+      )
       const idx = userAnswer - 1
       return q?.options?.[idx] ?? null
     }
@@ -171,7 +191,9 @@ export const getSelectedOptionText = (
   }
 
   if (userInputType === "option") {
-    const q = finalQuestionsArray.find((q: any) => q.id === question.id)
+    const q = finalQuestionsArray.find(
+      (q: ExamQuestionDetail) => q.id === question.id
+    )
     const idx = parseInt(String(userAnswer)) - 1
     return q?.options?.[idx] ?? null
   }
@@ -190,12 +212,16 @@ export const normalizeHanziWrite = (input: string): string => {
 }
 
 export const isCorrectAnswer = (
-  question: any,
-  userAnswer: any,
-  correctAnswer: any,
+  question: ExamQuestionDetail,
+  userAnswer: string | number | undefined | null,
+  correctAnswer:
+    | string
+    | number
+    | { correctAnswer?: string | number }
+    | undefined,
   selectedOptionText: string | null,
-  finalQuestionsArray?: any[]
-) => {
+  finalQuestionsArray?: ExamQuestionDetail[]
+): boolean => {
   const pattern = patterns[question.type as keyof typeof patterns]
   const userInputType = pattern?.userInputType
 
@@ -206,16 +232,34 @@ export const isCorrectAnswer = (
     const correctAnswerNum =
       typeof correctAnswer === "number"
         ? correctAnswer
-        : typeof correctAnswer?.correctAnswer === "number"
+        : typeof correctAnswer === "object" &&
+          correctAnswer !== null &&
+          "correctAnswer" in correctAnswer &&
+          typeof correctAnswer.correctAnswer === "number"
         ? correctAnswer.correctAnswer
-        : parseInt(String(correctAnswer?.correctAnswer || correctAnswer || "0"))
+        : parseInt(
+            String(
+              typeof correctAnswer === "object" &&
+                correctAnswer !== null &&
+                "correctAnswer" in correctAnswer
+                ? correctAnswer.correctAnswer
+                : correctAnswer || "0"
+            )
+          )
     return userAnswerNum === correctAnswerNum
   }
 
   if (question.type === "sound") {
     // sound 패턴: userAnswer는 옵션 번호, correctAnswer는 음(텍스트)
     // selectedOptionText가 정답 음과 일치하는지 비교
-    const correctSound = correctAnswer?.correctAnswer || correctAnswer || ""
+    const correctSound =
+      typeof correctAnswer === "object" &&
+      correctAnswer !== null &&
+      "correctAnswer" in correctAnswer
+        ? String(correctAnswer.correctAnswer || "")
+        : typeof correctAnswer === "string"
+        ? correctAnswer
+        : ""
     const result = selectedOptionText?.trim() === correctSound.trim()
 
     // 디버깅: sound 패턴 비교 실패 시 로그
@@ -226,25 +270,44 @@ export const isCorrectAnswer = (
         userAnswer,
         selectedOptionText,
         correctSound,
-        options: finalQuestionsArray?.find((q: any) => q.id === question.id)
-          ?.options,
+        options: finalQuestionsArray?.find(
+          (q: ExamQuestionDetail) => q.id === question.id
+        )?.options,
       })
     }
 
     return result
   }
 
+  // correctAnswer에서 값을 추출하는 헬퍼 함수
+  const getCorrectAnswerValue = (): string => {
+    if (
+      typeof correctAnswer === "object" &&
+      correctAnswer !== null &&
+      "correctAnswer" in correctAnswer
+    ) {
+      return String(correctAnswer.correctAnswer || "")
+    }
+    if (typeof correctAnswer === "string") {
+      return correctAnswer
+    }
+    if (typeof correctAnswer === "number") {
+      return String(correctAnswer)
+    }
+    return ""
+  }
+
   if (question.type === "meaning") {
     // meaning 패턴: userAnswer는 옵션 번호, correctAnswer는 character
     // selectedOptionText가 정답 character와 일치하는지 비교
-    const correctChar = correctAnswer?.correctAnswer || correctAnswer || ""
+    const correctChar = getCorrectAnswerValue()
     return selectedOptionText?.trim() === correctChar.trim()
   }
 
   if (question.type === "word_reading") {
     // word_reading 패턴: userAnswer는 옵션 번호, correctAnswer는 korean_word
     // selectedOptionText가 정답 korean_word와 일치하는지 비교
-    const correctWord = correctAnswer?.correctAnswer || correctAnswer || ""
+    const correctWord = getCorrectAnswerValue()
     return selectedOptionText?.trim() === correctWord.trim()
   }
 
@@ -253,8 +316,7 @@ export const isCorrectAnswer = (
     // userAnswer가 숫자면 selectedOptionText에서 character를 가져옴
     const userCharacter =
       selectedOptionText || (typeof userAnswer === "string" ? userAnswer : null)
-    const correctCharacter =
-      correctAnswer?.correctAnswer || correctAnswer || question.character
+    const correctCharacter = getCorrectAnswerValue() || question.character
     return userCharacter === correctCharacter
   }
 
@@ -263,34 +325,25 @@ export const isCorrectAnswer = (
     // userAnswer가 숫자면 selectedOptionText에서 character를 가져옴
     const userCharacter =
       selectedOptionText || (typeof userAnswer === "string" ? userAnswer : null)
-    const correctCharacter =
-      correctAnswer?.correctAnswer || correctAnswer || question.character
+    const correctCharacter = getCorrectAnswerValue() || question.character
     return userCharacter === correctCharacter
   }
 
   if (question.type === "hanzi_write") {
     // 훈과 음을 각각 trim하고 한 칸 공백으로 합쳐서 비교
     const normalizedUser = normalizeHanziWrite(userAnswer as string)
-    const normalizedCorrect = normalizeHanziWrite(
-      correctAnswer?.correctAnswer || correctAnswer || ""
-    )
+    const normalizedCorrect = normalizeHanziWrite(getCorrectAnswerValue())
     return normalizedUser === normalizedCorrect
   }
 
   if (question.type === "word_reading_write") {
     // 양쪽 공백만 제거
-    return (
-      (userAnswer as string)?.trim() ===
-      (correctAnswer?.correctAnswer || correctAnswer || "")?.trim()
-    )
+    return (userAnswer as string)?.trim() === getCorrectAnswerValue().trim()
   }
 
   if (userInputType === "korean_word") {
-    return (
-      selectedOptionText?.trim() ===
-      (correctAnswer?.correctAnswer || correctAnswer || "")?.trim()
-    )
+    return selectedOptionText?.trim() === getCorrectAnswerValue().trim()
   }
 
-  return selectedOptionText === (correctAnswer?.correctAnswer || correctAnswer)
+  return selectedOptionText === getCorrectAnswerValue()
 }

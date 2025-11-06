@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server"
 import { collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
+interface WritingSubmission {
+  id: string
+  userId: string
+  hanziId: string
+  character: string
+  imageUrl: string
+  fileName: string
+  grade: number
+  submissionDate: string
+  status: "pending" | "approved" | "rejected"
+  adminNotes: string
+  experienceAwarded: number
+  createdAt: string
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -27,28 +42,28 @@ export async function GET(request: NextRequest) {
     console.log("🔍 Firestore 쿼리 실행 중...")
     const querySnapshot = await getDocs(q)
 
-    let submissions = querySnapshot.docs.map((doc) => {
+    let submissions: WritingSubmission[] = querySnapshot.docs.map((doc) => {
       const data = doc.data()
       return {
         id: doc.id,
         ...data,
-      }
+      } as WritingSubmission
     })
 
     // 클라이언트 사이드에서 필터링 (임시 해결책)
     if (grade && grade !== "all") {
       submissions = submissions.filter(
-        (sub: any) => sub.grade === parseInt(grade)
+        (sub: WritingSubmission) => sub.grade === parseInt(grade)
       )
     }
     if (date) {
       submissions = submissions.filter(
-        (sub: any) => sub.submissionDate === date
+        (sub: WritingSubmission) => sub.submissionDate === date
       )
     }
 
     // 클라이언트 사이드에서 정렬
-    submissions = submissions.sort((a: any, b: any) => {
+    submissions = submissions.sort((a: WritingSubmission, b: WritingSubmission) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
 

@@ -7,12 +7,11 @@ import {
   BookOpen,
   PenTool,
   Trophy,
-  User,
+  User as UserIcon,
   LogIn,
   Gamepad2,
   Eye,
   TrendingUp,
-  Award,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -22,8 +21,9 @@ import {
   calculateBonusExperience,
 } from "@/lib/experienceSystem"
 import BonusExperienceModal from "@/components/BonusExperienceModal"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ApiClient } from "@/lib/apiClient"
+import type { User, Hanzi } from "@/types/index"
 
 export default function Home() {
   const { user, initialLoading, signIn } = useAuth()
@@ -47,7 +47,7 @@ export default function Home() {
 
     // hanziList 전체 배열 출력
     console.log("📦 메인페이지 - hanziList 전체 배열:", hanziList)
-  }, [hanziList.length, dataLoading, user?.preferredGrade])
+  }, [hanziList, dataLoading, user?.preferredGrade])
 
   // IndexedDB 새로운 데이터베이스 테스트
   useEffect(() => {
@@ -353,7 +353,7 @@ export default function Home() {
                       lastUpdated: storedData.lastUpdated,
                       sampleCharacters: storedData.data
                         .slice(0, 3)
-                        .map((h: any) => ({
+                        .map((h: Hanzi) => ({
                           character: h.character,
                           meaning: h.meaning,
                           sound: h.sound,
@@ -367,7 +367,7 @@ export default function Home() {
                       charactersCount: storedData.data.length,
                       sampleCharacters: storedData.data
                         .slice(0, 3)
-                        .map((h: any) => ({
+                        .map((h: Hanzi) => ({
                           character: h.character,
                           meaning: h.meaning,
                           sound: h.sound,
@@ -383,7 +383,7 @@ export default function Home() {
                       lastUpdated: storedData.lastUpdated,
                       sampleCharacters: storedData.data
                         .slice(0, 3)
-                        .map((h: any) => ({
+                        .map((h: Hanzi) => ({
                           character: h.character,
                           meaning: h.meaning,
                           sound: h.sound,
@@ -736,7 +736,7 @@ export default function Home() {
     if (user) {
       checkAndUpdateIndexedDB()
     }
-  }, [user])
+  }, [user, refreshHanziData])
   const [showGuideModal, setShowGuideModal] = useState(false)
   const [todayExperience, setTodayExperience] = useState<number>(0)
   const [todayGoal, setTodayGoal] = useState<number>(100)
@@ -785,11 +785,11 @@ export default function Home() {
   const expToNextLevel = calculateExperienceToNextLevel(currentExperience)
 
   // 사용자 정보 새로고침 함수
-  const refreshUserInfo = async () => {
+  const refreshUserInfo = useCallback(async () => {
     if (!user) return
 
     try {
-      const userDoc = (await ApiClient.getDocument("users", user.id)) as any
+      const userDoc = await ApiClient.getDocument<User>("users", user.id)
       if (userDoc) {
         setUserInfo({
           level: userDoc.level || 1,
@@ -803,7 +803,7 @@ export default function Home() {
     } catch (error) {
       console.error("사용자 정보 새로고침 실패:", error)
     }
-  }
+  }, [user])
 
   // 페이지 포커스 시 사용자 정보 새로고침
   useEffect(() => {
@@ -815,14 +815,14 @@ export default function Home() {
 
     window.addEventListener("focus", handleFocus)
     return () => window.removeEventListener("focus", handleFocus)
-  }, [user])
+  }, [user, refreshUserInfo])
 
   // 컴포넌트 마운트 시 사용자 정보 새로고침
   useEffect(() => {
     if (user) {
       refreshUserInfo()
     }
-  }, [user])
+  }, [user, refreshUserInfo])
 
   // 페이지 가시성 변경 시 사용자 정보 새로고침 (다른 탭에서 돌아올 때)
   useEffect(() => {
@@ -835,7 +835,7 @@ export default function Home() {
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [user])
+  }, [user, refreshUserInfo])
 
   // 오늘 경험치 로드
   useEffect(() => {
@@ -943,7 +943,7 @@ export default function Home() {
                     href='/profile'
                     className='flex items-center space-x-2 px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors'
                   >
-                    <User className='h-4 w-4 sm:h-5 sm:w-5' />
+                    <UserIcon className='h-4 w-4 sm:h-5 sm:w-5' />
                     <span>마이페이지</span>
                   </Link>
                 ) : (
@@ -1043,7 +1043,7 @@ export default function Home() {
                   href='/profile'
                   className='flex items-center space-x-2 px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors'
                 >
-                  <User className='h-4 w-4 sm:h-5 sm:w-5' />
+                  <UserIcon className='h-4 w-4 sm:h-5 sm:w-5' />
                   <span>마이페이지</span>
                 </Link>
               ) : (

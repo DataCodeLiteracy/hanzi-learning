@@ -37,7 +37,7 @@ import { processAIQuestions as processAIQuestionsService } from "@/lib/examGener
 import { generateCorrectAnswers as buildCorrectAnswers } from "@/lib/examGeneration/generateCorrectAnswers"
 import { generateQuestionsByPattern as generateByPattern } from "@/lib/examGeneration/generateQuestionsByPattern"
 import { selectHanziForPatterns } from "@/lib/examGeneration/selectHanzi"
-import { getSelectedOptionText, isCorrectAnswer } from "@/lib/optionUtils"
+// getSelectedOptionText, isCorrectAnswer는 현재 사용되지 않음 (향후 사용 예정)
 import {
   CorrectAnswersArraySchema,
   FinalQuestionsArraySchema,
@@ -47,6 +47,7 @@ import type {
   ExamQuestionDetail,
   ExamSession,
 } from "@/types/exam"
+import type { Hanzi } from "@/types/index"
 
 export default function ExamGradePage({
   params,
@@ -55,7 +56,10 @@ export default function ExamGradePage({
 }) {
   // 브라우저 전역 객체에도 표시
   if (typeof window !== "undefined") {
-    const win = window as any
+    const win = window as Window & {
+      __EXAM_PAGE_LOADED__?: boolean
+      __EXAM_PAGE_LOADED_TIME__?: number
+    }
     win.__EXAM_PAGE_LOADED__ = true
     win.__EXAM_PAGE_LOADED_TIME__ = Date.now()
   }
@@ -69,8 +73,7 @@ export default function ExamGradePage({
   const grade = parseInt(resolvedParams.grade)
   const currentGradeInfo = gradeInfo[grade]
 
-  // Context 확인 (한 번만 로그)
-  const ctx = getSelected(grade)
+  // Context 확인 (한 번만 로그) - line 254에서 다시 선언됨
 
   // 컴포넌트 렌더링 및 마운트 처리
   useEffect(() => {
@@ -82,7 +85,11 @@ export default function ExamGradePage({
   }, [grade, getSelected])
 
   // 시간 추적 훅
-  const { startSession, endSession, currentDuration } = useTimeTracking({
+  const {
+    startSession,
+    endSession,
+    currentDuration: _currentDuration,
+  } = useTimeTracking({
     userId: user?.id || "",
     type: "game",
     activity: "exam",
@@ -99,7 +106,7 @@ export default function ExamGradePage({
     answers,
     setAnswers,
     handleAnswer,
-    handleNextPattern,
+    handleNextPattern: _handleNextPattern,
     handlePreviousPattern,
   } = useExamEngine({
     totalPatterns: getGradePatterns(grade).length,
@@ -112,8 +119,8 @@ export default function ExamGradePage({
   const [error, setError] = useState<string | null>(null)
   const {
     isSubmitting,
-    setIsSubmitting,
-    computeScore,
+    setIsSubmitting: _setIsSubmitting,
+    computeScore: _computeScore,
     submitWithState,
     submitExam,
   } = useExamActions()
@@ -123,7 +130,8 @@ export default function ExamGradePage({
   const [examStartTime, setExamStartTime] = useState<Date | null>(null)
   const isLoadingRef = useRef(false)
 
-  // 패턴 4 관련 상태
+  // 패턴 4 관련 상태 (pattern4Options는 현재 읽히지 않지만 setPattern4Options는 사용됨)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [pattern4Options, setPattern4Options] = useState<string[]>([])
   const [currentPattern4Options, setCurrentPattern4Options] = useState<
     string[]
@@ -153,13 +161,14 @@ export default function ExamGradePage({
   const questionContent = useMemo(
     () =>
       currentQuestionData
-        ? buildQuestionContent(currentQuestionData as any, hanziList)
+        ? buildQuestionContent(currentQuestionData, hanziList)
         : { question: "", options: [] },
     [currentQuestionData, hanziList]
   )
 
   // 1단계: 한자 분류 및 선택 (모듈화)
-  const classifyAndSelectHanzi = useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _classifyAndSelectHanzi = useCallback(() => {
     const res = selectHanziForPatterns(hanziList, gradePatterns)
 
     return {
@@ -171,7 +180,7 @@ export default function ExamGradePage({
 
   // 2단계: 패턴별 문제 생성 (모듈 사용)
   const generateQuestionsByPattern = useCallback(
-    (selectedTextBookHanzi: any[], selectedNormalHanzi: any[]) => {
+    (selectedTextBookHanzi: Hanzi[], selectedNormalHanzi: Hanzi[]) => {
       const structuredQuestions = generateByPattern(
         gradePatterns,
         selectedTextBookHanzi,
@@ -187,14 +196,17 @@ export default function ExamGradePage({
   // findTextBookWord는 모듈 사용
 
   // 4단계: 정답 배열 생성 (문제 순서대로)
-  const generateCorrectAnswers = useCallback((structuredQuestions: any[]) => {
-    const answers = buildCorrectAnswers(structuredQuestions)
-    return answers
-  }, [])
+  const generateCorrectAnswers = useCallback(
+    (structuredQuestions: ExamQuestionDetail[]) => {
+      const answers = buildCorrectAnswers(structuredQuestions)
+      return answers
+    },
+    []
+  )
 
   // 5단계: AI 처리
   const processAIQuestions = useCallback(
-    async (structuredQuestions: any[]) => {
+    async (structuredQuestions: ExamQuestionDetail[]) => {
       const result = await processAIQuestionsService(
         structuredQuestions,
         (p, m) => {
@@ -227,7 +239,7 @@ export default function ExamGradePage({
   // 메인 함수: 모든 단계를 통합
   const generateSimpleExamQuestions = useCallback(async () => {
     // 현재 grade에 맞는 한자만 필터링
-    let gradeHanziList = hanziList.filter((h: any) => h.grade === grade)
+    let gradeHanziList = hanziList.filter((h: Hanzi) => h.grade === grade)
 
     // grade에 맞는 한자가 없으면 API로 로드
     if (gradeHanziList.length === 0) {
@@ -237,15 +249,18 @@ export default function ExamGradePage({
         const gradeHanziData = await ApiClient.getHanziByGrade(grade)
         gradeHanziList = gradeHanziData
       } catch (error) {
-        console.error("❌ API로 grade별 한자 로드 실패:", error)
+        console.error(
+          "❌ API로 grade별 한자 로드 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
         throw error
       }
     }
 
     // 1단계: 한자 분류 및 선택 (사전 선발이 있으면 우선 사용)
     setLoadingProgress(10)
-    let selectedTextBookHanzi: any[] = []
-    let selectedNormalHanzi: any[] = []
+    let selectedTextBookHanzi: Hanzi[] = []
+    let selectedNormalHanzi: Hanzi[] = []
 
     try {
       if (typeof window !== "undefined") {
@@ -254,27 +269,40 @@ export default function ExamGradePage({
 
         if (ctx) {
           // grade에 맞는 한자만 사용하여 ID 매칭
-          const idToHanzi = new Map(gradeHanziList.map((h: any) => [h.id, h]))
+          const idToHanzi = new Map(gradeHanziList.map((h: Hanzi) => [h.id, h]))
 
           // textBookIds 매칭
-          const textBookMatches = (ctx.textBookIds || []).map((id: string) => {
-            const hanzi = idToHanzi.get(id)
-            return { id, found: !!hanzi, character: hanzi?.character }
-          })
-          const textBookMatched = textBookMatches.filter((m: any) => m.found)
-          selectedTextBookHanzi = textBookMatched.map((m: any) =>
-            idToHanzi.get(m.id)
+          interface MatchResult {
+            id: string
+            found: boolean
+            character?: string
+          }
+          const textBookMatches = (ctx.textBookIds || []).map(
+            (id: string): MatchResult => {
+              const hanzi = idToHanzi.get(id)
+              return { id, found: !!hanzi, character: hanzi?.character }
+            }
           )
+          const textBookMatched = textBookMatches.filter(
+            (m: MatchResult) => m.found
+          )
+          selectedTextBookHanzi = textBookMatched
+            .map((m: MatchResult) => idToHanzi.get(m.id))
+            .filter((h): h is Hanzi => h !== undefined)
 
           // normalIds 매칭
-          const normalMatches = (ctx.normalIds || []).map((id: string) => {
-            const hanzi = idToHanzi.get(id)
-            return { id, found: !!hanzi, character: hanzi?.character }
-          })
-          const normalMatched = normalMatches.filter((m: any) => m.found)
-          selectedNormalHanzi = normalMatched.map((m: any) =>
-            idToHanzi.get(m.id)
+          const normalMatches = (ctx.normalIds || []).map(
+            (id: string): MatchResult => {
+              const hanzi = idToHanzi.get(id)
+              return { id, found: !!hanzi, character: hanzi?.character }
+            }
           )
+          const normalMatched = normalMatches.filter(
+            (m: MatchResult) => m.found
+          )
+          selectedNormalHanzi = normalMatched
+            .map((m: MatchResult) => idToHanzi.get(m.id))
+            .filter((h): h is Hanzi => h !== undefined)
         }
       }
     } catch (e) {
@@ -304,7 +332,7 @@ export default function ExamGradePage({
     // 진행률은 processAIQuestions 내부에서 관리하므로 여기서는 설정하지 않음
     const aiQuestionsCount = structuredQuestions.filter((q) => q.aiText).length
 
-    let finalQuestions: any[] = []
+    let finalQuestions: ExamQuestionDetail[] = []
 
     // AI 처리 대상이 없으면 바로 통과
     if (aiQuestionsCount === 0) {
@@ -321,7 +349,7 @@ export default function ExamGradePage({
             throw error
           })
 
-        const timeoutPromise = new Promise<any>((_, reject) =>
+        const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => {
             reject(new Error("AI 처리 타임아웃 (40초 초과)"))
           }, 40000)
@@ -336,12 +364,13 @@ export default function ExamGradePage({
 
           // processAIQuestions 반환 직후 확인
           const wmSelectAfterAI = finalQuestions.filter(
-            (q: any) => q.type === "word_meaning_select"
+            (q): q is ExamQuestionDetail & { type: "word_meaning_select" } =>
+              q.type === "word_meaning_select"
           )
           console.log(
             "🔍 processAIQuestions 반환 직후 finalQuestions 확인:",
             wmSelectAfterAI.length > 0
-              ? wmSelectAfterAI.map((q: any) => ({
+              ? wmSelectAfterAI.map((q) => ({
                   id: q.id,
                   character: q.character,
                   correctAnswerIndex: q.correctAnswerIndex,
@@ -356,18 +385,23 @@ export default function ExamGradePage({
         }
       } catch (error) {
         // AI 처리 실패 시 원본 문제 배열 사용
+        console.error(
+          "AI 처리 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
         finalQuestions = structuredQuestions
       }
     }
 
     // Zod 검증 전 word_meaning_select 패턴 확인
     const wmSelectBeforeZod = finalQuestions.filter(
-      (q: any) => q.type === "word_meaning_select"
+      (q): q is ExamQuestionDetail & { type: "word_meaning_select" } =>
+        q.type === "word_meaning_select"
     )
     console.log(
       "🔍 Zod 검증 전 word_meaning_select 문제 (finalQuestions):",
       wmSelectBeforeZod.length > 0
-        ? wmSelectBeforeZod.map((q: any) => ({
+        ? wmSelectBeforeZod.map((q) => ({
             id: q.id,
             character: q.character,
             correctAnswerIndex: q.correctAnswerIndex,
@@ -388,12 +422,13 @@ export default function ExamGradePage({
 
     // AI 결과 검증 로그
     const wmSelect = finalQuestions.filter(
-      (q: any) => q.type === "word_meaning_select"
+      (q): q is ExamQuestionDetail & { type: "word_meaning_select" } =>
+        q.type === "word_meaning_select"
     )
     if (wmSelect.length > 0) {
       console.log(
         "🔍 AI 처리 후 word_meaning_select 문제 (finalQuestions - 최종):",
-        wmSelect.map((q: any) => ({
+        wmSelect.map((q) => ({
           id: q.id,
           character: q.character,
           correctAnswerIndex: q.correctAnswerIndex,
@@ -403,9 +438,10 @@ export default function ExamGradePage({
         }))
       )
     }
-    const blankHanzi = finalQuestions.filter(
-      (q: any) => q.type === "blank_hanzi"
-    )
+    // blankHanzi는 현재 사용되지 않음 (향후 사용 예정)
+    // const blankHanzi = finalQuestions.filter(
+    //   (q): q is ExamQuestionDetail & { type: "blank_hanzi" } => q.type === "blank_hanzi"
+    // )
     // 진행률은 processAIQuestions에서 이미 90%로 설정되었으므로 여기서는 설정하지 않음
 
     // 4단계: 정답 배열 생성 (문제 순서대로, AI 처리 이후에 correctAnswerIndex 사용 가능)
@@ -414,12 +450,13 @@ export default function ExamGradePage({
 
     // generateCorrectAnswers 호출 직전 확인
     const wmSelectBeforeGenerate = finalQuestions.filter(
-      (q: any) => q.type === "word_meaning_select"
+      (q): q is ExamQuestionDetail & { type: "word_meaning_select" } =>
+        q.type === "word_meaning_select"
     )
     console.log(
       "🔍 generateCorrectAnswers 호출 직전 word_meaning_select 문제:",
       wmSelectBeforeGenerate.length > 0
-        ? wmSelectBeforeGenerate.map((q: any) => ({
+        ? wmSelectBeforeGenerate.map((q) => ({
             id: q.id,
             character: q.character,
             correctAnswerIndex: q.correctAnswerIndex,
@@ -429,14 +466,17 @@ export default function ExamGradePage({
         : "word_meaning_select 문제 없음"
     )
 
-    let correctAnswers: any[] = []
+    let correctAnswers: CorrectAnswerItem[] = []
     try {
       // generateCorrectAnswers에 전달하기 전 최종 확인
       console.log(
         "🔍 generateCorrectAnswers 호출 직전 finalQuestions 전체 확인:",
         finalQuestions
-          .filter((q: any) => q.type === "word_meaning_select")
-          .map((q: any) => ({
+          .filter(
+            (q): q is ExamQuestionDetail & { type: "word_meaning_select" } =>
+              q.type === "word_meaning_select"
+          )
+          .map((q) => ({
             id: q.id,
             character: q.character,
             correctAnswerIndex: q.correctAnswerIndex,
@@ -505,7 +545,7 @@ export default function ExamGradePage({
       const allHanziCharacters = [
         ...selectedTextBookHanzi,
         ...selectedNormalHanzi,
-      ].map((h: any) => h.character)
+      ].map((h: Hanzi) => h.character)
       const wrongAnswers = allHanziCharacters
         .filter((char: string) => !uniqueAnswers.includes(char))
         .sort(() => Math.random() - 0.5)
@@ -521,12 +561,13 @@ export default function ExamGradePage({
     setLoadingProgress(100)
     return finalQuestions
   }, [
-    classifyAndSelectHanzi,
     generateQuestionsByPattern,
     generateCorrectAnswers,
     processAIQuestions,
     gradePatterns,
     hanziList,
+    getSelected,
+    grade,
   ])
 
   // buildUniqueOptions 직접 사용 (로컬 래퍼 제거)
@@ -603,7 +644,10 @@ export default function ExamGradePage({
 
           console.log("✅ 하루 1회 제한 확인 완료, 시험 진행 가능")
         } catch (error) {
-          console.error("하루 1회 제한 확인 실패:", error)
+          console.error(
+            "하루 1회 제한 확인 실패:",
+            error instanceof Error ? error.message : String(error)
+          )
 
           // 타임아웃이거나 네트워크 오류인 경우 시험 진행 허용
           if (error instanceof Error && error.name === "AbortError") {
@@ -624,8 +668,8 @@ export default function ExamGradePage({
       setLoadingProgress(20)
       setLoadingMessage(EXAM_MSG.loadingAnalyze)
 
-      // 현재 급수에 맞는 한자 데이터 필터링
-      const gradeHanzi = hanziList.filter((hanzi: any) => hanzi.grade === grade)
+      // 현재 급수에 맞는 한자 데이터 필터링 (gradeHanzi는 현재 사용되지 않음)
+      // const gradeHanzi = hanziList.filter((hanzi: Hanzi) => hanzi.grade === grade)
 
       // hanziList가 비어있으면 기다림
       // dataLoading 체크 제거: 문제 생성에는 hanziList만 필요하고,
@@ -644,7 +688,7 @@ export default function ExamGradePage({
       setLoadingMessage(EXAM_MSG.loadingGenerate)
 
       // 클라이언트 사이드에서 문제 생성 (사전 선발 기반)
-      let questions: any[] = []
+      let questions: ExamQuestionDetail[] = []
       try {
         console.log("📝 generateSimpleExamQuestions 시작...")
         questions = await generateSimpleExamQuestions()
@@ -654,7 +698,10 @@ export default function ExamGradePage({
           "문제 생성됨"
         )
       } catch (error) {
-        console.error("❌ generateSimpleExamQuestions 실패:", error)
+        console.error(
+          "❌ generateSimpleExamQuestions 실패:",
+          error instanceof Error ? error.message : String(error)
+        )
         throw error
       }
 
@@ -688,7 +735,8 @@ export default function ExamGradePage({
       setExamSession(session)
       console.log("✅ 시험 세션 생성 완료, 시험 시작 준비...")
 
-      const initialTime = currentGradeInfo.timeLimit * 60
+      // initialTime은 현재 사용되지 않음 (향후 사용 예정)
+      // const initialTime = currentGradeInfo.timeLimit * 60
 
       setLoadingProgress(100)
       setLoadingMessage(EXAM_MSG.loadingReady)
@@ -705,7 +753,10 @@ export default function ExamGradePage({
           await startSession()
           console.log("✅ 학습 세션 시작 완료")
         } catch (error) {
-          console.error("⚠️ 학습 세션 시작 실패:", error)
+          console.error(
+            "⚠️ 학습 세션 시작 실패:",
+            error instanceof Error ? error.message : String(error)
+          )
           // 에러 무시
         }
       }
@@ -737,14 +788,13 @@ export default function ExamGradePage({
       setIsLoading(false)
     }
   }, [
-    user?.id,
+    user,
     grade,
-    currentGradeInfo?.timeLimit,
-    hanziList?.length,
+    hanziList,
     generateSimpleExamQuestions,
-    examSession?.id,
-    dataLoading,
+    examSession,
     showDailyLimitModal,
+    startSession,
   ])
 
   // handleStartExam 함수 제거 (이제 자동으로 시작됨)
@@ -790,7 +840,6 @@ export default function ExamGradePage({
     user,
     endSession,
     examStartTime,
-    PASS_SCORE,
     refreshUserStatistics,
     router,
     submitWithState,
@@ -878,13 +927,14 @@ export default function ExamGradePage({
     console.log("🔄 loadExamQuestions 호출")
     loadExamQuestions()
   }, [
-    user?.id,
+    user,
     grade,
-    currentGradeInfo?.timeLimit,
-    examSession?.id,
-    hanziList?.length,
+    currentGradeInfo,
+    examSession,
+    hanziList,
     dataLoading,
     showDailyLimitModal,
+    loadExamQuestions,
   ])
 
   // 디버그 패널 제거로 관련 useEffect 삭제

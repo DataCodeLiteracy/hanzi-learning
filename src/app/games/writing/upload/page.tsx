@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Upload, Camera, X, CheckCircle, Search } from "lucide-react"
+import Image from "next/image"
 
 interface Hanzi {
   id: string
@@ -38,16 +39,8 @@ export default function WritingUploadPage() {
   const [isLoadingHanzi, setIsLoadingHanzi] = useState(false)
   const [showHanziList, setShowHanziList] = useState(false)
 
-  // 컴포넌트 마운트 시 기본 급수 설정
-  useEffect(() => {
-    if (user?.preferredGrade) {
-      setSelectedGrade(user.preferredGrade.toString())
-      loadHanziByGrade(user.preferredGrade, true) // IndexedDB에서 로드
-    }
-  }, [user])
-
   // 한자 목록 로드
-  const loadHanziByGrade = async (grade: number, fromIndexedDB = false) => {
+  const loadHanziByGrade = useCallback(async (grade: number, fromIndexedDB = false) => {
     setIsLoadingHanzi(true)
     setError(null)
 
@@ -95,7 +88,15 @@ export default function WritingUploadPage() {
     } finally {
       setIsLoadingHanzi(false)
     }
-  }
+  }, [dataHanziList])
+
+  // 컴포넌트 마운트 시 기본 급수 설정
+  useEffect(() => {
+    if (user?.preferredGrade) {
+      setSelectedGrade(user.preferredGrade.toString())
+      loadHanziByGrade(user.preferredGrade, true) // IndexedDB에서 로드
+    }
+  }, [user, loadHanziByGrade])
 
   // 급수 변경 핸들러
   const handleGradeChange = (grade: string) => {
@@ -601,10 +602,13 @@ export default function WritingUploadPage() {
               ) : (
                 <div className='space-y-4'>
                   <div className='relative'>
-                    <img
+                    <Image
                       src={previewUrl}
                       alt='업로드된 이미지'
-                      className='w-full max-w-md mx-auto rounded-lg shadow-sm'
+                      width={800}
+                      height={600}
+                      className='w-full max-w-md mx-auto rounded-lg shadow-sm object-contain'
+                      unoptimized
                     />
                     <button
                       onClick={handleRemoveImage}

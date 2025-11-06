@@ -36,7 +36,7 @@ export interface ExamSession {
   id: string
   userId: string
   grade: number
-  questions: ExamQuestion[]
+  questions: ExamQuestionDetail[]
   answers: Record<string, string | number>
   startTime: Date
   endTime?: Date
@@ -64,11 +64,13 @@ interface BaseQuestion {
   question?: string
   options?: string[]
   aiGeneratedContent?: string
+  aiText?: string // AI 프롬프트 텍스트
   textBookWord?: { hanzi?: string; korean?: string; isTextBook?: boolean }
   relatedWords?:
     | { hanzi?: string; korean?: string; isTextBook?: boolean }
     | Array<{ hanzi?: string; korean?: string; isTextBook?: boolean }>
   correctAnswer?: string | number
+  wrongAnswers?: string[] // word_meaning_select용 오답 배열
 }
 
 export interface SoundQuestion extends BaseQuestion {

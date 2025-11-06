@@ -1,10 +1,18 @@
+import type { ExamQuestionDetail } from "@/types/exam"
+import type { Hanzi } from "@/types/index"
+
 type ProgressUpdater = (progress: number, message?: string) => void
 
+interface AIProcessedQuestion {
+  id: string
+  aiGeneratedContent: string
+}
+
 export const processAIQuestions = async (
-  structuredQuestions: any[],
+  structuredQuestions: ExamQuestionDetail[],
   updateProgress?: ProgressUpdater,
-  hanziList?: any[]
-) => {
+  hanziList?: Hanzi[]
+): Promise<ExamQuestionDetail[]> => {
   const aiQuestionsToProcess = structuredQuestions.filter((q) => q.aiText)
 
   if (aiQuestionsToProcess.length === 0) {
@@ -73,17 +81,37 @@ export const processAIQuestions = async (
   }
   try {
     const requestBody = {
-      questions: aiQuestionsToProcess.map((q) => ({
-        id: q.id,
-        type: q.type,
-        aiPrompt: q.aiText,
-        hanziData: {
-          character: q.character,
-          meaning: q.meaning,
-          sound: q.sound,
-          relatedWords: q.relatedWords,
-        },
-      })),
+      questions: aiQuestionsToProcess.map((q) => {
+        // 타입별로 meaning과 sound 추출
+        let meaning = ""
+        let sound = ""
+
+        if (q.type === "sound" || q.type === "word_reading") {
+          sound = "sound" in q ? q.sound : ""
+        }
+        if (
+          q.type === "meaning" ||
+          q.type === "word_meaning" ||
+          q.type === "hanzi_write"
+        ) {
+          meaning = "meaning" in q ? q.meaning : ""
+        }
+        if (q.type === "hanzi_write") {
+          sound = "sound" in q ? q.sound : ""
+        }
+
+        return {
+          id: q.id,
+          type: q.type,
+          aiPrompt: q.aiText || "",
+          hanziData: {
+            character: q.character,
+            meaning,
+            sound,
+            relatedWords: q.relatedWords,
+          },
+        }
+      }),
     }
 
     const response = await fetch("/api/generate-ai-exam-content", {
@@ -104,7 +132,7 @@ export const processAIQuestions = async (
     const aiResult = await response.json()
 
     if (aiResult.success && aiResult.questions) {
-      aiResult.questions.forEach((aiProcessed: any) => {
+      aiResult.questions.forEach((aiProcessed: AIProcessedQuestion) => {
         const questionIndex = parseInt(String(aiProcessed.id).replace("q_", ""))
         if (!structuredQuestions[questionIndex]) return
         let processedContent = aiProcessed.aiGeneratedContent as string
@@ -112,13 +140,18 @@ export const processAIQuestions = async (
         // 패턴 5: blank_hanzi 후처리
         if (structuredQuestions[questionIndex].type === "blank_hanzi") {
           const question = structuredQuestions[questionIndex]
-          let relatedWord = null
+          let relatedWord: {
+            hanzi?: string
+            korean?: string
+            isTextBook?: boolean
+          } | null = null
           if (Array.isArray(question.relatedWords)) {
-            relatedWord = question.relatedWords.find((w: any) => w?.isTextBook)
+            relatedWord =
+              question.relatedWords.find((w) => w?.isTextBook) || null
           } else if (question.relatedWords?.isTextBook) {
             relatedWord = question.relatedWords
           }
-          if (relatedWord) {
+          if (relatedWord && relatedWord.korean && relatedWord.hanzi) {
             // 한글을 한자로 변환
             processedContent = processedContent.replace(
               new RegExp(relatedWord.korean, "g"),
@@ -187,17 +220,38 @@ export const processAIQuestions = async (
 
           // 파싱 실패 시 fallback
           if (!correctAnswer || wrongAnswers.length < 3) {
+            const currentQuestion = structuredQuestions[questionIndex]
+            let fallbackCorrectAnswer: string | null = null
+            if (Array.isArray(currentQuestion.relatedWords)) {
+              fallbackCorrectAnswer =
+                currentQuestion.relatedWords.find((rw) => rw?.isTextBook)
+                  ?.korean || null
+            } else if (
+              currentQuestion.relatedWords &&
+              typeof currentQuestion.relatedWords === "object" &&
+              !Array.isArray(currentQuestion.relatedWords) &&
+              "isTextBook" in currentQuestion.relatedWords &&
+              currentQuestion.relatedWords.isTextBook
+            ) {
+              const relatedWord = currentQuestion.relatedWords as {
+                korean?: string
+                isTextBook?: boolean
+              }
+              fallbackCorrectAnswer = relatedWord.korean || null
+            }
+
+            const textBookKorean: string =
+              currentQuestion.textBookWord?.korean || ""
+            let meaningValue: string = ""
+            if (
+              "meaning" in currentQuestion &&
+              typeof currentQuestion.meaning === "string"
+            ) {
+              meaningValue = currentQuestion.meaning
+            }
+            const fallbackValue: string = fallbackCorrectAnswer || ""
             correctAnswer =
-              structuredQuestions[questionIndex].textBookWord?.korean ||
-              (Array.isArray(structuredQuestions[questionIndex].relatedWords)
-                ? structuredQuestions[questionIndex].relatedWords.find(
-                    (rw: any) => rw?.isTextBook
-                  )?.korean
-                : structuredQuestions[questionIndex].relatedWords?.isTextBook
-                ? structuredQuestions[questionIndex].relatedWords.korean
-                : null) ||
-              structuredQuestions[questionIndex].meaning ||
-              ""
+              textBookKorean || fallbackValue || meaningValue || ""
 
             if (correctAnswer && wrongAnswers.length < 3) {
               const base = correctAnswer
@@ -306,12 +360,14 @@ export const processAIQuestions = async (
             })
           }
 
-          structuredQuestions[questionIndex].correctAnswer = correctAnswer
-          structuredQuestions[questionIndex].correctAnswerIndex =
-            finalCorrectAnswerIndex
-          structuredQuestions[questionIndex].wrongAnswers = wrongAnswers
-          structuredQuestions[questionIndex].allOptions = shuffledOptions
-          structuredQuestions[questionIndex].options = shuffledOptions
+          const currentQuestion = structuredQuestions[questionIndex]
+          if (currentQuestion.type === "word_meaning_select") {
+            currentQuestion.correctAnswer = correctAnswer
+            currentQuestion.correctAnswerIndex = finalCorrectAnswerIndex
+            currentQuestion.wrongAnswers = wrongAnswers
+            currentQuestion.allOptions = shuffledOptions
+            currentQuestion.options = shuffledOptions
+          }
         }
 
         // 패턴 9: sentence_reading 후처리 (정답과 오답을 함께 구성)
@@ -321,34 +377,25 @@ export const processAIQuestions = async (
           const correctAnswer =
             question.textBookWord?.korean ||
             (Array.isArray(question.relatedWords)
-              ? question.relatedWords.find((rw: any) => rw?.isTextBook)?.korean
+              ? question.relatedWords.find((rw) => rw?.isTextBook)?.korean
               : question.relatedWords?.isTextBook
               ? question.relatedWords.korean
               : null) ||
-            question.sound
+            ("sound" in question ? question.sound : "") ||
+            ""
 
           // 옵션 생성 (정답 포함하여 4개)
           if (hanziList && hanziList.length > 0) {
-            // 모든 한자에서 textBookWord.korean 또는 relatedWords의 korean 값 수집
+            // 모든 한자에서 relatedWords의 korean 값 수집
             const allKoreanWords = new Set<string>()
-            allKoreanWords.add(correctAnswer)
+            if (correctAnswer) {
+              allKoreanWords.add(correctAnswer)
+            }
 
             // 정답의 글자 수 계산
             const correctAnswerLength = correctAnswer ? correctAnswer.length : 0
 
             for (const h of hanziList) {
-              // textBookWord가 있으면 그 korean 사용
-              if (h.textBookWord?.korean) {
-                const korean = h.textBookWord.korean
-                if (
-                  korean &&
-                  korean.trim() !== "" &&
-                  korean !== correctAnswer
-                ) {
-                  allKoreanWords.add(korean)
-                }
-              }
-
               // relatedWords에서 모든 korean 값 수집 (isTextBook 여부와 무관)
               if (Array.isArray(h.relatedWords)) {
                 for (const rw of h.relatedWords) {
@@ -363,8 +410,14 @@ export const processAIQuestions = async (
                     }
                   }
                 }
-              } else if (h.relatedWords?.korean) {
-                const korean = h.relatedWords.korean
+              } else if (
+                h.relatedWords &&
+                typeof h.relatedWords === "object" &&
+                !Array.isArray(h.relatedWords) &&
+                "korean" in h.relatedWords
+              ) {
+                const relatedWord = h.relatedWords as { korean?: string }
+                const korean = relatedWord.korean
                 if (
                   korean &&
                   korean.trim() !== "" &&
@@ -463,7 +516,9 @@ export const processAIQuestions = async (
               seedValue = (seedValue * 9301 + 49297) % 233280
               return seedValue / 233280
             }
-            const shuffledOptions = [...options]
+            const shuffledOptions: string[] = options.filter(
+              (opt): opt is string => opt !== undefined
+            )
             for (let i = shuffledOptions.length - 1; i > 0; i--) {
               const j = Math.floor(seededRandom() * (i + 1))
               ;[shuffledOptions[i], shuffledOptions[j]] = [
@@ -479,21 +534,23 @@ export const processAIQuestions = async (
               optionsCount: shuffledOptions.slice(0, 4).length,
             })
 
-            structuredQuestions[questionIndex].options = shuffledOptions.slice(
-              0,
-              4
-            )
-            structuredQuestions[questionIndex].correctAnswer = correctAnswer
+            const currentQuestion = structuredQuestions[questionIndex]
+            if (currentQuestion.type === "sentence_reading") {
+              currentQuestion.options = shuffledOptions.slice(0, 4)
+              currentQuestion.correctAnswer = correctAnswer
+            }
           } else {
             // hanziList가 없으면 기본 옵션 생성 (고정 시드로 섞기)
             const seed = questionIndex
-            const baseOptions = [correctAnswer, "십", "법", "실"]
+            const baseOptions: string[] = correctAnswer
+              ? [correctAnswer, "십", "법", "실"]
+              : ["십", "법", "실", "학"]
             let seedValue = seed
             const seededRandom = () => {
               seedValue = (seedValue * 9301 + 49297) % 233280
               return seedValue / 233280
             }
-            const shuffledOptions = [...baseOptions]
+            const shuffledOptions: string[] = [...baseOptions]
             for (let i = shuffledOptions.length - 1; i > 0; i--) {
               const j = Math.floor(seededRandom() * (i + 1))
               ;[shuffledOptions[i], shuffledOptions[j]] = [
@@ -501,8 +558,11 @@ export const processAIQuestions = async (
                 shuffledOptions[i],
               ]
             }
-            structuredQuestions[questionIndex].options = shuffledOptions
-            structuredQuestions[questionIndex].correctAnswer = correctAnswer
+            const currentQuestion = structuredQuestions[questionIndex]
+            if (currentQuestion.type === "sentence_reading") {
+              currentQuestion.options = shuffledOptions
+              currentQuestion.correctAnswer = correctAnswer || ""
+            }
           }
         }
 
@@ -512,12 +572,13 @@ export const processAIQuestions = async (
 
     // word_meaning_select 패턴의 correctAnswerIndex 확인 로그
     const wmSelectAfterProcessing = structuredQuestions.filter(
-      (q: any) => q.type === "word_meaning_select"
+      (q): q is ExamQuestionDetail & { type: "word_meaning_select" } =>
+        q.type === "word_meaning_select"
     )
     if (wmSelectAfterProcessing.length > 0) {
       console.log(
         "🔍 processAIQuestions 반환 전 word_meaning_select 확인:",
-        wmSelectAfterProcessing.map((q: any) => ({
+        wmSelectAfterProcessing.map((q) => ({
           id: q.id,
           character: q.character,
           correctAnswerIndex: q.correctAnswerIndex,
@@ -541,7 +602,10 @@ export const processAIQuestions = async (
       clearInterval(progressState.interval)
       progressState.interval = null
     }
-    console.error("❌ processAIQuestions 에러:", err)
+    console.error(
+      "❌ processAIQuestions 에러:",
+      err instanceof Error ? err.message : String(err)
+    )
     // 실패 시 그대로 반환하여 시험 진행
   } finally {
     // 최종적으로 인터벌 정리 보장
@@ -554,9 +618,10 @@ export const processAIQuestions = async (
 
   // 최종 확인: correctAnswerIndex가 모든 word_meaning_select 문제에 설정되었는지 확인
   const wmSelectFinal = structuredQuestions.filter(
-    (q: any) => q.type === "word_meaning_select"
+    (q): q is ExamQuestionDetail & { type: "word_meaning_select" } =>
+      q.type === "word_meaning_select"
   )
-  wmSelectFinal.forEach((q: any) => {
+  wmSelectFinal.forEach((q) => {
     if (q.correctAnswerIndex === undefined || q.correctAnswerIndex === null) {
       console.error(
         `⚠️ word_meaning_select 문제에 correctAnswerIndex가 없습니다:`,

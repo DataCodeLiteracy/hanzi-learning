@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, BookOpen, ExternalLink, Search, Info } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
@@ -41,7 +41,23 @@ export default function HanziListPage() {
   const [gradeDataCache, setGradeDataCache] = useState<Map<number, Hanzi[]>>(
     new Map()
   ) // 급수별 데이터 캐시
-  const [userStatsCache, setUserStatsCache] = useState<any[]>([]) // 사용자 통계 캐시
+  // userStatsCache는 현재 사용되지 않지만 setUserStatsCache로 캐시 업데이트 (향후 사용 예정)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [userStatsCache, setUserStatsCache] = useState<{
+    hanziId: string
+    character: string
+    meaning: string
+    sound: string
+    gradeNumber: number
+    totalStudied: number
+    correctAnswers: number
+    wrongAnswers: number
+    accuracy: number
+    lastStudied: string | null
+    isKnown?: boolean
+    totalWrited?: number
+    lastWrited?: string
+  }[]>([]) // 사용자 통계 캐시
   const [learningStats, setLearningStats] = useState<{
     total: number
     completed: number
@@ -54,7 +70,7 @@ export default function HanziListPage() {
   }>({ count: 0, grades: [] })
 
   // 학습완료 통계 계산
-  const calculateLearningStats = (
+  const calculateLearningStats = useCallback((
     hanziList: Hanzi[],
     knownHanzi: Set<string>
   ) => {
@@ -63,10 +79,10 @@ export default function HanziListPage() {
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
 
     setLearningStats({ total, completed, percentage })
-  }
+  }, [])
 
   // 8급 데이터 기본 로딩
-  const loadHanziData = async (grade: number) => {
+  const loadHanziData = useCallback(async (grade: number) => {
     if (grade === 8) setLoading(true)
     else setIsLoadingGrade(true)
 
@@ -152,13 +168,13 @@ export default function HanziListPage() {
         setIsLoadingGrade(false)
       }
     }
-  }
+  }, [user, gradeDataCache, calculateLearningStats])
 
   useEffect(() => {
     if (user && !authLoading) {
       loadHanziData(8) // 8급 기본 로드
     }
-  }, [user, authLoading])
+  }, [user, authLoading, loadHanziData])
 
   // 사용자 정보 로드 후 선호 급수 반영
   useEffect(() => {
@@ -166,14 +182,14 @@ export default function HanziListPage() {
       setSelectedGrade(user.preferredGrade)
       loadHanziData(user.preferredGrade)
     }
-  }, [user])
+  }, [user, selectedGrade, loadHanziData])
 
   // 초기 데이터 로드 후 통계 계산
   useEffect(() => {
     if (hanziList.length > 0 && knownHanzi.size >= 0) {
       calculateLearningStats(hanziList, knownHanzi)
     }
-  }, [hanziList, knownHanzi])
+  }, [hanziList, knownHanzi, calculateLearningStats])
 
   // 급수 변경 시 데이터 로드
   const handleGradeChange = async (grade: number) => {

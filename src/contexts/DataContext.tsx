@@ -41,8 +41,8 @@ interface DataContextType {
 
   // 실시간 통계 업데이트 (새로고침 없이)
   updateStatisticsRealTime: (
-    gameType: string,
-    stats: {
+    _gameType: string,
+    _stats: {
       experience?: number
       totalPlayed?: number
       correctAnswers?: number
@@ -223,7 +223,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
   const refreshLearningSessions = useCallback(async () => {
@@ -241,7 +240,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
   const updateUserStatistics = useCallback(
@@ -266,8 +264,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // 실시간 통계 업데이트 (새로고침 없이)
   const updateStatisticsRealTime = useCallback(
     async (
-      gameType: string,
-      stats: {
+      _gameType: string,
+      _stats: {
         experience?: number
         totalPlayed?: number
         correctAnswers?: number

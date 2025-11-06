@@ -1,15 +1,25 @@
 import { createQuestionByPattern } from "./createQuestionByPattern"
+import type { Hanzi } from "@/types/index"
+import type { ExamQuestionDetail } from "@/types/exam"
+
+interface GradePattern {
+  type: string
+  name: string
+  description: string
+  questionCount: number
+  isTextBook?: boolean
+}
 
 export const generateQuestionsByPattern = (
-  gradePatterns: any[],
-  selectedTextBookHanzi: any[],
-  selectedNormalHanzi: any[]
-) => {
-  const structuredQuestions: any[] = []
+  gradePatterns: GradePattern[],
+  selectedTextBookHanzi: Hanzi[],
+  selectedNormalHanzi: Hanzi[]
+): ExamQuestionDetail[] => {
+  const structuredQuestions: ExamQuestionDetail[] = []
   let textBookIndex = 0
   let normalIndex = 0
 
-  gradePatterns.forEach((pattern: any) => {
+  gradePatterns.forEach((pattern: GradePattern) => {
     let patternQuestionCount = 0
     let attempts = 0
     const maxAttempts = pattern.questionCount * 3

@@ -72,7 +72,18 @@ export class ApiClient {
       return snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      })) as any
+      })) as {
+        id: string
+        userId: string
+        userEmail: string
+        userName: string
+        type: "bug" | "feature" | "improvement" | "other"
+        title: string
+        content: string
+        status: "pending" | "in_progress" | "completed"
+        createdAt: string
+        updatedAt: string
+      }[]
     } catch {
       throw new Error("피드백 목록을 가져오는데 실패했습니다.")
     }
@@ -1017,19 +1028,34 @@ export class ApiClient {
       }
     }
 
+    interface HanziStatData {
+      id?: string
+      totalStudied?: number
+      correctAnswers?: number
+      wrongAnswers?: number
+      lastStudied?: string | null
+      accuracy?: number
+      totalWrited?: number
+      lastWrited?: string | null
+      isKnown?: boolean
+      createdAt?: string | null
+      updatedAt?: string | null
+    }
+
+    const statData = hanziStat as HanziStatData
     return {
-      id: (hanziStat as any).id,
-      totalStudied: hanziStat.totalStudied || 0,
-      correctAnswers: hanziStat.correctAnswers || 0,
-      wrongAnswers: hanziStat.wrongAnswers || 0,
-      lastStudied: hanziStat.lastStudied || null,
-      accuracy: hanziStat.accuracy || 0,
+      id: statData.id || "",
+      totalStudied: statData.totalStudied || 0,
+      correctAnswers: statData.correctAnswers || 0,
+      wrongAnswers: statData.wrongAnswers || 0,
+      lastStudied: statData.lastStudied || null,
+      accuracy: statData.accuracy || 0,
       // 쓰기 전용 필드 포함
-      totalWrited: (hanziStat as any).totalWrited || 0,
-      lastWrited: (hanziStat as any).lastWrited || null,
-      isKnown: hanziStat.isKnown || false,
-      createdAt: (hanziStat as any).createdAt || null,
-      updatedAt: (hanziStat as any).updatedAt || null,
+      totalWrited: statData.totalWrited || 0,
+      lastWrited: statData.lastWrited || undefined,
+      isKnown: statData.isKnown || false,
+      createdAt: statData.createdAt || undefined,
+      updatedAt: statData.updatedAt || undefined,
     }
   }
 
@@ -1719,7 +1745,19 @@ export class ApiClient {
       if (gradeHanziIds.length > 10) {
         // 배치로 나누어 처리
         const batchSize = 10
-        const allStats: any[] = []
+        const allStats: {
+          hanziId: string
+          character: string
+          meaning: string
+          sound: string
+          gradeNumber: number
+          totalStudied: number
+          correctAnswers: number
+          wrongAnswers: number
+          accuracy: number
+          lastStudied: string | null
+          isKnown?: boolean
+        }[] = []
 
         for (let i = 0; i < gradeHanziIds.length; i += batchSize) {
           const batch = gradeHanziIds.slice(i, i + batchSize)
@@ -1732,7 +1770,22 @@ export class ApiClient {
           )
 
           const snapshot = await getDocs(q)
-          const batchStats = snapshot.docs.map((doc) => doc.data())
+          const batchStats = snapshot.docs.map((doc) => {
+            const data = doc.data()
+            return {
+              hanziId: data.hanziId || "",
+              character: data.character || "",
+              meaning: data.meaning || "",
+              sound: data.sound || "",
+              gradeNumber: data.gradeNumber || 0,
+              totalStudied: data.totalStudied || 0,
+              correctAnswers: data.correctAnswers || 0,
+              wrongAnswers: data.wrongAnswers || 0,
+              accuracy: data.accuracy || 0,
+              lastStudied: data.lastStudied || null,
+              isKnown: data.isKnown || false,
+            }
+          })
           allStats.push(...batchStats)
         }
 
@@ -1886,7 +1939,7 @@ export class ApiClient {
       const gameStats = await this.getGameStatisticsNew(userId)
       let totalSessions = 0
 
-      Object.entries(gameStats).forEach(([gameType, stats]) => {
+      Object.values(gameStats).forEach((stats) => {
         // 모든 게임에서 completedSessions 사용 (세션 완료 수)
         totalSessions += stats.completedSessions || 0
       })

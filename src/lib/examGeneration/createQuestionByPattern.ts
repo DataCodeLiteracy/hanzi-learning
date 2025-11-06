@@ -1,21 +1,31 @@
 import { aiPrompts } from "@/lib/aiPrompts"
 import { convertMeaningToNatural } from "@/lib/convertMeaningToNatural"
 import { findTextBookWord } from "./findTextBookWord"
+import type { ExamQuestionDetail } from "@/types/exam"
+import type { Hanzi } from "@/types/index"
+
+interface GradePattern {
+  type: string
+  name?: string
+  description?: string
+  questionCount: number
+  isTextBook?: boolean
+}
 
 export const createQuestionByPattern = (
-  pattern: any,
-  hanzi: any,
+  pattern: GradePattern,
+  hanzi: Hanzi,
   questionIndex: number
-) => {
-  const question: any = {
+): ExamQuestionDetail | null => {
+  const question: Partial<ExamQuestionDetail> = {
     id: `q_${questionIndex}`,
-    type: pattern.type,
+    type: pattern.type as ExamQuestionDetail["type"],
     character: hanzi.character,
     meaning: hanzi.meaning,
     sound: hanzi.sound,
     relatedWords: Array.isArray(hanzi.relatedWords)
-      ? hanzi.relatedWords[0] || null
-      : hanzi.relatedWords || null,
+      ? hanzi.relatedWords[0] || undefined
+      : hanzi.relatedWords || undefined,
     aiText: "",
   }
 
@@ -73,5 +83,5 @@ export const createQuestionByPattern = (
       break
   }
 
-  return question
+  return question as ExamQuestionDetail
 }

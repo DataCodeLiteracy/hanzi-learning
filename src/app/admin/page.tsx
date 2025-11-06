@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
@@ -18,7 +18,7 @@ import {
 import { migrateAllUsers, migrateUserData } from "@/lib/migration"
 
 export default function AdminPage() {
-  const { user, loading: authLoading, initialLoading } = useAuth()
+  const { user, loading: _authLoading, initialLoading } = useAuth()
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziData, setHanziData] = useState<Hanzi[]>([])
@@ -35,12 +35,35 @@ export default function AdminPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
 
+  // 한자 데이터 로드
+  const loadHanziData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const data = await ApiClient.getHanziByGrade(selectedGrade)
+
+      if (data.length === 0) {
+        // 한자가 없는 경우 모달 표시
+        setEmptyGrade(selectedGrade)
+        setShowEmptyGradeModal(true)
+      }
+
+      setHanziData(data)
+    } catch (error) {
+      console.error("한자 데이터 로드 에러:", error)
+      // 오류가 발생해도 빈 배열로 설정하여 UI가 깨지지 않도록 함
+      setHanziData([])
+      // 사용자에게는 조용히 처리하고 콘솔에만 로그 출력
+    } finally {
+      setIsLoading(false)
+    }
+  }, [selectedGrade])
+
   // 페이지 로드 시 데이터 자동 로드
   useEffect(() => {
     if (user && user.isAdmin) {
       loadHanziData()
     }
-  }, [user, selectedGrade])
+  }, [user, loadHanziData])
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (initialLoading) {
@@ -65,29 +88,6 @@ export default function AdminPage() {
         </div>
       </div>
     )
-  }
-
-  // 한자 데이터 로드
-  const loadHanziData = async () => {
-    setIsLoading(true)
-    try {
-      const data = await ApiClient.getHanziByGrade(selectedGrade)
-
-      if (data.length === 0) {
-        // 한자가 없는 경우 모달 표시
-        setEmptyGrade(selectedGrade)
-        setShowEmptyGradeModal(true)
-      }
-
-      setHanziData(data)
-    } catch (error) {
-      console.error("한자 데이터 로드 에러:", error)
-      // 오류가 발생해도 빈 배열로 설정하여 UI가 깨지지 않도록 함
-      setHanziData([])
-      // 사용자에게는 조용히 처리하고 콘솔에만 로그 출력
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   // JSON 파일 업로드 처리
@@ -247,7 +247,8 @@ export default function AdminPage() {
     }
   }
 
-  // 특정 사용자 마이그레이션
+  // 특정 사용자 마이그레이션 (향후 사용 예정)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleMigrateUser = async (userId: string) => {
     setIsMigrating(true)
     setMigrationStatus(`${userId} 사용자 마이그레이션 중...`)

@@ -8,6 +8,30 @@ import {
   serverTimestamp,
 } from "firebase/firestore"
 import { ApiClient } from "@/lib/apiClient"
+import type { UserStatistics } from "@/types/index"
+
+interface GradeStat {
+  totalExams: number
+  passedExams: number
+  averageScore: number
+  lastExamDate: string | null
+}
+
+interface ExamStats {
+  totalExams: number
+  passedExams: number
+  totalScore: number
+  averageScore: number
+  highestScore: number
+  currentStreak: number
+  longestStreak: number
+  lastExamDate: string | null
+  gradeStats: Record<string, GradeStat>
+}
+
+interface UserStatisticsWithExamStats extends UserStatistics {
+  examStats?: ExamStats
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -242,16 +266,18 @@ async function updateUserStatistics(
   grade: number,
   score: number,
   passed: boolean,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _correctCount: number, // 향후 사용 예정
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _totalQuestions: number // 향후 사용 예정
 ) {
   try {
     // 기존 사용자 통계 조회
-    const userStats = await ApiClient.getDocument("userStatistics", userId)
+    const userStats = await ApiClient.getDocument<UserStatisticsWithExamStats>("userStatistics", userId)
 
     if (userStats) {
       // 기존 시험 통계 가져오기
-      const existingExamStats = (userStats as any).examStats || {
+      const existingExamStats = userStats.examStats || {
         totalExams: 0,
         passedExams: 0,
         totalScore: 0,

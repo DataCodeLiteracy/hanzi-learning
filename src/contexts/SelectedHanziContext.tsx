@@ -1,5 +1,5 @@
 "use client"
-import { createContext, useContext, useMemo, useState, useEffect } from "react"
+import { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react"
 
 type SelectedPayload = {
   grade: number
@@ -83,7 +83,7 @@ export function SelectedHanziProvider({
     })
   }
 
-  const getSelected = (grade: number) => {
+  const getSelected = useCallback((grade: number) => {
     const result = byGrade[grade]
     // 로그는 generateSimpleExamQuestions에서만 출력
     // console.log("🔍 SelectedHanziContext.getSelected 호출:", {
@@ -93,7 +93,7 @@ export function SelectedHanziProvider({
     //   result,
     // })
     return result
-  }
+  }, [byGrade])
 
   const clearSelected = (grade: number) => {
     setByGrade((prev) => {
@@ -113,7 +113,7 @@ export function SelectedHanziProvider({
 
   const value = useMemo<SelectedHanziContextType>(
     () => ({ byGrade, setSelected, getSelected, clearSelected }),
-    [byGrade]
+    [byGrade, getSelected]
   )
 
   return (

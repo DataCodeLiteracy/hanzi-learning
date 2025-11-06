@@ -67,7 +67,7 @@ export function useTimeTracking({
     }, 1000)
 
     return sessionId
-  }, [userId, type, activity, loadTotalStudyTime, totalStudyTime])
+  }, [userId, type, activity, loadTotalStudyTime])
 
   // 세션 종료
   const endSession = useCallback((): number => {

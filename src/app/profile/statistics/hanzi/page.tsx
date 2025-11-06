@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -20,14 +20,16 @@ interface HanziStatistics {
 }
 
 export default function HanziStatisticsPage() {
-  const { user, loading: authLoading, initialLoading } = useAuth()
+  const { user, loading: authLoading, initialLoading: _initialLoading } = useAuth()
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziStats, setHanziStats] = useState<HanziStatistics[]>([])
+  // isLoading은 사용되지 않지만 setIsLoading으로 리렌더링 트리거
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false)
 
   // 급수별 한자 통계 로드
-  const loadHanziStats = async (grade: number) => {
+  const loadHanziStats = useCallback(async (grade: number) => {
     if (!user) return
 
     if (grade === 8) setIsLoading(true)
@@ -78,22 +80,22 @@ export default function HanziStatisticsPage() {
       if (grade === 8) setIsLoading(false)
       else setIsLoadingGrade(false)
     }
-  }
+  }, [user])
 
   // 8급 데이터 기본 로딩
   useEffect(() => {
     if (user) {
       loadHanziStats(8)
     }
-  }, [user])
+  }, [user, loadHanziStats])
 
   // 급수 변경 시 데이터 로드
-  const handleGradeChange = async (grade: number) => {
+  const handleGradeChange = useCallback(async (grade: number) => {
     if (grade === selectedGrade) return
 
     setSelectedGrade(grade)
     await loadHanziStats(grade)
-  }
+  }, [selectedGrade, loadHanziStats])
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading) {

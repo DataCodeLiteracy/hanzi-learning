@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -60,7 +60,8 @@ export default function PartialGame() {
     }
   }, [gameLogic.questions.length])
 
-  // 강제 리렌더링을 위한 상태
+  // 강제 리렌더링을 위한 상태 (forceUpdate는 사용되지 않지만 setForceUpdate로 리렌더링 트리거)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [forceUpdate, setForceUpdate] = useState(0)
 
   // 강제 리렌더링을 위한 useEffect
@@ -100,12 +101,13 @@ export default function PartialGame() {
     gameLogic.gameEnded,
     gameLogic.hasUpdatedStats,
     gameLogic.userConfirmedExit,
+    gameLogic.questionsAnsweredRef,
   ])
 
   // 게임 종료 시 세션 완료 통계 업데이트
   useEffect(() => {
     gameLogic.handleGameEnd()
-  }, [gameLogic.gameEnded])
+  }, [gameLogic])
 
   // 뒤로가기 확인 처리
   const handleExitConfirm = async () => {
@@ -244,12 +246,12 @@ export default function PartialGame() {
       }, 0)
 
       if (user) {
-        startSession().catch((error: any) => {
-          console.error("시간 추적 시작 실패:", error)
+        startSession().catch((error) => {
+          console.error("시간 추적 시작 실패:", error instanceof Error ? error.message : String(error))
         })
       }
     } catch (error) {
-      console.error("게임 초기화 실패:", error)
+      console.error("게임 초기화 실패:", error instanceof Error ? error.message : String(error))
       setIsGenerating(false)
       setNoDataMessage("게임 초기화 중 오류가 발생했습니다.")
       setShowNoDataModal(true)
@@ -257,7 +259,7 @@ export default function PartialGame() {
   }
 
   // 다음 급수 권장 모달 체크
-  const checkNextGradeModal = async () => {
+  const checkNextGradeModal = useCallback(async () => {
     if (user) {
       try {
         const completionStatus = await ApiClient.checkGradeCompletionStatus(
@@ -268,17 +270,17 @@ export default function PartialGame() {
           setShowNextGradeModal(true)
         }
       } catch (error) {
-        console.error("다음 급수 체크 실패:", error)
+        console.error("다음 급수 체크 실패:", error instanceof Error ? error.message : String(error))
       }
     }
-  }
+  }, [user, selectedGrade])
 
   // 게임 종료 시 다음 급수 권장 모달 체크
   useEffect(() => {
     if (gameLogic.gameEnded) {
       checkNextGradeModal()
     }
-  }, [gameLogic.gameEnded])
+  }, [gameLogic.gameEnded, checkNextGradeModal])
 
   const getHiddenPartStyle = (part: string) => {
     switch (part) {
