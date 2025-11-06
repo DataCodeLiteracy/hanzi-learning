@@ -962,7 +962,7 @@ export default function ExamGradePage({
         timeLeftText={formatTime(timeLeft)}
       />
 
-      <div className='max-w-4xl mx-auto px-4 py-8'>
+      <div className='max-w-4xl mx-auto px-4 pt-32 pb-8'>
         <PatternNavigator
           canPrev={currentPattern > 0}
           canNext={currentPattern < gradePatterns.length - 1}

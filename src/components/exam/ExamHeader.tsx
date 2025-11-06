@@ -20,7 +20,7 @@ export default function ExamHeader({
   timeLeftText,
 }: Props) {
   return (
-    <div className='bg-white shadow-sm border-b'>
+    <div className='fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b'>
       <div className='max-w-4xl mx-auto px-4 py-4'>
         {/* 상단: 제목과 타이머 */}
         <div className='flex items-center justify-between mb-4'>

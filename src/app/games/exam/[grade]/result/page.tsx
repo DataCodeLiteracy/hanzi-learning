@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
+import WrongAnswersModal from "@/components/exam/WrongAnswersModal"
 import {
   Trophy,
   CheckCircle,
@@ -31,6 +32,7 @@ interface ExamResult {
   wrongAnswers?: Array<{
     questionNumber: number
     userAnswer: string
+    userSelectedNumber?: number // 실제 선택한 번호 (word_meaning_select용)
     correctAnswer: string
     pattern: string
     questionText?: string
@@ -57,6 +59,7 @@ export default function ExamResultPage({
 
   const [isLoading, setIsLoading] = useState(true)
   const [examResult, setExamResult] = useState<ExamResult | null>(null)
+  const [showWrongAnswersModal, setShowWrongAnswersModal] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -438,32 +441,13 @@ export default function ExamResultPage({
                     틀린 문제 ({examResult.wrongAnswers.length}개)
                   </h3>
                 </div>
-                {examId && (
-                  <Link
-                    href={`/games/exam/${grade}/wrong-answers?examId=${examId}`}
-                    onClick={() => {
-                      // 오답 페이지로 이동할 때 결과 페이지 정보를 sessionStorage에 저장
-                      const resultData = {
-                        score,
-                        passed,
-                        duration,
-                        examId,
-                        grade,
-                        totalQuestions: examResult?.totalQuestions || getQuestionCount(grade),
-                        correctAnswers: examResult?.correctAnswers || 0,
-                        experienceGained: examResult?.experienceGained || 0,
-                        previousTotalExperience: examResult?.previousTotalExperience || 0,
-                        newTotalExperience: examResult?.newTotalExperience || 0,
-                        actualDuration: examResult?.actualDuration || duration,
-                      }
-                      const storageKey = `exam_result_nav_${examId}`
-                      sessionStorage.setItem(storageKey, JSON.stringify(resultData))
-                      console.log("🔍 결과 페이지 정보 저장 (오답 페이지로 이동):", resultData)
-                    }}
+                {examId && examResult.wrongAnswers && examResult.wrongAnswers.length > 0 && (
+                  <button
+                    onClick={() => setShowWrongAnswersModal(true)}
                     className='inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium'
                   >
                     상세 보기
-                  </Link>
+                  </button>
                 )}
               </div>
               <div className='space-y-3'>
@@ -568,6 +552,30 @@ export default function ExamResultPage({
           </div>
         </div>
       </div>
+
+      {/* 오답 상세 보기 모달 */}
+      {examResult.wrongAnswers && examResult.wrongAnswers.length > 0 && (
+        <WrongAnswersModal
+          isOpen={showWrongAnswersModal}
+          onClose={() => setShowWrongAnswersModal(false)}
+          wrongAnswers={examResult.wrongAnswers.map((wrong) => ({
+            questionNumber: wrong.questionNumber,
+            questionId: `q_${wrong.questionNumber - 1}`,
+            questionIndex: wrong.questionNumber - 1,
+            userAnswer: wrong.userAnswer,
+            userSelectedNumber: wrong.userSelectedNumber,
+            correctAnswer: wrong.correctAnswer,
+            pattern: wrong.pattern,
+            character: wrong.character,
+            questionText: wrong.questionText,
+            options: wrong.options,
+          }))}
+          grade={grade}
+          score={examResult.score}
+          passed={examResult.passed}
+          date={new Date().toISOString().split("T")[0]}
+        />
+      )}
     </div>
   )
 }
