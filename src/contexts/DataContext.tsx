@@ -65,13 +65,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   )
   const [isLoading, setIsLoading] = useState(false)
 
-  // HanziStorage 인스턴스 생성 (브라우저 환경에서만)
+  // HanziStorage 인스턴스 생성 (브라우저 환경에서만, 유저별로 구분)
   const storage = useMemo(() => {
-    if (typeof window !== "undefined") {
-      return new HanziStorage()
+    if (typeof window !== "undefined" && user?.id) {
+      const storageInstance = new HanziStorage(user.id)
+      return storageInstance
     }
     return null
-  }, [])
+  }, [user?.id])
 
   const refreshHanziData = useCallback(async () => {
     console.log("🔄 refreshHanziData 함수 호출됨!", {
@@ -201,8 +202,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.preferredGrade])
+  }, [user?.id, user?.preferredGrade, storage])
 
   const refreshUserStatistics = useCallback(async () => {
     if (!user?.id) return
@@ -447,8 +447,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.preferredGrade])
+  }, [user?.id, user?.preferredGrade, storage])
 
   // 사용자 로그인 시 데이터 로드 (한 번만)
   useEffect(() => {

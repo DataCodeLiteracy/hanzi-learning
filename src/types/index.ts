@@ -122,6 +122,25 @@ export interface UserStatistics {
   // 총 학습시간 (초 단위)
   totalStudyTime?: number
 
+  // 시험 통계
+  examStats?: {
+    totalExams: number
+    passedExams: number
+    totalScore: number
+    averageScore: number
+    highestScore: number
+    currentStreak: number
+    longestStreak: number
+    lastExamDate: string | null
+    gradeStats: Record<string, {
+      totalExams: number
+      passedExams: number
+      averageScore: number
+      lastExamDate: string | null
+      highScorePassCount?: number
+    }>
+  }
+
   lastPlayedAt: string
   updatedAt: string
 }

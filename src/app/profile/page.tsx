@@ -518,9 +518,12 @@ export default function ProfilePage() {
                                 data: newGradeData,
                               }
 
+                              // 유저별 키 생성
+                              const storageKey = `currentHanziData_${user.id}`
+
                               const putRequest = store.put(
                                 newData,
-                                "currentHanziData"
+                                storageKey
                               )
 
                               putRequest.onsuccess = () => {

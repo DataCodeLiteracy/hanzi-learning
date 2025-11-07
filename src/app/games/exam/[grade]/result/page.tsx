@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
+import { getKSTDateISO } from "@/lib/apiClient"
 
 interface WrongAnswerData {
   questionNumber: number
@@ -583,7 +584,7 @@ export default function ExamResultPage({
           grade={grade}
           score={examResult.score}
           passed={examResult.passed}
-          date={new Date().toISOString().split("T")[0]}
+          date={getKSTDateISO()}
         />
       )}
     </div>

@@ -18,7 +18,7 @@ import WordMeaningQuestion from "@/components/exam/WordMeaningQuestion"
 import WordReadingWriteQuestion from "@/components/exam/WordReadingWriteQuestion"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
-import { ApiClient } from "@/lib/apiClient"
+import { ApiClient, getKSTDateISO } from "@/lib/apiClient"
 import { useExamActions } from "@/hooks/useExamActions"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import { PASS_SCORE } from "@/lib/examConstants"
@@ -612,7 +612,7 @@ export default function ExamGradePage({
       if (user) {
         try {
           console.log("🔍 하루 1회 제한 확인 중...")
-          const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD 형식
+          const today = getKSTDateISO() // 한국시간 기준 YYYY-MM-DD 형식
 
           // 타임아웃 설정 (5초)
           const controller = new AbortController()

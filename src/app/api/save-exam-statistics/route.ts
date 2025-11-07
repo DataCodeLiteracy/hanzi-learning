@@ -7,7 +7,7 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore"
-import { ApiClient } from "@/lib/apiClient"
+import { ApiClient, getKSTDateISO } from "@/lib/apiClient"
 import type { UserStatistics } from "@/types/index"
 
 interface GradeStat {
@@ -15,6 +15,7 @@ interface GradeStat {
   passedExams: number
   averageScore: number
   lastExamDate: string | null
+  highScorePassCount?: number // 70점 이상 합격 횟수
 }
 
 interface ExamStats {
@@ -70,9 +71,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // examDate 정규화
+    // examDate 정규화 (한국시간 기준)
     const normalizedExamDate =
-      examDate || new Date().toISOString().split("T")[0]
+      examDate || getKSTDateISO()
 
     // examId 생성 (wrongAnswers 참조용)
     const finalExamId =
@@ -158,7 +159,14 @@ export async function POST(request: NextRequest) {
         averageDuration: 0,
         bestDuration: 0,
         lastExamDate: null,
+        highScorePassCount: 0, // 70점 이상 합격 횟수
       }
+
+      // 70점 이상 합격 여부 확인
+      const isHighScorePass = score >= 70 && passed
+      const highScorePassCount = isHighScorePass
+        ? (currentGradeStats.highScorePassCount || 0) + 1
+        : (currentGradeStats.highScorePassCount || 0)
 
       const updatedGradeStats = {
         totalAttempts: currentGradeStats.totalAttempts + 1,
@@ -175,6 +183,7 @@ export async function POST(request: NextRequest) {
             ? duration || 0
             : Math.min(currentGradeStats.bestDuration, duration || 0),
         lastExamDate: examDate || new Date().toISOString().split("T")[0],
+        highScorePassCount, // 70점 이상 합격 횟수
       }
 
       // 전체 통계 업데이트
@@ -311,12 +320,20 @@ async function updateUserStatistics(
           passedExams: 0,
           averageScore: 0,
           lastExamDate: null,
+          highScorePassCount: 0, // 70점 이상 합격 횟수
         }
       }
 
       const gradeStat = gradeStats[grade]
       gradeStat.totalExams += 1
       gradeStat.passedExams += passed ? 1 : 0
+      
+      // 70점 이상 합격 여부 확인 및 카운트 증가
+      const isHighScorePass = score >= 70 && passed
+      if (isHighScorePass) {
+        gradeStat.highScorePassCount = (gradeStat.highScorePassCount || 0) + 1
+      }
+      
       gradeStat.averageScore = Math.round(
         (gradeStat.averageScore * (gradeStat.totalExams - 1) + score) /
           gradeStat.totalExams

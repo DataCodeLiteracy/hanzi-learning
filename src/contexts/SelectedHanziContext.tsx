@@ -61,11 +61,26 @@ export function SelectedHanziProvider({
     }
   }, [byGrade])
 
-  const setSelected = (
+  const setSelected = useCallback((
     grade: number,
     payload: Omit<SelectedPayload, "grade" | "at">
   ) => {
     setByGrade((prev) => {
+      // 이미 같은 값이 설정되어 있으면 업데이트하지 않음 (무한 루프 방지)
+      const existing = prev[grade]
+      if (
+        existing &&
+        existing.textBookIds.length === payload.textBookIds.length &&
+        existing.normalIds.length === payload.normalIds.length &&
+        existing.textBookIds.every((id, i) => id === payload.textBookIds[i]) &&
+        existing.normalIds.every((id, i) => id === payload.normalIds[i]) &&
+        existing.counts.totalQuestions === payload.counts.totalQuestions &&
+        existing.counts.textBookNeeded === payload.counts.textBookNeeded &&
+        existing.counts.normalNeeded === payload.counts.normalNeeded
+      ) {
+        return prev // 변경 없음
+      }
+
       const next = {
         ...prev,
         [grade]: { grade, ...payload, at: Date.now() },
@@ -81,7 +96,7 @@ export function SelectedHanziProvider({
       }
       return next
     })
-  }
+  }, [])
 
   const getSelected = useCallback((grade: number) => {
     const result = byGrade[grade]
@@ -95,8 +110,13 @@ export function SelectedHanziProvider({
     return result
   }, [byGrade])
 
-  const clearSelected = (grade: number) => {
+  const clearSelected = useCallback((grade: number) => {
     setByGrade((prev) => {
+      // 이미 삭제되어 있으면 업데이트하지 않음
+      if (!prev[grade]) {
+        return prev
+      }
+
       const next = { ...prev }
       delete next[grade]
       // localStorage에서도 삭제
@@ -109,11 +129,11 @@ export function SelectedHanziProvider({
       }
       return next
     })
-  }
+  }, [])
 
   const value = useMemo<SelectedHanziContextType>(
     () => ({ byGrade, setSelected, getSelected, clearSelected }),
-    [byGrade, getSelected]
+    [byGrade, getSelected, setSelected, clearSelected]
   )
 
   return (

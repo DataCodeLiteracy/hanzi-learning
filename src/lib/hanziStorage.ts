@@ -7,11 +7,24 @@ interface HanziStorageData {
 }
 
 export class HanziStorage {
-  private readonly STORAGE_KEY = "currentHanziData"
+  private readonly STORAGE_KEY_PREFIX = "currentHanziData_"
   private db: IDBDatabase | null = null
+  private userId: string | null = null
 
-  constructor() {
+  constructor(userId?: string) {
+    this.userId = userId || null
     this.initDB()
+  }
+
+  private getStorageKey(): string {
+    if (!this.userId) {
+      throw new Error("User ID is required for storage key")
+    }
+    return `${this.STORAGE_KEY_PREFIX}${this.userId}`
+  }
+
+  setUserId(userId: string): void {
+    this.userId = userId
   }
 
   private async initDB(): Promise<void> {
@@ -70,9 +83,14 @@ export class HanziStorage {
         return resolve(null)
       }
 
+      if (!this.userId) {
+        console.debug("User ID not set, cannot get storage state")
+        return resolve(null)
+      }
+
       const transaction = this.db.transaction(["hanziStore"], "readonly")
       const store = transaction.objectStore("hanziStore")
-      const request = store.get(this.STORAGE_KEY)
+      const request = store.get(this.getStorageKey())
 
       request.onsuccess = () => {
         const data = request.result
@@ -116,9 +134,13 @@ export class HanziStorage {
         return reject(new Error("DB not initialized"))
       }
 
+      if (!this.userId) {
+        return reject(new Error("User ID is required to save data"))
+      }
+
       const transaction = this.db.transaction(["hanziStore"], "readwrite")
       const store = transaction.objectStore("hanziStore")
-      const request = store.put(data, this.STORAGE_KEY)
+      const request = store.put(data, this.getStorageKey())
 
       request.onsuccess = () => {
         console.debug("Data saved successfully")
@@ -158,9 +180,14 @@ export class HanziStorage {
 
     return new Promise((resolve, reject) => {
       try {
+        if (!this.userId) {
+          console.debug("User ID not set, cannot clear data")
+          return resolve()
+        }
+
         const transaction = this.db!.transaction(["hanziStore"], "readwrite")
         const store = transaction.objectStore("hanziStore")
-        const request = store.delete(this.STORAGE_KEY)
+        const request = store.delete(this.getStorageKey())
 
         request.onsuccess = () => {
           console.debug("✅ Data cleared successfully")

@@ -1,13 +1,21 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
 import { ArrowLeft, BookOpen, ExternalLink, Edit, Plus } from "lucide-react"
 import Link from "next/link"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
+import {
+  checkGradeQueryLimit,
+  incrementGradeQueryCount,
+  type PageType,
+} from "@/lib/gradeQueryLimit"
+
+const PAGE_TYPE: PageType = "textbook-words"
 
 interface TextbookWord {
   word: string
@@ -33,8 +41,9 @@ interface HanziItem {
 
 export default function TextbookWordsPage() {
   const { user, initialLoading } = useAuth()
+  const { hanziList: dataHanziList } = useData() // DataContext의 hanziList 가져오기
   const [textbookWords, setTextbookWords] = useState<TextbookWord[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // 통합 로딩 상태
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
   )
@@ -43,7 +52,9 @@ export default function TextbookWordsPage() {
     data: TextbookWord | HanziItem
   } | null>(null)
   const [showModal, setShowModal] = useState(false)
-  const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false) // 급수 로딩 상태
+  const [showLimitModal, setShowLimitModal] = useState<boolean>(false) // 조회 제한 모달
+  const gradeDataCache = useRef<Map<number, Hanzi[]>>(new Map()) // 급수별 데이터 캐시
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // 초기 로드 여부
 
   // 시간 추적 훅 (페이지 접속 시간 체크)
   const { endSession, isActive } = useTimeTracking({
@@ -122,83 +133,146 @@ export default function TextbookWordsPage() {
   }
 
   // 교과서 한자어 추출 함수
-  const extractTextbookWords = useCallback((
-    hanziList: Hanzi[],
-    grade: number,
-    allHanziList: Hanzi[]
-  ): TextbookWord[] => {
-    const wordMap = new Map<string, TextbookWord>()
+  const extractTextbookWords = useCallback(
+    (
+      hanziList: Hanzi[],
+      grade: number,
+      allHanziList: Hanzi[]
+    ): TextbookWord[] => {
+      const wordMap = new Map<string, TextbookWord>()
 
-    // 선택한 급수의 한자만 필터링
-    const gradeHanzi = hanziList.filter((hanzi) => hanzi.grade === grade)
+      // 선택한 급수의 한자만 필터링
+      const gradeHanzi = hanziList.filter((hanzi) => hanzi.grade === grade)
 
-    gradeHanzi.forEach((hanzi) => {
-      if (hanzi.relatedWords) {
-        hanzi.relatedWords.forEach((relatedWord) => {
-          if (relatedWord.isTextBook) {
-            // 이미 존재하는 단어인지 확인
-            if (!wordMap.has(relatedWord.hanzi)) {
-              // 해당 단어를 구성하는 한자들 찾기 (전체 한자 목록에서 찾기)
-              const includedHanzi = findIncludedHanzi(
-                relatedWord.hanzi,
-                allHanziList,
-                selectedGrade
-              )
+      gradeHanzi.forEach((hanzi) => {
+        if (hanzi.relatedWords) {
+          hanzi.relatedWords.forEach((relatedWord) => {
+            if (relatedWord.isTextBook) {
+              // 이미 존재하는 단어인지 확인
+              if (!wordMap.has(relatedWord.hanzi)) {
+                // 해당 단어를 구성하는 한자들 찾기 (전체 한자 목록에서 찾기)
+                const includedHanzi = findIncludedHanzi(
+                  relatedWord.hanzi,
+                  allHanziList,
+                  selectedGrade
+                )
 
-              wordMap.set(relatedWord.hanzi, {
-                word: relatedWord.hanzi,
-                korean: relatedWord.korean,
-                hanzi: relatedWord.hanzi,
-                meaning: relatedWord.meaning, // 뜻 정보 추가
-                includedHanzi,
-              })
+                wordMap.set(relatedWord.hanzi, {
+                  word: relatedWord.hanzi,
+                  korean: relatedWord.korean,
+                  hanzi: relatedWord.hanzi,
+                  meaning: relatedWord.meaning, // 뜻 정보 추가
+                  includedHanzi,
+                })
+              }
             }
+          })
+        }
+      })
+
+      return Array.from(wordMap.values())
+    },
+    [selectedGrade]
+  )
+
+  // 한자 데이터 로드 함수 수정
+  const loadData = useCallback(
+    async (grade: number = 8) => {
+      setIsLoading(true)
+
+      try {
+        let hanziData: Hanzi[]
+
+        // preferredGrade일 때는 DataContext의 hanziList(IndexedDB) 사용
+        if (user?.preferredGrade === grade && dataHanziList.length > 0) {
+          // IndexedDB에서 로드 (preferredGrade)
+          const gradeHanzi = dataHanziList.filter(
+            (hanzi) => hanzi.grade === grade
+          )
+          if (gradeHanzi.length > 0) {
+            hanziData = gradeHanzi
+            console.log(
+              `📚 IndexedDB에서 ${grade}급 한자 ${hanziData.length}개 로드`
+            )
+          } else {
+            // IndexedDB에 해당 급수 데이터가 없으면 API로 폴백
+            // 조회 제한 확인
+            const { canQuery } = checkGradeQueryLimit(
+              grade,
+              user?.preferredGrade,
+              PAGE_TYPE
+            )
+
+            if (!canQuery) {
+              // 조회 제한 도달 - 모달 표시
+              setShowLimitModal(true)
+              setIsLoading(false)
+              return
+            }
+
+            hanziData = await ApiClient.getHanziByGrade(grade)
+            // 조회 횟수 증가
+            incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
+            console.log(
+              `📚 API에서 ${grade}급 한자 ${hanziData.length}개 로드 (IndexedDB에 데이터 없음)`
+            )
           }
-        })
+        } else {
+          // 다른 급수는 API에서 로드 (selectbox에서 선택할 때마다 API 호출)
+          // 조회 제한 확인
+          const { canQuery } = checkGradeQueryLimit(
+            grade,
+            user?.preferredGrade,
+            PAGE_TYPE
+          )
+
+          if (!canQuery) {
+            // 조회 제한 도달 - 모달 표시
+            setShowLimitModal(true)
+            setIsLoading(false)
+            return
+          }
+
+          // API 호출
+          hanziData = await ApiClient.getHanziByGrade(grade)
+          // 캐시에 저장 (다른 용도로 사용 가능)
+          gradeDataCache.current.set(grade, hanziData)
+          // 조회 횟수 증가
+          incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
+          console.log(`📚 API에서 ${grade}급 한자 ${hanziData.length}개 로드`)
+        }
+
+        const words = extractTextbookWords(hanziData, grade, hanziData)
+        setTextbookWords(words)
+      } catch (error) {
+        console.error("데이터 로드 실패:", error)
+      } finally {
+        setIsLoading(false)
       }
-    })
-
-    return Array.from(wordMap.values())
-  }, [selectedGrade])
-
-  // 8급 데이터 기본 로딩
-  const loadData = useCallback(async (grade: number = 8) => {
-    if (grade === 8) setLoading(true)
-    else setIsLoadingGrade(true)
-
-    try {
-      const hanziData = await ApiClient.getHanziByGrade(grade)
-      // setHanziList(hanziData) // This line was removed as per the edit hint
-
-      const words = extractTextbookWords(hanziData, grade, hanziData)
-      setTextbookWords(words)
-    } catch (error) {
-      console.error("데이터 로드 실패:", error)
-    } finally {
-      if (grade === 8) setLoading(false)
-      else setIsLoadingGrade(false)
-    }
-  }, [extractTextbookWords])
+    },
+    [extractTextbookWords, user, dataHanziList]
+  )
 
   useEffect(() => {
-    loadData(8) // 8급 기본 로드
-  }, [loadData])
-
-  // 사용자 정보 로드 후 선호 급수 반영
-  useEffect(() => {
-    if (user?.preferredGrade && user.preferredGrade !== selectedGrade) {
-      setSelectedGrade(user.preferredGrade)
-      loadData(user.preferredGrade)
+    if (user && !initialLoading && isInitialLoad) {
+      // preferredGrade가 있으면 그것부터 로드, 없으면 8급
+      const initialGrade = user?.preferredGrade || 8
+      setSelectedGrade(initialGrade)
+      loadData(initialGrade)
+      setIsInitialLoad(false) // 초기 로드 완료
     }
-  }, [user, selectedGrade, loadData])
+  }, [user, initialLoading, isInitialLoad, loadData])
 
   // 급수 변경 시 데이터 로드
-  const handleGradeChange = useCallback(async (grade: number) => {
-    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
+  const handleGradeChange = useCallback(
+    async (grade: number) => {
+      if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
 
-    setSelectedGrade(grade)
-    await loadData(grade)
-  }, [selectedGrade, loadData])
+      setSelectedGrade(grade)
+      await loadData(grade)
+    },
+    [selectedGrade, loadData]
+  )
 
   // 급수별 한자 수 계산 (향후 사용 예정)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -308,7 +382,23 @@ export default function TextbookWordsPage() {
     setIsSubmittingMeaning(true)
     try {
       // 해당 한자를 찾아서 relatedWords의 meaning 업데이트
-      const hanziData = await ApiClient.getHanziByGrade(selectedGrade)
+      let hanziData: Hanzi[]
+
+      // preferredGrade일 때는 DataContext의 hanziList(IndexedDB) 사용
+      if (user?.preferredGrade === selectedGrade && dataHanziList.length > 0) {
+        const gradeHanzi = dataHanziList.filter(
+          (hanzi) => hanzi.grade === selectedGrade
+        )
+        if (gradeHanzi.length > 0) {
+          hanziData = gradeHanzi
+        } else {
+          // IndexedDB에 데이터가 없으면 API 호출
+          hanziData = await ApiClient.getHanziByGrade(selectedGrade)
+        }
+      } else {
+        // 다른 급수는 API에서 로드
+        hanziData = await ApiClient.getHanziByGrade(selectedGrade)
+      }
       const targetHanzi = hanziData.find((hanzi) =>
         hanzi.relatedWords?.some(
           (word) =>
@@ -368,14 +458,14 @@ export default function TextbookWordsPage() {
     )
   }
 
-  // 데이터 로딩 중
-  if (loading || isLoadingGrade) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='한자 데이터를 불러오는 중...' />
-      </div>
-    )
-  }
+  const gradeName =
+    selectedGrade === 5.5
+      ? "준5급"
+      : selectedGrade === 4.5
+      ? "준4급"
+      : selectedGrade === 3.5
+      ? "준3급"
+      : `${selectedGrade}급`
 
   if (!user) {
     return (
@@ -394,6 +484,19 @@ export default function TextbookWordsPage() {
 
   return (
     <div className='min-h-screen bg-gray-50'>
+      {/* 로딩 오버레이 - 페이지 중간에 표시 */}
+      {isLoading && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div
+            className='absolute inset-0 bg-white'
+            style={{ opacity: 0.95 }}
+          />
+          <div className='relative z-10'>
+            <LoadingSpinner message='한자 데이터를 불러오는 중...' />
+          </div>
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className='fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -425,7 +528,7 @@ export default function TextbookWordsPage() {
               <select
                 value={selectedGrade}
                 onChange={(e) => handleGradeChange(Number(e.target.value))}
-                disabled={isLoadingGrade}
+                disabled={isLoading}
                 className='px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-bold text-lg disabled:opacity-50'
                 style={{
                   fontWeight: "bold",
@@ -461,15 +564,6 @@ export default function TextbookWordsPage() {
                   3급
                 </option>
               </select>
-
-              {isLoadingGrade && (
-                <div className='mt-2 flex items-center space-x-2'>
-                  <LoadingSpinner message='' />
-                  <span className='text-sm text-gray-600'>
-                    급수 데이터를 불러오는 중...
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* 결과 수 */}
@@ -803,6 +897,32 @@ export default function TextbookWordsPage() {
                   : selectedWordForMeaning.meaning
                   ? "수정"
                   : "등록"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 조회 제한 모달 */}
+      {showLimitModal && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='bg-white rounded-lg p-6 max-w-md w-full mx-4'>
+            <div className='text-center'>
+              <div className='text-4xl mb-4'>⚠️</div>
+              <h3 className='text-lg font-medium text-gray-900 mb-2'>
+                조회 제한
+              </h3>
+              <p className='text-gray-600 mb-4'>
+                현재 공부 중인 급수가 아닌 급수는 하루에 2번만 조회할 수
+                있습니다.
+                <br />
+                내일 다시 시도해주세요.
+              </p>
+              <button
+                onClick={() => setShowLimitModal(false)}
+                className='w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500'
+              >
+                확인
               </button>
             </div>
           </div>

@@ -10,6 +10,7 @@ import {
   getSelectedOptionText,
   isCorrectAnswer,
 } from "@/lib/optionUtils"
+import { getKSTDateISO } from "@/lib/apiClient"
 import type { CorrectAnswerItem, ExamQuestionDetail } from "@/types/exam"
 
 export interface ScoreSummary {
@@ -265,7 +266,7 @@ export function useExamActions() {
             passed,
             correctCount,
             totalQuestions: examSession.questions.length,
-            examDate: new Date().toISOString().split("T")[0],
+            examDate: getKSTDateISO(),
             duration: examDurationSeconds,
             wrongAnswers,
             patternStats: {},

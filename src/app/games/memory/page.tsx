@@ -1208,57 +1208,119 @@ export default function MemoryGame() {
 
         {/* 게임 종료 화면 */}
         {gameEnded && (
-          <div className='text-center py-8'>
-            <h2 className='text-3xl font-bold text-gray-900 mb-4'>
-              게임 완료!
-            </h2>
-            <div className='space-y-4'>
-              <div className='text-xl'>
-                <span className='font-semibold'>매칭 완료:</span> {matchedPairs}
-                /{(gridSize.cols * gridSize.rows) / 2}쌍
-              </div>
-              <div className='text-lg'>
-                <span className='font-semibold'>획득 경험치:</span>{" "}
-                {earnedExperience} EXP
-              </div>
-              <div className='text-lg'>
-                <span className='font-semibold'>소요 시간:</span>{" "}
-                {Math.floor(totalTime / 60)}분 {totalTime % 60}초
-              </div>
-              {flipLimit > 0 && (
-                <div className='text-lg'>
-                  <span className='font-semibold'>사용한 횟수:</span>{" "}
-                  {flipLimit - remainingFlips}/{flipLimit}
+          <div className='bg-white rounded-lg shadow-lg p-8'>
+            <div className='text-center mb-6'>
+              <div className='text-4xl mb-3'>🎉</div>
+              <h2 className='text-2xl font-bold text-gray-900 mb-2'>
+                카드 뒤집기 완료!
+              </h2>
+              <p className='text-lg text-green-600 font-medium'>
+                모든 쌍을 매칭했습니다! 🎊
+              </p>
+            </div>
+
+            {/* 게임 결과 요약 */}
+            <div className='grid grid-cols-2 gap-4 mb-6'>
+              <div className='bg-green-50 rounded-lg p-4 text-center'>
+                <div className='text-2xl font-bold text-green-600 mb-1'>
+                  {matchedPairs}
                 </div>
-              )}
-              <div className='text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg'>
-                <div className='font-medium mb-1'>게임 정보:</div>
-                <div>
-                  난이도:{" "}
-                  {difficulty === "easy"
-                    ? "쉬움"
-                    : difficulty === "medium"
-                    ? "중간"
-                    : "어려움"}
+                <div className='text-sm text-gray-600'>매칭 완료</div>
+                <div className='text-xs text-gray-500 mt-1'>
+                  /{(gridSize.cols * gridSize.rows) / 2}쌍
                 </div>
-                <div>
-                  타일: {gridSize.cols} x {gridSize.rows} (
-                  {(gridSize.cols * gridSize.rows) / 2}쌍)
+              </div>
+              <div className='bg-purple-50 rounded-lg p-4 text-center'>
+                <div className='text-2xl font-bold text-purple-600 mb-1'>
+                  +{earnedExperience}
+                </div>
+                <div className='text-sm text-gray-600'>획득 경험치</div>
+              </div>
+            </div>
+
+            {/* 경험치 상세 */}
+            <div className='bg-gray-50 rounded-lg p-6 mb-6'>
+              <h3 className='text-lg font-bold text-gray-900 mb-4'>경험치 상세</h3>
+              <div className='space-y-3'>
+                <div className='flex justify-between items-center'>
+                  <span className='text-gray-700'>매칭 완료 ({matchedPairs}쌍)</span>
+                  <span className='text-green-600 font-bold text-lg'>
+                    +{earnedExperience} EXP
+                  </span>
+                </div>
+                <div className='flex justify-between items-center pt-3 border-t-2 border-gray-300'>
+                  <span className='text-gray-900 font-bold text-base'>
+                    획득 경험치
+                  </span>
+                  <span className='text-green-600 font-bold text-lg'>
+                    +{earnedExperience} EXP
+                  </span>
+                </div>
+                <div className='flex justify-between items-center'>
+                  <span className='text-gray-700 font-medium'>이전 경험치</span>
+                  <span className='text-gray-600 font-bold text-xl'>
+                    {(user?.experience || 0) - earnedExperience} EXP
+                  </span>
+                </div>
+                <div className='flex justify-between items-center pt-2'>
+                  <span className='text-gray-900 font-medium'>최종 경험치</span>
+                  <span className='text-blue-600 font-bold text-xl'>
+                    {user?.experience || 0} EXP
+                  </span>
                 </div>
               </div>
             </div>
-            <div className='flex space-x-4 justify-center mt-8'>
+
+            {/* 게임 정보 */}
+            <div className='bg-blue-50 rounded-lg p-4 mb-6'>
+              <h3 className='text-sm font-semibold text-gray-900 mb-3'>게임 정보</h3>
+              <div className='grid grid-cols-2 gap-3 text-sm'>
+                <div>
+                  <span className='text-gray-600'>난이도:</span>{" "}
+                  <span className='font-medium text-gray-900'>
+                    {difficulty === "easy"
+                      ? "쉬움"
+                      : difficulty === "medium"
+                      ? "중간"
+                      : "어려움"}
+                  </span>
+                </div>
+                <div>
+                  <span className='text-gray-600'>타일:</span>{" "}
+                  <span className='font-medium text-gray-900'>
+                    {gridSize.cols} x {gridSize.rows} ({(gridSize.cols * gridSize.rows) / 2}쌍)
+                  </span>
+                </div>
+                <div>
+                  <span className='text-gray-600'>소요 시간:</span>{" "}
+                  <span className='font-medium text-gray-900'>
+                    {Math.floor(totalTime / 60)}분 {totalTime % 60}초
+                  </span>
+                </div>
+                {flipLimit > 0 && (
+                  <div>
+                    <span className='text-gray-600'>사용한 횟수:</span>{" "}
+                    <span className='font-medium text-gray-900'>
+                      {flipLimit - remainingFlips}/{flipLimit}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 액션 버튼 */}
+            <div className='flex gap-4'>
               <button
                 onClick={handleBackToSettings}
-                className='px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+                className='flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
               >
                 다시 하기
               </button>
               <Link
                 href='/'
-                className='px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors'
+                className='flex-1 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-center'
               >
-                메인 화면
+                홈으로
               </Link>
             </div>
           </div>
@@ -1289,3 +1351,4 @@ export default function MemoryGame() {
     </div>
   )
 }
+

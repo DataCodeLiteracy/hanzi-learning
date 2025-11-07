@@ -11,6 +11,9 @@ import { useRouter } from "next/navigation"
 import { gradeInfo } from "@/lib/gradeInfo"
 import { getGradePatterns } from "@/lib/gradePatterns"
 import { useSelectedHanzi } from "@/contexts/SelectedHanziContext"
+import { getKSTDateISO, ApiClient } from "@/lib/apiClient"
+import { getNextGrade } from "@/lib/gradeUtils"
+import GradePromotionModal from "@/components/exam/GradePromotionModal"
 import type { Hanzi } from "@/types/index"
 import type { RelatedWord } from "@/types/index"
 
@@ -34,15 +37,28 @@ export default function ExamPage() {
     isLoading: dataLoading,
   } = useData()
   const [currentGrade, setCurrentGrade] = useState<number | null>(null)
-  const { setSelected } = useSelectedHanzi()
+  const { setSelected, getSelected } = useSelectedHanzi()
   const [isLoading, setIsLoading] = useState(true)
   const [showDailyLimitModal, setShowDailyLimitModal] = useState(false)
   const [checkingDailyLimit, setCheckingDailyLimit] = useState(true)
+  const [showPromotionModal, setShowPromotionModal] = useState(false)
+  const [promotionPassCount, setPromotionPassCount] = useState(0)
   const router = useRouter()
 
   // /games/exam 접근 시, 급수/패턴에 맞게 사전 선발(교과/일반) 구성 후 세션에 저장
   useEffect(() => {
     if (!currentGrade || !hanziList || hanziList.length === 0) return
+
+    // 이미 설정되어 있는지 확인 (무한 루프 방지)
+    const existing = getSelected(currentGrade)
+    if (existing) {
+      console.log("이미 선발된 데이터가 있습니다:", {
+        grade: currentGrade,
+        textBookIdsCount: existing.textBookIds.length,
+        normalIdsCount: existing.normalIds.length,
+      })
+      return
+    }
 
     try {
       const patterns = getGradePatterns(currentGrade)
@@ -159,7 +175,7 @@ export default function ExamPage() {
     } catch {
       // 선발 실패 시 무시(세부 페이지에서 자체 선택)
     }
-  }, [currentGrade, hanziList, setSelected])
+  }, [currentGrade, hanziList, setSelected, getSelected])
 
   // 오늘 시험 여부 확인
   useEffect(() => {
@@ -170,7 +186,7 @@ export default function ExamPage() {
       }
 
       try {
-        const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD 형식
+        const today = getKSTDateISO() // 한국시간 기준 YYYY-MM-DD 형식
 
         // 타임아웃 설정 (5초)
         const controller = new AbortController()
@@ -196,6 +212,28 @@ export default function ExamPage() {
         if (result.hasTakenToday) {
           console.log("🚫 오늘 이미 시험을 봤습니다. 모달 표시")
           setShowDailyLimitModal(true)
+        } else {
+          // 오늘 시험을 안 봤으면 진급 체크
+          if (user?.preferredGrade) {
+            const examStats = await ApiClient.getExamStats(user.id)
+            if (examStats) {
+              const gradeKey = user.preferredGrade.toString()
+              const gradeStat = examStats.gradeStats[gradeKey]
+
+              if (
+                gradeStat &&
+                gradeStat.highScorePassCount &&
+                gradeStat.highScorePassCount >= 20
+              ) {
+                console.log("✅ 진급 조건 충족:", {
+                  grade: user.preferredGrade,
+                  passCount: gradeStat.highScorePassCount,
+                })
+                setPromotionPassCount(gradeStat.highScorePassCount)
+                setShowPromotionModal(true)
+              }
+            }
+          }
         }
       } catch (error) {
         console.error(
@@ -217,6 +255,29 @@ export default function ExamPage() {
       setCheckingDailyLimit(false)
     }
   }, [user])
+
+  // 진급 확인 핸들러
+  const handlePromotionConfirm = async () => {
+    if (!user?.preferredGrade) return
+
+    const nextGrade = getNextGrade(user.preferredGrade)
+    if (!nextGrade) {
+      console.error("다음 급수가 없습니다.")
+      return
+    }
+
+    try {
+      // preferredGrade 업데이트
+      await ApiClient.updateUserPreferredGrade(user.id, nextGrade)
+      console.log("✅ preferredGrade 업데이트 완료:", nextGrade)
+
+      // 메인 페이지로 리다이렉션 (IndexedDB 자동 업데이트됨)
+      window.location.href = "/"
+    } catch (error) {
+      console.error("진급 처리 실패:", error)
+      alert("진급 처리 중 오류가 발생했습니다.")
+    }
+  }
 
   useEffect(() => {
     const loadUserGrade = async () => {
@@ -488,6 +549,18 @@ export default function ExamPage() {
             setShowDailyLimitModal(false)
             router.push("/")
           }}
+        />
+      )}
+
+      {/* 진급 권장 모달 */}
+      {showPromotionModal && user?.preferredGrade && (
+        <GradePromotionModal
+          isOpen={showPromotionModal}
+          onClose={() => setShowPromotionModal(false)}
+          onConfirm={handlePromotionConfirm}
+          currentGrade={user.preferredGrade}
+          passCount={promotionPassCount}
+          type='exam-page'
         />
       )}
     </div>

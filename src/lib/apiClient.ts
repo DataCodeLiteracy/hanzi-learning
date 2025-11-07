@@ -27,7 +27,7 @@ const getKSTDateString = () => {
   return getKSTDate().toDateString()
 }
 
-const getKSTDateISO = () => {
+export const getKSTDateISO = () => {
   return getKSTDate().toISOString().split("T")[0] // YYYY-MM-DD
 }
 
@@ -2265,6 +2265,31 @@ export class ApiClient {
       return users
     } catch {
       throw new Error("모든 유저 조회에 실패했습니다.")
+    }
+  }
+
+  // 사용자의 examStats 조회 (급수별 시험 통계)
+  static async getExamStats(userId: string): Promise<{
+    gradeStats: Record<string, {
+      totalExams: number
+      passedExams: number
+      averageScore: number
+      lastExamDate: string | null
+      highScorePassCount?: number
+    }>
+  } | null> {
+    try {
+      const userStats = await this.getUserStatistics(userId)
+      if (!userStats || !userStats.examStats) {
+        return null
+      }
+      
+      return {
+        gradeStats: userStats.examStats.gradeStats || {},
+      }
+    } catch (error) {
+      console.error("examStats 조회 실패:", error)
+      return null
     }
   }
 

@@ -22,12 +22,17 @@ import {
 } from "@/lib/experienceSystem"
 import BonusExperienceModal from "@/components/BonusExperienceModal"
 import { useState, useEffect, useCallback } from "react"
-import { ApiClient } from "@/lib/apiClient"
+import { ApiClient, getKSTDateISO } from "@/lib/apiClient"
+import { getNextGrade } from "@/lib/gradeUtils"
+import GradePromotionModal from "@/components/exam/GradePromotionModal"
 import type { User, Hanzi } from "@/types/index"
 
 export default function Home() {
   const { user, initialLoading, signIn } = useAuth()
   const { hanziList, isLoading: dataLoading, refreshHanziData } = useData()
+  const [showPromotionModal, setShowPromotionModal] = useState(false)
+  const [promotionPassCount, setPromotionPassCount] = useState(0)
+  const [daysSinceLastExam, setDaysSinceLastExam] = useState<number | undefined>(undefined)
 
   // hanziList 상태 확인
   useEffect(() => {
@@ -56,6 +61,17 @@ export default function Home() {
       console.log("🚀 checkAndUpdateIndexedDB 함수 시작")
 
       try {
+        // 유저 ID 확인
+        if (!user?.id) {
+          console.log("❌ 유저 ID가 없음, IndexedDB 업데이트 건너뜀")
+          console.groupEnd()
+          return
+        }
+
+        // 유저별 키 생성
+        const storageKey = `currentHanziData_${user.id}`
+        console.log("🔑 유저별 저장 키:", storageKey)
+
         // 1. 현재 급수 확인
         const currentGrade = user?.preferredGrade || 7
         console.debug("1️⃣ 현재 급수:", currentGrade)
@@ -133,7 +149,7 @@ export default function Home() {
                     data: hanziData,
                   }
 
-                  const putRequest = newStore.put(newData, "currentHanziData")
+                  const putRequest = newStore.put(newData, storageKey)
 
                   putRequest.onsuccess = () => {
                     console.debug("✅ API 데이터 IndexedDB 저장 완료!")
@@ -189,7 +205,7 @@ export default function Home() {
 
                   const putRequest = newStore.put(
                     fallbackData,
-                    "currentHanziData"
+                    storageKey
                   )
 
                   putRequest.onsuccess = () => {
@@ -210,7 +226,7 @@ export default function Home() {
 
             // 데이터가 있지만 비어있는 경우도 처리
             console.log("🔍 기존 데이터 확인 중...")
-            const getRequest1 = store.get("currentHanziData")
+            const getRequest1 = store.get(storageKey)
 
             getRequest1.onsuccess = () => {
               const storedData = getRequest1.result
@@ -256,7 +272,7 @@ export default function Home() {
                     )
                     const newStore = newTransaction.objectStore("hanziStore")
 
-                    const putRequest = newStore.put(newData, "currentHanziData")
+                    const putRequest = newStore.put(newData, storageKey)
 
                     putRequest.onsuccess = () => {
                       console.debug("✅ API 데이터 IndexedDB 저장 완료!")
@@ -296,9 +312,9 @@ export default function Home() {
               console.groupEnd()
             }
 
-            // currentHanziData 키로 데이터 조회
-            console.log("🔍 currentHanziData 키로 데이터 조회 시작...")
-            const getRequest2 = store.get("currentHanziData")
+            // 유저별 키로 데이터 조회
+            console.log("🔍 유저별 키로 데이터 조회 시작...")
+            const getRequest2 = store.get(storageKey)
             console.log("📥 조회 요청 생성됨")
 
             getRequest2.onsuccess = async () => {
@@ -462,7 +478,7 @@ export default function Home() {
 
                         const putRequest = newStore.put(
                           newData,
-                          "currentHanziData"
+                          storageKey
                         )
 
                         putRequest.onsuccess = () => {
@@ -503,7 +519,7 @@ export default function Home() {
                   console.debug("🧹 기존 데이터 클리어 중...")
 
                   // 기존 데이터 삭제
-                  const deleteRequest = store.delete("currentHanziData")
+                  const deleteRequest = store.delete(storageKey)
 
                   deleteRequest.onsuccess = () => {
                     console.debug("✅ 기존 데이터 클리어 완료")
@@ -550,7 +566,7 @@ export default function Home() {
 
                         const putRequest = newStore.put(
                           newData,
-                          "currentHanziData"
+                          storageKey
                         )
 
                         putRequest.onsuccess = () => {
@@ -624,7 +640,7 @@ export default function Home() {
                     )
                     const newStore = newTransaction.objectStore("hanziStore")
 
-                    const putRequest = newStore.put(newData, "currentHanziData")
+                    const putRequest = newStore.put(newData, storageKey)
 
                     putRequest.onsuccess = () => {
                       console.debug("✅ API 데이터 IndexedDB 저장 완료!")
@@ -681,7 +697,7 @@ export default function Home() {
 
                     const putRequest = newStore.put(
                       fallbackData,
-                      "currentHanziData"
+                      storageKey
                     )
 
                     putRequest.onsuccess = () => {
@@ -736,8 +752,7 @@ export default function Home() {
     if (user) {
       checkAndUpdateIndexedDB()
     }
-  }, [user, refreshHanziData])
-  const [showGuideModal, setShowGuideModal] = useState(false)
+  }, [user?.id, user?.preferredGrade, refreshHanziData])
   const [todayExperience, setTodayExperience] = useState<number>(0)
   const [todayGoal, setTodayGoal] = useState<number>(100)
   const [consecutiveGoalDays, setConsecutiveGoalDays] = useState<number>(0)
@@ -888,6 +903,72 @@ export default function Home() {
       loadTodayExperience()
     }
   }, [user])
+
+  // 진급 체크 (메인 페이지)
+  useEffect(() => {
+    const checkPromotion = async () => {
+      if (!user?.preferredGrade) return
+
+      try {
+        const examStats = await ApiClient.getExamStats(user.id)
+        if (!examStats) return
+
+        const gradeKey = user.preferredGrade.toString()
+        const gradeStat = examStats.gradeStats[gradeKey]
+
+        if (!gradeStat || !gradeStat.highScorePassCount || gradeStat.highScorePassCount < 20) {
+          return
+        }
+
+        // 5일 이상 지났는지 확인
+        if (gradeStat.lastExamDate) {
+          const lastExamDate = new Date(gradeStat.lastExamDate)
+          const today = new Date(getKSTDateISO())
+          const daysDiff = Math.floor((today.getTime() - lastExamDate.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (daysDiff >= 5) {
+            console.log("✅ 진급 권장 조건 충족:", {
+              grade: user.preferredGrade,
+              passCount: gradeStat.highScorePassCount,
+              daysSinceLastExam: daysDiff,
+            })
+            setPromotionPassCount(gradeStat.highScorePassCount)
+            setDaysSinceLastExam(daysDiff)
+            setShowPromotionModal(true)
+          }
+        }
+      } catch (error) {
+        console.error("진급 체크 실패:", error)
+      }
+    }
+
+    if (user) {
+      checkPromotion()
+    }
+  }, [user])
+
+  // 진급 확인 핸들러 (메인 페이지)
+  const handlePromotionConfirm = async () => {
+    if (!user?.preferredGrade) return
+
+    const nextGrade = getNextGrade(user.preferredGrade)
+    if (!nextGrade) {
+      console.error("다음 급수가 없습니다.")
+      return
+    }
+
+    try {
+      // preferredGrade 업데이트
+      await ApiClient.updateUserPreferredGrade(user.id, nextGrade)
+      console.log("✅ preferredGrade 업데이트 완료:", nextGrade)
+      
+      // 메인 페이지 새로고침 (IndexedDB 자동 업데이트됨)
+      window.location.href = "/"
+    } catch (error) {
+      console.error("진급 처리 실패:", error)
+      alert("진급 처리 중 오류가 발생했습니다.")
+    }
+  }
 
   // 보너스 경험치 획득 시 모달 표시 (현재 사용하지 않음)
   // const handleBonusEarned = (
@@ -1480,9 +1561,9 @@ export default function Home() {
                   학습 가이드
                 </h2>
                 <div className='grid grid-cols-1 gap-4 sm:gap-6'>
-                  <button
-                    onClick={() => setShowGuideModal(true)}
-                    className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full'
+                  <Link
+                    href='/learning-guide'
+                    className='bg-white rounded-lg shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer text-left w-full block'
                   >
                     <div className='w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg flex items-center justify-center mb-3 sm:mb-4'>
                       <Trophy className='h-5 w-5 sm:h-6 sm:w-6 text-white' />
@@ -1493,7 +1574,7 @@ export default function Home() {
                     <p className='text-xs sm:text-sm text-gray-600'>
                       효과적인 한자 학습 방법과 팁을 확인하세요
                     </p>
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -1521,36 +1602,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* 학습 가이드 준비 중 모달 */}
-      {showGuideModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center'>
-          {/* 배경 오버레이 */}
-          <div
-            className='absolute inset-0'
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
-            onClick={() => setShowGuideModal(false)}
-          />
-
-          {/* 모달 */}
-          <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
-            <div className='text-center'>
-              <div className='text-yellow-500 text-4xl mb-4'>🚧</div>
-              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
-                준비 중인 기능
-              </h3>
-              <p className='text-gray-700 mb-6'>
-                학습 가이드 기능은 현재 개발 중입니다.
-              </p>
-              <button
-                onClick={() => setShowGuideModal(false)}
-                className='px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors'
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 유저 순위 모달 */}
       {showRankingModal && (
@@ -1654,6 +1705,19 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 진급 권장 모달 */}
+      {showPromotionModal && user?.preferredGrade && (
+        <GradePromotionModal
+          isOpen={showPromotionModal}
+          onClose={() => setShowPromotionModal(false)}
+          onConfirm={handlePromotionConfirm}
+          currentGrade={user.preferredGrade}
+          passCount={promotionPassCount}
+          type="main-page"
+          daysSinceLastExam={daysSinceLastExam}
+        />
       )}
     </div>
   )
