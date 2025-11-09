@@ -16,6 +16,7 @@ export const UpdateStudyTimeResponseSchema = BaseApiResponseSchema
 // Question schemas (runtime 최소 검증)
 export const QuestionTypeSchema = z.enum([
   "sound",
+  "sound_same",
   "meaning",
   "word_reading",
   "word_meaning",

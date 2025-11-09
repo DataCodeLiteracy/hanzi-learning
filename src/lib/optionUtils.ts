@@ -297,6 +297,13 @@ export const isCorrectAnswer = (
     return ""
   }
 
+  if (question.type === "sound_same") {
+    // sound_same 패턴: userAnswer는 옵션 번호, correctAnswer는 character (같은 sound를 가진 다른 한자)
+    // selectedOptionText가 정답 character와 일치하는지 비교
+    const correctChar = getCorrectAnswerValue()
+    return selectedOptionText?.trim() === correctChar.trim()
+  }
+
   if (question.type === "meaning") {
     // meaning 패턴: userAnswer는 옵션 번호, correctAnswer는 character
     // selectedOptionText가 정답 character와 일치하는지 비교

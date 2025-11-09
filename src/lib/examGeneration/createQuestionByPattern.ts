@@ -15,7 +15,8 @@ interface GradePattern {
 export const createQuestionByPattern = (
   pattern: GradePattern,
   hanzi: Hanzi,
-  questionIndex: number
+  questionIndex: number,
+  allHanziList: Hanzi[] = []
 ): ExamQuestionDetail | null => {
   const question: Partial<ExamQuestionDetail> = {
     id: `q_${questionIndex}`,
@@ -76,6 +77,53 @@ export const createQuestionByPattern = (
       question.aiText = aiPrompts.word_meaning.userPrompt({
         ...hanzi,
         meaning: naturalMeaning,
+      })
+      break
+    }
+    case "sound_same": {
+      // sound_same 패턴: 같은 sound를 가진 다른 한자를 정답으로 선택
+      if (!allHanziList || allHanziList.length === 0) {
+        console.warn(`⚠️ sound_same 패턴: allHanziList가 비어있음`, {
+          character: hanzi.character,
+          sound: hanzi.sound,
+          allHanziListLength: allHanziList?.length || 0,
+        })
+        return null
+      }
+      
+      // 같은 sound를 가진 다른 한자들 찾기
+      const sameSoundHanzi = allHanziList.filter(
+        (h) => h.sound === hanzi.sound && h.character !== hanzi.character
+      )
+      
+      console.log(`🔍 sound_same 패턴 디버깅:`, {
+        character: hanzi.character,
+        sound: hanzi.sound,
+        allHanziListLength: allHanziList.length,
+        sameSoundHanziCount: sameSoundHanzi.length,
+        sameSoundHanzi: sameSoundHanzi.map(h => h.character),
+      })
+      
+      if (sameSoundHanzi.length === 0) {
+        // 같은 sound를 가진 다른 한자가 없으면 문제 생성 불가
+        console.warn(`⚠️ sound_same 패턴: 같은 sound를 가진 다른 한자가 없음`, {
+          character: hanzi.character,
+          sound: hanzi.sound,
+          allHanziListLength: allHanziList.length,
+        })
+        return null
+      }
+      
+      // 랜덤하게 하나 선택
+      const randomIndex = Math.floor(Math.random() * sameSoundHanzi.length)
+      const correctAnswerHanzi = sameSoundHanzi[randomIndex]
+      
+      question.correctAnswer = correctAnswerHanzi.character
+      console.log(`✅ sound_same 패턴 생성 성공:`, {
+        questionCharacter: hanzi.character,
+        questionSound: hanzi.sound,
+        correctAnswer: correctAnswerHanzi.character,
+        correctAnswerSound: correctAnswerHanzi.sound,
       })
       break
     }

@@ -14,6 +14,11 @@ export const generateCorrectAnswers = (
       case "sound":
         correctAnswer = question.sound
         break
+      case "sound_same":
+        // sound_same 패턴: 같은 sound를 가진 다른 한자가 정답
+        // 정답은 question.correctAnswer에 설정되어 있음 (문제 생성 시 설정)
+        correctAnswer = question.correctAnswer || question.character || ""
+        break
       case "meaning":
         correctAnswer = question.character
         break

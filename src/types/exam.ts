@@ -13,6 +13,7 @@ export interface ExamQuestion {
   id: string
   type:
     | "sound"
+    | "sound_same"
     | "meaning"
     | "word_reading"
     | "word_meaning"
@@ -47,6 +48,7 @@ export interface ExamSession {
 // 패턴별 질문 상세 타입 (discriminated union)
 export type QuestionType =
   | "sound"
+  | "sound_same"
   | "meaning"
   | "word_reading"
   | "word_meaning"
@@ -76,6 +78,12 @@ interface BaseQuestion {
 export interface SoundQuestion extends BaseQuestion {
   type: "sound"
   sound: string
+}
+
+export interface SoundSameQuestion extends BaseQuestion {
+  type: "sound_same"
+  sound: string
+  correctAnswer?: string
 }
 
 export interface MeaningQuestion extends BaseQuestion {
@@ -122,6 +130,7 @@ export interface SubjectiveQuestion extends BaseQuestion {
 
 export type ExamQuestionDetail =
   | SoundQuestion
+  | SoundSameQuestion
   | MeaningQuestion
   | WordReadingQuestion
   | BlankHanziQuestion

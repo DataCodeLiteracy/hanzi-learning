@@ -27,6 +27,11 @@ export function buildQuestionContent(
         question: `[${questionData.character}] 한자의 음(소리)으로 알맞은 것을 선택하세요.`,
         options: getOptions(questionData.sound, "sound"),
       }
+    case "sound_same":
+      return {
+        question: `[${questionData.character}] 안의 한자와 음이 같은 한자를 선택하세요.`,
+        options: getOptions(questionData.correctAnswer as string || questionData.character, "character"),
+      }
     case "meaning":
       return {
         question: `[${questionData.meaning}] 뜻에 맞는 한자를 선택하세요.`,

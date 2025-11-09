@@ -180,15 +180,30 @@ export default function ExamGradePage({
 
   // 2단계: 패턴별 문제 생성 (모듈 사용)
   const generateQuestionsByPattern = useCallback(
-    (selectedTextBookHanzi: Hanzi[], selectedNormalHanzi: Hanzi[]) => {
+    (selectedTextBookHanzi: Hanzi[], selectedNormalHanzi: Hanzi[], gradeHanziList: Hanzi[] = []) => {
+      // sound_same 패턴을 위해 현재 grade의 한자 리스트 전달
+      // gradeHanziList가 없으면 전체 hanziList에서 현재 grade만 필터링
+      const allHanziForSoundSame = gradeHanziList.length > 0 
+        ? gradeHanziList 
+        : hanziList.filter((h: Hanzi) => h.grade === grade)
+      
+      console.log(`🔍 generateQuestionsByPattern 호출:`, {
+        gradePatternsCount: gradePatterns.length,
+        selectedTextBookHanziCount: selectedTextBookHanzi.length,
+        selectedNormalHanziCount: selectedNormalHanzi.length,
+        allHanziForSoundSameCount: allHanziForSoundSame.length,
+        gradeHanziListCount: gradeHanziList.length,
+      })
+      
       const structuredQuestions = generateByPattern(
         gradePatterns,
         selectedTextBookHanzi,
-        selectedNormalHanzi
+        selectedNormalHanzi,
+        allHanziForSoundSame // sound_same 패턴을 위해 현재 grade의 한자 리스트 전달
       )
       return structuredQuestions
     },
-    [gradePatterns]
+    [gradePatterns, hanziList, grade]
   )
 
   // 개별 문제 생성은 모듈 사용(createQuestionByPattern)
@@ -322,11 +337,28 @@ export default function ExamGradePage({
 
     // 2단계: 패턴별 문제 생성
     setLoadingProgress(30)
+    // sound_same 패턴을 위해 현재 grade의 한자 리스트 전달
     const structuredQuestions = generateQuestionsByPattern(
       selectedTextBookHanzi,
-      selectedNormalHanzi
+      selectedNormalHanzi,
+      gradeHanziList // 현재 grade의 한자 리스트 전달
     )
     setLoadingProgress(40)
+    
+    // sound_same 패턴 문제 생성 확인
+    const soundSameQuestions = structuredQuestions.filter(
+      (q) => q.type === "sound_same"
+    )
+    console.log(`🔍 sound_same 패턴 문제 생성 확인:`, {
+      expectedCount: gradePatterns.find((p) => p.type === "sound_same")?.questionCount || 0,
+      actualCount: soundSameQuestions.length,
+      questions: soundSameQuestions.map((q) => ({
+        id: q.id,
+        character: q.character,
+        sound: q.sound,
+        correctAnswer: q.correctAnswer,
+      })),
+    })
 
     // 3단계: AI 처리 (word_meaning_select의 correctAnswerIndex 설정을 위해 먼저 실행)
     // 진행률은 processAIQuestions 내부에서 관리하므로 여기서는 설정하지 않음

@@ -13,7 +13,8 @@ interface GradePattern {
 export const generateQuestionsByPattern = (
   gradePatterns: GradePattern[],
   selectedTextBookHanzi: Hanzi[],
-  selectedNormalHanzi: Hanzi[]
+  selectedNormalHanzi: Hanzi[],
+  allHanziList: Hanzi[] = []
 ): ExamQuestionDetail[] => {
   const structuredQuestions: ExamQuestionDetail[] = []
   let textBookIndex = 0
@@ -43,7 +44,8 @@ export const generateQuestionsByPattern = (
       const question = createQuestionByPattern(
         pattern,
         hanzi,
-        structuredQuestions.length
+        structuredQuestions.length,
+        allHanziList
       )
       if (question) {
         structuredQuestions.push(question)
