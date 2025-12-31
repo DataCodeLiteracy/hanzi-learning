@@ -405,6 +405,21 @@ export default function QuizGame() {
                 <option value={10}>10문제</option>
                 <option value={15}>15문제</option>
                 <option value={20}>20문제</option>
+                <option value={25}>25문제</option>
+                <option value={30}>30문제</option>
+                <option value={40}>40문제</option>
+                {selectedGrade === 8 ? (
+                  <option value={50}>50문제</option>
+                ) : (
+                  <>
+                    <option value={50}>50문제</option>
+                    <option value={60}>60문제</option>
+                    <option value={70}>70문제</option>
+                    <option value={80}>80문제</option>
+                    <option value={90}>90문제</option>
+                    <option value={100}>100문제</option>
+                  </>
+                )}
               </select>
               <div className='pointer-events-none absolute inset-y-0 right-0 flex items-center px-4'>
                 <svg
