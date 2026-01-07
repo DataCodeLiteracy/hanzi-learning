@@ -17,8 +17,13 @@ export default function GameCompletionCard({
   onRestart,
   onGoHome,
 }: GameCompletionCardProps) {
-  const { correctAnswers, dontKnowCount, earnedExperience, bonusExperience } =
-    gameStats
+  const {
+    correctAnswers,
+    dontKnowCount,
+    earnedExperience,
+    bonusExperience,
+    bonusType,
+  } = gameStats
   const wrongAnswers = questionCount - correctAnswers - dontKnowCount
   const isPerfectGame = dontKnowCount === 0 && correctAnswers === questionCount
 
@@ -100,7 +105,9 @@ export default function GameCompletionCard({
           {bonusExperience > 0 && (
             <div className='flex justify-between items-center pt-3 border-t-2 border-purple-200'>
               <span className='text-purple-700 font-medium'>
-                완벽한 게임 보너스 🎁
+                {bonusType === "perfect"
+                  ? "완벽한 게임 보너스 🎁"
+                  : "오답 없음 보너스 🎁"}
               </span>
               <span className='text-purple-600 font-bold text-lg'>
                 +{bonusExperience} EXP

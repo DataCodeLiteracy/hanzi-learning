@@ -5,8 +5,10 @@ import { ApiClient } from "@/lib/apiClient"
 export interface GameStats {
   correctAnswers: number
   dontKnowCount: number
+  wrongAnswers: number
   earnedExperience: number
   bonusExperience: number
+  bonusType?: "perfect" | "no_wrong" // perfect: 정답률 100%, no_wrong: 오답 없음
 }
 
 export interface GameQuestion {
@@ -45,19 +47,22 @@ export const useGameLogic = (config: GameConfig) => {
   const [gameStats, setGameStats] = useState<GameStats>({
     correctAnswers: 0,
     dontKnowCount: 0,
+    wrongAnswers: 0,
     earnedExperience: 0,
     bonusExperience: 0,
+    bonusType: undefined,
   })
 
   // 문제 풀기 카운팅
   const questionsAnsweredRef = useRef<number>(0)
 
-  // 완벽한 게임 보너스 계산
-  const calculatePerfectGameBonus = useCallback(
+  // 게임 완료 시 보너스 경험치 계산
+  const calculateGameBonus = useCallback(
     async (
       questionCount: number,
       dontKnowCount: number,
-      correctAnswers: number
+      correctAnswers: number,
+      wrongAnswers: number
     ): Promise<number> => {
       // 학습 완료도 체크 (80% 이상 완료 시 보너스 제한)
       if (user) {
@@ -75,31 +80,23 @@ export const useGameLogic = (config: GameConfig) => {
         }
       }
 
-      // 모르겠음을 선택한 경우: 완벽한 게임이 아니므로 추가 보상 없음
-      if (dontKnowCount > 0) {
-        return 0
+      let bonus = 0
+
+      // 1. 정답률 100%면 문제수의 50%를 보너스로 추가
+      if (correctAnswers === questionCount && wrongAnswers === 0 && dontKnowCount === 0) {
+        bonus = Math.floor(questionCount * 0.5)
+        return bonus
       }
 
-      // 오답이 있는 경우: 완벽한 게임이 아니므로 추가 보상 없음
-      if (correctAnswers < questionCount) {
-        return 0
+      // 2. 오답이 없고 모르겠음과 정답의 조합만 있으면 30% 보너스 (올림)
+      // 예: 10문제 → +3, 20문제 → +6, 30문제 → +9
+      if (wrongAnswers === 0 && (dontKnowCount > 0 || correctAnswers > 0)) {
+        bonus = Math.ceil(questionCount * 0.3)
+        return bonus
       }
 
-      // 모르겠음 없이 모든 문제를 정답으로 맞춘 경우: 추가 보상만 지급
-      const bonusMap: { [key: number]: number } = {
-        5: 1,
-        10: 2,
-        15: 3,
-        20: 5,
-        25: 9,
-        30: 12,
-        35: 15,
-        40: 20,
-        45: 25,
-        50: 30,
-      }
-
-      return bonusMap[questionCount] || 0
+      // 오답이 있으면 보너스 없음
+      return 0
     },
     [user, config.selectedGrade]
   )
@@ -136,6 +133,10 @@ export const useGameLogic = (config: GameConfig) => {
       } else {
         // 틀린 답안 시 -1 경험치 (차감)
         experienceToAdd = -1
+        setGameStats((prev) => ({
+          ...prev,
+          wrongAnswers: prev.wrongAnswers + 1,
+        }))
       }
 
       // 즉시 통계 업데이트 (문제 풀 때마다)
@@ -194,31 +195,49 @@ export const useGameLogic = (config: GameConfig) => {
             setIsCorrect(null)
           } else {
             // 마지막 문제인 경우 게임 종료
-            // 완벽한 게임 보너스 계산 및 적용
+            // 보너스 경험치 계산 및 적용
             const finalCorrectAnswers =
               gameStats.correctAnswers + (correct ? 1 : 0)
             const finalDontKnowCount =
               gameStats.dontKnowCount + (isDontKnow ? 1 : 0)
+            const finalWrongAnswers =
+              gameStats.wrongAnswers + (!correct && !isDontKnow ? 1 : 0)
 
-            const perfectBonus = await calculatePerfectGameBonus(
+            const gameBonus = await calculateGameBonus(
               questions.length,
               finalDontKnowCount,
-              finalCorrectAnswers
+              finalCorrectAnswers,
+              finalWrongAnswers
             )
 
-            if (perfectBonus > 0) {
+            // 보너스 타입 계산
+            let bonusType: "perfect" | "no_wrong" | undefined = undefined
+            if (gameBonus > 0) {
+              if (
+                finalCorrectAnswers === questions.length &&
+                finalWrongAnswers === 0 &&
+                finalDontKnowCount === 0
+              ) {
+                bonusType = "perfect"
+              } else if (finalWrongAnswers === 0) {
+                bonusType = "no_wrong"
+              }
+            }
+
+            if (gameBonus > 0) {
               // 추가 경험치를 사용자에게 적용
               if (user) {
-                updateUserExperience(perfectBonus)
-                ApiClient.updateTodayExperience(user.id, perfectBonus)
+                updateUserExperience(gameBonus)
+                ApiClient.updateTodayExperience(user.id, gameBonus)
               }
             }
 
             // 보너스 경험치 저장
             setGameStats((prev) => ({
               ...prev,
-              bonusExperience: perfectBonus,
-              earnedExperience: prev.earnedExperience + perfectBonus,
+              bonusExperience: gameBonus,
+              bonusType: bonusType,
+              earnedExperience: prev.earnedExperience + gameBonus,
             }))
 
             setSelectedAnswer(null)
@@ -244,7 +263,7 @@ export const useGameLogic = (config: GameConfig) => {
       user,
       config.gameType,
       gameStats,
-      calculatePerfectGameBonus,
+      calculateGameBonus,
     ]
   )
 
@@ -261,8 +280,10 @@ export const useGameLogic = (config: GameConfig) => {
     setGameStats({
       correctAnswers: 0,
       dontKnowCount: 0,
+      wrongAnswers: 0,
       earnedExperience: 0,
       bonusExperience: 0,
+      bonusType: undefined,
     })
   }, [])
 
@@ -313,6 +334,6 @@ export const useGameLogic = (config: GameConfig) => {
     handleAnswerSelect,
     initializeGame,
     handleGameEnd,
-    calculatePerfectGameBonus,
+    calculateGameBonus,
   }
 }
