@@ -1,6 +1,11 @@
 import { useState, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
+import {
+  playCorrectSound,
+  playWrongSound,
+  playDontKnowSound,
+} from "@/utils/soundEffects"
 
 export interface GameStats {
   correctAnswers: number
@@ -113,6 +118,15 @@ export const useGameLogic = (config: GameConfig) => {
 
       setIsCorrect(correct)
       questionsAnsweredRef.current = questionsAnsweredRef.current + 1
+
+      // 효과음 재생
+      if (isDontKnow) {
+        playDontKnowSound()
+      } else if (correct) {
+        playCorrectSound()
+      } else {
+        playWrongSound()
+      }
 
       // 경험치 계산 로직
       let experienceToAdd = 0
