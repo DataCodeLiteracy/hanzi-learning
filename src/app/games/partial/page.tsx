@@ -591,14 +591,14 @@ export default function PartialGame() {
                       p-3 rounded-lg border-2 transition-all duration-200 text-left
                       ${
                         gameLogic.selectedAnswer === null
-                          ? "border-gray-300 hover:border-blue-500 hover:bg-blue-50"
+                          ? "border-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
                           : gameLogic.selectedAnswer === option
                           ? option === currentQuestion.correctAnswer
-                            ? "border-green-500 bg-green-100"
-                            : "border-red-500 bg-red-100"
+                            ? "border-green-500 bg-green-100 dark:bg-green-900 dark:border-green-400"
+                            : "border-red-500 bg-red-100 dark:bg-red-900 dark:border-red-400"
                           : option === currentQuestion.correctAnswer
-                          ? "border-green-500 bg-green-100"
-                          : "border-gray-300 bg-gray-50"
+                          ? "border-green-500 bg-green-100 dark:bg-green-900 dark:border-green-400"
+                          : "border-gray-300 bg-gray-50 dark:bg-gray-800 dark:border-gray-600"
                       }
                       ${
                         gameLogic.selectedAnswer !== null

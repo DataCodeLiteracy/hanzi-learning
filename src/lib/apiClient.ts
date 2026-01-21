@@ -282,7 +282,7 @@ export class ApiClient {
           goalAchievementHistory: [],
           consecutiveGoalDays: 0,
           weeklyGoalAchievement: {
-            currentWeek: this.getWeekNumber(new Date()),
+            currentWeek: this.getWeekNumber(getKSTDate()),
             achievedDays: 0,
             totalDays: 7,
           },
@@ -651,14 +651,47 @@ export class ApiClient {
         }
       }
 
-      // 주간이 바뀌었는지 확인
-      const currentWeek = this.getWeekNumber(new Date())
+      // 주간이 바뀌었는지 확인 (한국 시간 기준)
+      const currentWeek = this.getWeekNumber(getKSTDate())
       const lastWeek = userStats.lastWeekNumber || ""
       const isNewWeek = lastWeek !== currentWeek
 
       // 이번주/이번달 달성 현황 계산
       let weeklyStats = this.calculateWeeklyGoalAchievement(newHistory)
       const monthlyStats = this.calculateMonthlyGoalAchievement(newHistory)
+
+      // 주간 달성 보너스 체크 (하루 목표 100 이상이고, 이번주 7일 모두 달성했을 때)
+      const lastWeeklyBonusWeek = userStats.lastWeeklyBonusWeek || ""
+      if (
+        todayGoal >= 100 &&
+        weeklyStats.achievedDays === 7 &&
+        weeklyStats.totalDays === 7 &&
+        lastWeeklyBonusWeek !== currentWeek &&
+        !isNewWeek
+      ) {
+        // 주간 보너스 경험치 계산 (목표 * 3)
+        const weeklyBonus = todayGoal * 3
+
+        // users 컬렉션에 주간 보너스 경험치 추가
+        const userRef = doc(db, "users", userId)
+        const userDoc = await getDoc(userRef)
+        if (userDoc.exists()) {
+          const currentExp = userDoc.data().experience || 0
+          const newExp = currentExp + weeklyBonus
+          const newLevel = calculateLevel(newExp)
+
+          await updateDoc(userRef, {
+            experience: newExp,
+            level: newLevel,
+            updatedAt: new Date().toISOString(),
+          })
+
+          // 주간 보너스 획득 콜백 호출 (모달 표시용)
+          if (onBonusEarned) {
+            onBonusEarned(7, weeklyBonus, todayGoal) // 7일 연속, 주간 보너스, 목표
+          }
+        }
+      }
 
       // 새로운 주가 시작되었으면 주간 달성 초기화
       if (isNewWeek) {
@@ -671,14 +704,27 @@ export class ApiClient {
 
       // 데이터베이스 업데이트
       const userStatsRef = doc(db, "userStatistics", userStats.id!)
-      await updateDoc(userStatsRef, {
+      const updateData: any = {
         goalAchievementHistory: newHistory,
         consecutiveGoalDays: consecutiveDays,
         weeklyGoalAchievement: weeklyStats,
         monthlyGoalAchievement: monthlyStats,
         lastWeekNumber: currentWeek, // 현재 주차 번호 업데이트
         updatedAt: new Date().toISOString(),
-      })
+      }
+
+      // 주간 보너스를 받았으면 lastWeeklyBonusWeek 업데이트
+      if (
+        todayGoal >= 100 &&
+        weeklyStats.achievedDays === 7 &&
+        weeklyStats.totalDays === 7 &&
+        lastWeeklyBonusWeek !== currentWeek &&
+        !isNewWeek
+      ) {
+        updateData.lastWeeklyBonusWeek = currentWeek
+      }
+
+      await updateDoc(userStatsRef, updateData)
     } catch (error) {
       console.error("목표 달성 통계 업데이트 실패:", error)
     }
@@ -744,7 +790,7 @@ export class ApiClient {
     achievedDays: number
     totalDays: number
   } {
-    const today = new Date()
+    const today = getKSTDate() // 한국 시간 기준
     const currentWeek = this.getWeekNumber(today)
 
     // 이번주 시작일과 끝일 계산 (월요일 ~ 일요일)
@@ -787,7 +833,7 @@ export class ApiClient {
     achievedDays: number
     totalDays: number
   } {
-    const today = new Date()
+    const today = getKSTDate() // 한국 시간 기준
     const currentMonth = today.toISOString().slice(0, 7) // YYYY-MM
 
     // 이번달 시작일과 끝일 계산
@@ -897,8 +943,8 @@ export class ApiClient {
         })
       }
 
-      // 주간 리셋 확인 (일요일에서 월요일로 넘어갈 때)
-      const currentWeek = this.getWeekNumber(new Date())
+      // 주간 리셋 확인 (일요일에서 월요일로 넘어갈 때) - 한국 시간 기준
+      const currentWeek = this.getWeekNumber(getKSTDate())
       const lastWeek = userStats.lastWeekNumber || ""
 
       if (lastWeek !== currentWeek) {
@@ -1952,14 +1998,14 @@ export class ApiClient {
         totalSessions: totalSessions,
         todayExperience: 0, // 새로운 사용자는 0으로 시작
         todayGoal: 100, // 기본 목표값
-        lastResetDate: new Date().toDateString(), // 오늘 날짜로 초기화
-        lastWeekNumber: this.getWeekNumber(new Date()), // 현재 주차로 초기화
+        lastResetDate: getKSTDateString(), // 한국 시간 기준 오늘 날짜로 초기화
+        lastWeekNumber: this.getWeekNumber(getKSTDate()), // 한국 시간 기준 현재 주차로 초기화
 
         // 목표 달성 통계 필드들 초기화
         goalAchievementHistory: [], // 빈 배열로 시작
         consecutiveGoalDays: 0, // 0일로 시작
         weeklyGoalAchievement: {
-          currentWeek: this.getWeekNumber(new Date()),
+          currentWeek: this.getWeekNumber(getKSTDate()),
           achievedDays: 0,
           totalDays: 7, // 항상 7일로 시작
         },

@@ -113,6 +113,7 @@ export interface UserStatistics {
     achievedDays: number // 이번주 달성한 날 수
     totalDays: number // 이번주 총 날 수 (보통 7)
   }
+  lastWeeklyBonusWeek?: string // 마지막 주간 보너스를 받은 주차 번호
   monthlyGoalAchievement?: {
     currentMonth: string // YYYY-MM 형식
     achievedDays: number // 이번달 달성한 날 수

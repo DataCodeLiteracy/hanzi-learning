@@ -54,6 +54,7 @@ export default function ProfilePage() {
   const { userStatistics: _userStatistics, learningSessions, clearIndexedDB } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showGoalErrorModal, setShowGoalErrorModal] = useState(false)
   const [gameStatistics, setGameStatistics] = useState<Record<
     string,
     GameStatistics
@@ -379,7 +380,7 @@ export default function ProfilePage() {
                     value={inputGoal}
                     onChange={(e) => setInputGoal(e.target.value)}
                     className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
-                    min='1'
+                    min='30'
                     max='1000'
                     autoFocus
                   />
@@ -389,15 +390,22 @@ export default function ProfilePage() {
                       if (user) {
                         try {
                           const goalValue = parseInt(inputGoal) || 0 // 빈 문자열일 때 0
-                          const finalGoal = goalValue <= 0 ? 100 : goalValue // 0 이하일 때 기본값 100
+                          if (goalValue < 30) {
+                            setShowGoalErrorModal(true)
+                            setInputGoal(todayGoal.toString())
+                            return
+                          }
+                          const finalGoal = goalValue < 30 ? 30 : goalValue // 30 미만일 때 30으로 설정
                           await ApiClient.updateTodayGoal(user.id, finalGoal)
                           setTodayGoal(finalGoal)
                           setInputGoal(finalGoal.toString())
+                          setIsEditingGoal(false)
                           alert(
                             `오늘의 학습 목표가 ${finalGoal}EXP로 설정되었습니다.`
                           )
                         } catch (error) {
                           console.error("오늘의 학습 목표 설정 실패:", error)
+                          setInputGoal(todayGoal.toString())
                         }
                       }
                     }}
@@ -605,7 +613,7 @@ export default function ProfilePage() {
 
             {/* 관리자 버튼 */}
             {user?.isAdmin && (
-              <div className='mb-6 space-y-3'>
+              <div className='mb-6 flex flex-col sm:flex-row gap-3 sm:gap-4'>
                 <Link
                   href='/admin'
                   className='inline-flex items-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors'
@@ -831,6 +839,18 @@ export default function ProfilePage() {
         message='정말 계정을 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
         confirmText='탈퇴하기'
         cancelText='취소'
+        type='warning'
+      />
+
+      {/* 목표 설정 오류 모달 */}
+      <ConfirmModal
+        isOpen={showGoalErrorModal}
+        onClose={() => setShowGoalErrorModal(false)}
+        onConfirm={() => setShowGoalErrorModal(false)}
+        title='목표 설정 오류'
+        message='하루 학습 목표는 최소 30EXP 이상으로 설정해야 합니다.'
+        confirmText='확인'
+        showCancel={false}
         type='warning'
       />
     </div>
