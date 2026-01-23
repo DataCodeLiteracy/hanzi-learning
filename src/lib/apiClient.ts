@@ -19,8 +19,32 @@ import { Hanzi, UserStatistics } from "@/types"
 import { calculateBonusExperience, calculateLevel } from "./experienceSystem"
 
 // 한국시간(KST, UTC+9) 기준으로 날짜를 계산하는 유틸리티 함수
+// 한국 시간대(Asia/Seoul)를 직접 사용하여 정확한 날짜 계산
 const getKSTDate = () => {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000) // UTC+9
+  // 한국 시간대의 현재 시간을 가져옴
+  const now = new Date()
+  const kstTimeString = now.toLocaleString("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  })
+  // "MM/DD/YYYY, HH:MM:SS" 형식을 파싱
+  const [datePart, timePart] = kstTimeString.split(", ")
+  const [month, day, year] = datePart.split("/")
+  const [hour, minute, second] = timePart.split(":")
+  return new Date(
+    parseInt(year),
+    parseInt(month) - 1,
+    parseInt(day),
+    parseInt(hour),
+    parseInt(minute),
+    parseInt(second)
+  )
 }
 
 const getKSTDateString = () => {
@@ -28,7 +52,11 @@ const getKSTDateString = () => {
 }
 
 export const getKSTDateISO = () => {
-  return getKSTDate().toISOString().split("T")[0] // YYYY-MM-DD
+  const kstDate = getKSTDate()
+  const year = kstDate.getFullYear()
+  const month = String(kstDate.getMonth() + 1).padStart(2, "0")
+  const day = String(kstDate.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}` // YYYY-MM-DD
 }
 
 export class ApiClient {

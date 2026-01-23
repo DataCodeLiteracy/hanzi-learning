@@ -94,8 +94,14 @@ export const useGameLogic = (config: GameConfig) => {
       }
 
       // 2. 오답이 없고 모르겠음과 정답의 조합만 있으면 30% 보너스 (올림)
+      // 단, 모르겠음이 40% 이상이면 보너스 없음
       // 예: 10문제 → +3, 20문제 → +6, 30문제 → +9
-      if (wrongAnswers === 0 && (dontKnowCount > 0 || correctAnswers > 0)) {
+      const dontKnowRatio = dontKnowCount / questionCount
+      if (
+        wrongAnswers === 0 &&
+        (dontKnowCount > 0 || correctAnswers > 0) &&
+        dontKnowRatio < 0.4
+      ) {
         bonus = Math.ceil(questionCount * 0.3)
         return bonus
       }
