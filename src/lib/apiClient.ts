@@ -20,7 +20,7 @@ import { calculateBonusExperience, calculateLevel } from "./experienceSystem"
 
 // 한국시간(KST, UTC+9) 기준으로 날짜를 계산하는 유틸리티 함수
 // 한국 시간대(Asia/Seoul)를 직접 사용하여 정확한 날짜 계산
-const getKSTDate = () => {
+export const getKSTDate = () => {
   // 한국 시간대의 현재 시간을 가져옴
   const now = new Date()
   const kstTimeString = now.toLocaleString("en-US", {
@@ -650,7 +650,7 @@ export class ApiClient {
       }
 
       // 연속 목표 달성일 계산
-      const consecutiveDays = this.calculateConsecutiveGoalDays(newHistory)
+      const consecutiveDays = ApiClient.calculateConsecutiveGoalDays(newHistory)
 
       // 보너스 경험치 계산 및 적용
       const bonusExperience = calculateBonusExperience(
@@ -679,8 +679,9 @@ export class ApiClient {
         }
       }
 
-      // 주간이 바뀌었는지 확인 (한국 시간 기준)
-      const currentWeek = this.getWeekNumber(getKSTDate())
+      // 주간이 바뀌었는지 확인 (한국 시간 기준, 월요일 00:00 기준)
+      const kstToday = getKSTDate()
+      const currentWeek = this.getWeekNumber(kstToday)
       const lastWeek = userStats.lastWeekNumber || ""
       const isNewWeek = lastWeek !== currentWeek
 
@@ -758,59 +759,101 @@ export class ApiClient {
     }
   }
 
-  // 연속 목표 달성일 계산 (자정 기준)
-  private static calculateConsecutiveGoalDays(
+  // 연속 목표 달성일 계산 (한국 시간 기준 자정 기준)
+  // public 메서드로 변경하여 외부에서도 사용 가능하도록
+  static calculateConsecutiveGoalDays(
     history: Array<{ date: string; achieved: boolean; experience: number }>
   ): number {
     if (!history || history.length === 0) return 0
 
-    // 날짜순으로 정렬 (최신순)
-    const sortedHistory = [...history].sort((a, b) =>
-      b.date.localeCompare(a.date)
-    )
+    // 한국 시간 기준 오늘 날짜
+    const today = getKSTDateISO()
 
+    // 날짜별 달성 여부를 Map으로 변환 (빠른 조회를 위해)
+    const historyMap = new Map<string, boolean>()
+    history.forEach((record) => {
+      historyMap.set(record.date, record.achieved)
+    })
+
+    // 오늘 기록 확인
+    const todayRecord = historyMap.get(today)
+
+    // 오늘 기록이 있고 달성했으면 오늘부터 역순으로 계산
+    if (todayRecord === true) {
+      let consecutiveDays = 0
+      let currentDate = today
+
+      while (true) {
+        const achieved = historyMap.get(currentDate)
+        if (achieved === undefined || !achieved) {
+          break
+        }
+
+        consecutiveDays++
+
+        // 하루 전 날짜 계산
+        const date = new Date(currentDate + "T00:00:00")
+        date.setDate(date.getDate() - 1)
+        currentDate =
+          date.getFullYear() +
+          "-" +
+          String(date.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(date.getDate()).padStart(2, "0")
+      }
+
+      return consecutiveDays
+    }
+
+    // 오늘 기록이 없거나 달성하지 못한 경우
+    // 자정 전: 어제부터 역순으로 계산하여 연속 달성일 유지
+    // 자정 후: 오늘 기록이 없으면 0 (이미 새로운 날이므로 어제 기록 확인)
+
+    // 어제 날짜 계산
+    const todayDate = new Date(today + "T00:00:00")
+    todayDate.setDate(todayDate.getDate() - 1)
+    const yesterday =
+      todayDate.getFullYear() +
+      "-" +
+      String(todayDate.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(todayDate.getDate()).padStart(2, "0")
+
+    // 어제 기록 확인
+    const yesterdayRecord = historyMap.get(yesterday)
+
+    // 어제 기록이 없거나 달성하지 못했으면 0 (연속 끊김)
+    if (yesterdayRecord === undefined || !yesterdayRecord) {
+      return 0
+    }
+
+    // 어제 기록이 있으면 어제부터 역순으로 계산
     let consecutiveDays = 0
-    const now = new Date()
-    const today = now.toISOString().split("T")[0]
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0]
+    let currentDate = yesterday
 
-    // 오늘부터 역순으로 확인
-    for (let i = 0; i < sortedHistory.length; i++) {
-      const record = sortedHistory[i]
-      const recordDate = record.date
+    while (true) {
+      const achieved = historyMap.get(currentDate)
+      if (achieved === undefined || !achieved) {
+        break
+      }
 
-      // 오늘 기록이면 달성 여부 확인
-      if (recordDate === today) {
-        if (record.achieved) {
-          consecutiveDays++
-        } else {
-          break // 오늘 달성하지 못했으면 연속 중단
-        }
-      }
-      // 어제 기록이면 달성 여부 확인
-      else if (recordDate === yesterday) {
-        if (record.achieved) {
-          consecutiveDays++
-        } else {
-          break // 어제 달성하지 못했으면 연속 중단
-        }
-      }
-      // 그 이전 기록들도 연속으로 확인
-      else {
-        if (record.achieved) {
-          consecutiveDays++
-        } else {
-          break // 달성하지 못한 날이 있으면 연속 중단
-        }
-      }
+      consecutiveDays++
+
+      // 하루 전 날짜 계산
+      const date = new Date(currentDate + "T00:00:00")
+      date.setDate(date.getDate() - 1)
+      currentDate =
+        date.getFullYear() +
+        "-" +
+        String(date.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(date.getDate()).padStart(2, "0")
     }
 
     return consecutiveDays
   }
 
-  // 이번주 목표 달성 현황 계산
+  // 이번주 목표 달성 현황 계산 (한국 시간 기준, 월요일~일요일)
   private static calculateWeeklyGoalAchievement(
     history: Array<{ date: string; achieved: boolean; experience: number }>
   ): {
@@ -828,13 +871,18 @@ export class ApiClient {
     let achievedDays = 0
     let totalDays = 0
 
-    // 이번주 기록 확인 (항상 7일)
+    // 이번주 기록 확인 (월요일부터 일요일까지 7일)
     for (
       let d = new Date(weekStart);
       d <= weekEnd;
       d.setDate(d.getDate() + 1)
     ) {
-      const dateStr = d.toISOString().split("T")[0]
+      // 한국 시간 기준 날짜 문자열 생성
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, "0")
+      const day = String(d.getDate()).padStart(2, "0")
+      const dateStr = `${year}-${month}-${day}`
+      
       const record = history.find((h) => h.date === dateStr)
 
       // 항상 totalDays는 증가 (일주일은 7일)
@@ -971,15 +1019,21 @@ export class ApiClient {
         })
       }
 
-      // 주간 리셋 확인 (일요일에서 월요일로 넘어갈 때) - 한국 시간 기준
-      const currentWeek = this.getWeekNumber(getKSTDate())
+      // 주간 리셋 확인 (월요일 00:00 기준) - 한국 시간 기준
+      const kstToday = getKSTDate()
+      const currentWeek = this.getWeekNumber(kstToday)
       const lastWeek = userStats.lastWeekNumber || ""
 
       if (lastWeek !== currentWeek) {
-        // 새로운 주가 시작되었으면 주간 달성 초기화
+        // 새로운 주가 시작되었으면 주간 달성 초기화 (월요일 00:00)
         const userStatsRef = doc(db, "userStatistics", userStats.id!)
         await updateDoc(userStatsRef, {
           lastWeekNumber: currentWeek,
+          weeklyGoalAchievement: {
+            currentWeek: currentWeek,
+            achievedDays: 0,
+            totalDays: 7,
+          },
           updatedAt: new Date().toISOString(),
         })
       }

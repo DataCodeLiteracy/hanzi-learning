@@ -37,7 +37,7 @@ const formatStudyTime = (seconds: number): string => {
     return `${minutes}분`
   }
 }
-import { ApiClient } from "@/lib/apiClient"
+import { ApiClient, getKSTDate } from "@/lib/apiClient"
 import {
   GameStatisticsService,
   GameStatistics,
@@ -98,12 +98,34 @@ export default function ProfilePage() {
             const goal = userStats.todayGoal || 100
             setTodayGoal(goal)
             setInputGoal(goal.toString()) // inputGoal도 함께 설정
-            setConsecutiveGoalDays(userStats.consecutiveGoalDays || 0)
             setTotalStudyTime(userStats.totalStudyTime || 0)
+            
+            // 연속 달성일 실시간 계산 (goalAchievementHistory 기반)
+            const history = userStats.goalAchievementHistory || []
+            const calculatedConsecutiveDays = ApiClient.calculateConsecutiveGoalDays(history)
+            setConsecutiveGoalDays(calculatedConsecutiveDays)
+            
+            // 이번주 달성 현황 확인 (한국 시간 기준)
+            const kstToday = getKSTDate()
+            const currentWeek = ApiClient.getWeekNumber(kstToday)
+            
             if (userStats.weeklyGoalAchievement) {
+              // 저장된 주차와 현재 주차가 다르면 초기화 (월요일 00:00 기준)
+              if (userStats.weeklyGoalAchievement.currentWeek !== currentWeek) {
+                setWeeklyGoalAchievement({
+                  achievedDays: 0,
+                  totalDays: 7,
+                })
+              } else {
+                setWeeklyGoalAchievement({
+                  achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
+                  totalDays: userStats.weeklyGoalAchievement.totalDays || 7,
+                })
+              }
+            } else {
               setWeeklyGoalAchievement({
-                achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
-                totalDays: userStats.weeklyGoalAchievement.totalDays || 0,
+                achievedDays: 0,
+                totalDays: 7,
               })
             }
           }
