@@ -138,9 +138,9 @@ export function playDontKnowSound(): void {
   if (!ctx) return
 
   // 중간 톤의 부드러운 멜로디 (볼륨을 더 크게 설정)
-  playTone(392, 0.5, "sine", 0.5, 0) // G4
-  playTone(440, 0.5, "sine", 0.5, 0.4) // A4
-  playTone(392, 0.6, "sine", 0.45, 0.8) // G4
-  playTone(349.23, 0.5, "sine", 0.4, 1.2) // F4
+  playTone(392, 0.5, "sine", 0.7, 0) // G4
+  playTone(440, 0.5, "sine", 0.7, 0.4) // A4
+  playTone(392, 0.6, "sine", 0.65, 0.8) // G4
+  playTone(349.23, 0.5, "sine", 0.6, 1.2) // F4
 }
 
