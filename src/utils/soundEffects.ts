@@ -131,16 +131,16 @@ export function playWrongSound(): void {
 }
 
 /**
- * 모르겠음 효과음 (중립적인 톤, 약 2초)
+ * 모르겠음 효과음 (다른 패턴: 트라이앵글 웨이브 + 두 번의 짧은 톤, 더 크게)
  */
 export function playDontKnowSound(): void {
   const ctx = getAudioContext()
   if (!ctx) return
 
-  // 중간 톤의 부드러운 멜로디 (볼륨을 더 크게 설정)
-  playTone(392, 0.5, "sine", 0.7, 0) // G4
-  playTone(440, 0.5, "sine", 0.7, 0.4) // A4
-  playTone(392, 0.6, "sine", 0.65, 0.8) // G4
-  playTone(349.23, 0.5, "sine", 0.6, 1.2) // F4
+  // 트라이앵글 웨이브로 뚜렷한 톤 (정답/오답과 다른 패턴, 볼륨 0.8 수준)
+  playTone(494, 0.35, "triangle", 0.85, 0) // B4
+  playTone(587.33, 0.4, "triangle", 0.9, 0.25) // D5
+  playTone(523.25, 0.45, "triangle", 0.85, 0.6) // C5
+  playTone(440, 0.4, "triangle", 0.8, 1.0) // A4
 }
 
