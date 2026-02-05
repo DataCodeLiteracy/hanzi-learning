@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useBonusModal } from "@/contexts/BonusModalContext"
 import { ApiClient } from "@/lib/apiClient"
 import {
   playCorrectSound,
@@ -38,6 +39,7 @@ export interface GameConfig {
 
 export const useGameLogic = (config: GameConfig) => {
   const { user, updateUserExperience } = useAuth()
+  const bonusModal = useBonusModal()
 
   // 게임 상태
   const [questions, setQuestions] = useState<GameQuestion[]>([])
@@ -177,9 +179,13 @@ export const useGameLogic = (config: GameConfig) => {
       if (user && experienceToAdd !== 0) {
         try {
           await updateUserExperience(experienceToAdd)
-          // 오늘 경험치도 함께 업데이트 (경험치가 양수일 때만)
+          // 오늘 경험치도 함께 업데이트 (경험치가 양수일 때만, 연속 달성 보너스 콜백 전달)
           if (experienceToAdd > 0) {
-            await ApiClient.updateTodayExperience(user.id, experienceToAdd)
+            await ApiClient.updateTodayExperience(
+              user.id,
+              experienceToAdd,
+              bonusModal?.showBonus
+            )
           }
         } catch (error) {
           console.error("경험치 업데이트 실패:", error)

@@ -100,9 +100,13 @@ export default function ProfilePage() {
             setInputGoal(goal.toString()) // inputGoal도 함께 설정
             setTotalStudyTime(userStats.totalStudyTime || 0)
             
-            // 연속 달성일 실시간 계산 (goalAchievementHistory 기반)
+            // 연속 달성일 실시간 계산 (리셋일 이후 기록만 사용)
             const history = userStats.goalAchievementHistory || []
-            const calculatedConsecutiveDays = ApiClient.calculateConsecutiveGoalDays(history)
+            const effectiveHistory = userStats.consecutiveDaysResetAt
+              ? history.filter((r) => r.date > userStats.consecutiveDaysResetAt!)
+              : history
+            const calculatedConsecutiveDays =
+              ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
             setConsecutiveGoalDays(calculatedConsecutiveDays)
             
             // 이번주 달성 현황 확인 (한국 시간 기준)

@@ -18,9 +18,7 @@ import {
   calculateLevelProgress,
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
-  calculateBonusExperience,
 } from "@/lib/experienceSystem"
-import BonusExperienceModal from "@/components/BonusExperienceModal"
 import { useState, useEffect, useCallback } from "react"
 import { ApiClient, getKSTDateISO, getKSTDate } from "@/lib/apiClient"
 import { getNextGrade } from "@/lib/gradeUtils"
@@ -762,14 +760,6 @@ export default function Home() {
   }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
   const [totalStudyTime, setTotalStudyTime] = useState<number>(0) // 총 학습시간 (초 단위)
 
-  // 보너스 경험치 모달 상태
-  const [showBonusModal, setShowBonusModal] = useState(false)
-  const [bonusInfo, setBonusInfo] = useState<{
-    consecutiveDays: number
-    bonusExperience: number
-    dailyGoal: number
-  }>({ consecutiveDays: 0, bonusExperience: 0, dailyGoal: 100 })
-
   // 유저 순위 상태
   const [userRankings, setUserRankings] = useState<
     Array<{
@@ -869,9 +859,13 @@ export default function Home() {
             setTodayGoal(userStats.todayGoal || 100)
             setTotalStudyTime(userStats.totalStudyTime || 0)
             
-            // 연속 달성일 실시간 계산 (goalAchievementHistory 기반)
+            // 연속 달성일 실시간 계산 (리셋일 이후 기록만 사용)
             const history = userStats.goalAchievementHistory || []
-            const calculatedConsecutiveDays = ApiClient.calculateConsecutiveGoalDays(history)
+            const effectiveHistory = userStats.consecutiveDaysResetAt
+              ? history.filter((r) => r.date > userStats.consecutiveDaysResetAt!)
+              : history
+            const calculatedConsecutiveDays =
+              ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
             setConsecutiveGoalDays(calculatedConsecutiveDays)
             
             // 이번주 달성 현황 확인 (한국 시간 기준)
@@ -898,25 +892,6 @@ export default function Home() {
               })
             }
 
-            // 보너스 경험치 확인 및 모달 표시
-            if (
-              userStats.consecutiveGoalDays &&
-              userStats.consecutiveGoalDays >= 10
-            ) {
-              const bonusExp = calculateBonusExperience(
-                userStats.consecutiveGoalDays,
-                userStats.todayGoal || 100
-              )
-              if (bonusExp > 0) {
-                // 보너스 모달 표시
-                setBonusInfo({
-                  consecutiveDays: userStats.consecutiveGoalDays,
-                  bonusExperience: bonusExp,
-                  dailyGoal: userStats.todayGoal || 100,
-                })
-                setShowBonusModal(true)
-              }
-            }
           }
         } catch (error) {
           console.error("오늘 경험치 로드 실패:", error)
@@ -1368,15 +1343,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-
-            {/* 보너스 경험치 모달 */}
-            <BonusExperienceModal
-              isOpen={showBonusModal}
-              onClose={() => setShowBonusModal(false)}
-              consecutiveDays={bonusInfo.consecutiveDays}
-              bonusExperience={bonusInfo.bonusExperience}
-              dailyGoal={bonusInfo.dailyGoal}
-            />
 
             {/* 유저 순위 */}
             <div className='mb-6 sm:mb-8'>

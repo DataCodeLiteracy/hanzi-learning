@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { Hanzi, UserStatistics } from "@/types"
-import { calculateBonusExperience, calculateLevel } from "./experienceSystem"
+import { calculateLevel } from "./experienceSystem"
 
 // 한국시간(KST, UTC+9) 기준으로 날짜를 계산하는 유틸리티 함수
 // 한국 시간대(Asia/Seoul)를 직접 사용하여 정확한 날짜 계산
@@ -522,7 +522,9 @@ export class ApiClient {
     onBonusEarned?: (
       consecutiveDays: number,
       bonusExperience: number,
-      dailyGoal: number
+      averageGoal: number,
+      milestone: number,
+      isOneYearReset: boolean
     ) => void
   ): Promise<void> {
     try {
@@ -613,7 +615,9 @@ export class ApiClient {
     onBonusEarned?: (
       consecutiveDays: number,
       bonusExperience: number,
-      dailyGoal: number
+      averageGoal: number,
+      milestone: number,
+      isOneYearReset: boolean
     ) => void
   ): Promise<void> {
     try {
@@ -626,11 +630,12 @@ export class ApiClient {
       // 목표가 0 이하일 때는 달성으로 처리하지 않음
       const achieved = todayGoal > 0 && todayExperience >= todayGoal
 
-      // 오늘 목표 달성 기록 추가
+      // 오늘 목표 달성 기록 추가 (목표값 저장하여 평균 목표 계산에 사용)
       const todayRecord = {
         date: today,
         achieved,
         experience: todayExperience,
+        goal: todayGoal,
       }
 
       // 기존 기록에서 오늘 기록 업데이트 또는 추가
@@ -639,43 +644,95 @@ export class ApiClient {
         (record) => record.date === today
       )
 
-      let newHistory
+      let newHistory: Array<{
+        date: string
+        achieved: boolean
+        experience: number
+        goal?: number
+      }>
       if (todayIndex >= 0) {
-        // 오늘 기록이 있으면 업데이트
         newHistory = [...existingHistory]
         newHistory[todayIndex] = todayRecord
       } else {
-        // 오늘 기록이 없으면 추가
         newHistory = [...existingHistory, todayRecord]
       }
 
+      // 리셋일 이후 기록만 사용 (1년 달성 후 리셋 시)
+      const resetAt = userStats.consecutiveDaysResetAt
+      const effectiveHistory = resetAt
+        ? newHistory.filter((r) => r.date > resetAt)
+        : newHistory
+
       // 연속 목표 달성일 계산
-      const consecutiveDays = ApiClient.calculateConsecutiveGoalDays(newHistory)
+      const consecutiveDays =
+        ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
 
-      // 보너스 경험치 계산 및 적용
-      const bonusExperience = calculateBonusExperience(
-        consecutiveDays,
-        todayGoal
-      )
-      if (bonusExperience > 0) {
-        // users 컬렉션에 보너스 경험치 추가
-        const userRef = doc(db, "users", userId)
-        const userDoc = await getDoc(userRef)
-        if (userDoc.exists()) {
-          const currentExp = userDoc.data().experience || 0
-          const newExp = currentExp + bonusExperience
-          const newLevel = calculateLevel(newExp)
+      // 연속 달성 마일스톤 보너스 (10일 단위 1회만 지급)
+      const MILESTONES = [10, 20, 30, 100, 200, 365] as const
+      const PERCENTAGES: Record<number, number> = {
+        10: 0.5,
+        20: 0.55,
+        30: 0.6,
+        100: 0.6,
+        200: 0.7,
+        365: 0.9,
+      }
+      const lastGiven = userStats.lastConsecutiveDaysBonusGiven ?? 0
+      const milestoneToGive = [...MILESTONES]
+        .sort((a, b) => b - a)
+        .find((M) => consecutiveDays >= M && lastGiven < M)
 
-          await updateDoc(userRef, {
-            experience: newExp,
-            level: newLevel,
-            updatedAt: new Date().toISOString(),
-          })
+      let bonusExperience = 0
+      let bonusMilestone: number | undefined
+      let isOneYearReset = false
+
+      if (milestoneToGive != null) {
+        // 연속 구간 날짜 목록으로 평균 목표 계산
+        const streakDates = ApiClient.getConsecutiveStreakDates(effectiveHistory)
+        const historyByDate = new Map(
+          newHistory.map((r) => [r.date, r])
+        )
+        let sumGoal = 0
+        let count = 0
+        for (const d of streakDates) {
+          const rec = historyByDate.get(d)
+          const g = rec?.goal ?? todayGoal
+          sumGoal += g
+          count++
+        }
+        const averageGoal = count > 0 ? sumGoal / count : todayGoal
+
+        const pct = PERCENTAGES[milestoneToGive] ?? 0.5
+        bonusExperience = Math.round(averageGoal * pct)
+        bonusMilestone = milestoneToGive
+        if (milestoneToGive === 365) {
+          isOneYearReset = true
         }
 
-        // 보너스 획득 콜백 호출 (모달 표시용)
-        if (onBonusEarned) {
-          onBonusEarned(consecutiveDays, bonusExperience, todayGoal)
+        if (bonusExperience > 0) {
+          const userRef = doc(db, "users", userId)
+          const userDoc = await getDoc(userRef)
+          if (userDoc.exists()) {
+            const currentExp = userDoc.data().experience || 0
+            const newExp = currentExp + bonusExperience
+            const newLevel = calculateLevel(newExp)
+
+            await updateDoc(userRef, {
+              experience: newExp,
+              level: newLevel,
+              updatedAt: new Date().toISOString(),
+            })
+          }
+
+          if (onBonusEarned) {
+            onBonusEarned(
+              consecutiveDays,
+              bonusExperience,
+              Math.round(averageGoal),
+              bonusMilestone,
+              isOneYearReset
+            )
+          }
         }
       }
 
@@ -714,11 +771,7 @@ export class ApiClient {
             level: newLevel,
             updatedAt: new Date().toISOString(),
           })
-
-          // 주간 보너스 획득 콜백 호출 (모달 표시용)
-          if (onBonusEarned) {
-            onBonusEarned(7, weeklyBonus, todayGoal) // 7일 연속, 주간 보너스, 목표
-          }
+          // 주간 보너스는 별도 모달 없이 적용만 함
         }
       }
 
@@ -733,16 +786,22 @@ export class ApiClient {
 
       // 데이터베이스 업데이트
       const userStatsRef = doc(db, "userStatistics", userStats.id!)
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         goalAchievementHistory: newHistory,
         consecutiveGoalDays: consecutiveDays,
         weeklyGoalAchievement: weeklyStats,
         monthlyGoalAchievement: monthlyStats,
-        lastWeekNumber: currentWeek, // 현재 주차 번호 업데이트
+        lastWeekNumber: currentWeek,
         updatedAt: new Date().toISOString(),
       }
 
-      // 주간 보너스를 받았으면 lastWeeklyBonusWeek 업데이트
+      if (bonusMilestone != null) {
+        updateData.lastConsecutiveDaysBonusGiven = bonusMilestone
+        if (isOneYearReset) {
+          updateData.consecutiveDaysResetAt = today
+        }
+      }
+
       if (
         todayGoal >= 100 &&
         weeklyStats.achievedDays === 7 &&
@@ -851,6 +910,69 @@ export class ApiClient {
     }
 
     return consecutiveDays
+  }
+
+  // 연속 달성 구간의 날짜 목록 반환 (평균 목표 계산용)
+  static getConsecutiveStreakDates(
+    history: Array<{ date: string; achieved: boolean; experience: number }>
+  ): string[] {
+    if (!history || history.length === 0) return []
+
+    const today = getKSTDateISO()
+    const historyMap = new Map<string, boolean>()
+    history.forEach((record) => {
+      historyMap.set(record.date, record.achieved)
+    })
+
+    const todayRecord = historyMap.get(today)
+    const dates: string[] = []
+
+    if (todayRecord === true) {
+      let currentDate = today
+      while (true) {
+        const achieved = historyMap.get(currentDate)
+        if (achieved === undefined || !achieved) break
+        dates.push(currentDate)
+        const date = new Date(currentDate + "T00:00:00")
+        date.setDate(date.getDate() - 1)
+        currentDate =
+          date.getFullYear() +
+          "-" +
+          String(date.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(date.getDate()).padStart(2, "0")
+      }
+      return dates
+    }
+
+    const todayDate = new Date(today + "T00:00:00")
+    todayDate.setDate(todayDate.getDate() - 1)
+    const yesterday =
+      todayDate.getFullYear() +
+      "-" +
+      String(todayDate.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(todayDate.getDate()).padStart(2, "0")
+
+    if (historyMap.get(yesterday) === undefined || !historyMap.get(yesterday)) {
+      return []
+    }
+
+    let currentDate = yesterday
+    while (true) {
+      const achieved = historyMap.get(currentDate)
+      if (achieved === undefined || !achieved) break
+      dates.push(currentDate)
+      const date = new Date(currentDate + "T00:00:00")
+      date.setDate(date.getDate() - 1)
+      currentDate =
+        date.getFullYear() +
+        "-" +
+        String(date.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(date.getDate()).padStart(2, "0")
+    }
+    return dates
   }
 
   // 이번주 목표 달성 현황 계산 (한국 시간 기준, 월요일~일요일)

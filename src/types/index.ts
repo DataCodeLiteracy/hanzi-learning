@@ -106,8 +106,11 @@ export interface UserStatistics {
     date: string // YYYY-MM-DD 형식
     achieved: boolean // 해당 날짜 목표 달성 여부
     experience: number // 해당 날짜 획득 경험치
+    goal?: number // 해당 날짜의 목표 (평균 목표 계산용)
   }[]
   consecutiveGoalDays?: number // 연속 목표 달성일
+  lastConsecutiveDaysBonusGiven?: number // 마지막으로 보너스를 지급한 연속 달성일 마일스톤 (10, 20, 30, 100, 200, 365)
+  consecutiveDaysResetAt?: string // 연속 달성일 리셋 기준일 (1년 달성 후 리셋, YYYY-MM-DD)
   weeklyGoalAchievement?: {
     currentWeek: string // YYYY-WW 형식 (예: 2024-01)
     achievedDays: number // 이번주 달성한 날 수
