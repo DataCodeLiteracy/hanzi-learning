@@ -36,6 +36,10 @@ export interface Hanzi {
   difficulty?: "easy" | "medium" | "hard"
   frequency?: number
   notes?: string
+  /** 관련단어 등 데이터 이상 신고 여부 (한자 목록에서 필터/표시용) */
+  hasDataIssue?: boolean
+  /** 신고된 관련단어 설명 (예: "화재 - 잘못된 뜻") */
+  reportedRelatedWord?: string
   createdAt: string
   updatedAt: string
 }

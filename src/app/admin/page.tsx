@@ -282,6 +282,7 @@ export default function AdminPage() {
       }
 
       await ApiClient.updateDocument("hanzi", editingHanzi.id, updatedHanzi)
+      await ApiClient.clearHanziDataIssue(editingHanzi.id)
 
       alert("한자가 성공적으로 수정되었습니다!")
       setShowEditModal(false)

@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react"
 import { GameQuestion } from "@/hooks/useGameLogic"
 
 interface AnswerModalProps {
@@ -6,6 +6,12 @@ interface AnswerModalProps {
   question: GameQuestion
   selectedAnswer: string | null
   isCorrect: boolean | null
+  /** 이 한자 데이터에 문제가 있다고 신고 (한자 목록에서 모달로 확인·삭제용) */
+  onReportDataIssue?: (hanziId: string) => void
+  /** 현재 신고 요청 중인 한자 ID (버튼 로딩 표시) */
+  reportLoadingHanziId?: string | null
+  /** 방금 신고 완료된 한자 ID (버튼 성공 표시) */
+  reportSuccessHanziId?: string | null
 }
 
 export default function AnswerModal({
@@ -13,6 +19,9 @@ export default function AnswerModal({
   question,
   selectedAnswer,
   isCorrect,
+  onReportDataIssue,
+  reportLoadingHanziId,
+  reportSuccessHanziId,
 }: AnswerModalProps) {
   if (!isOpen || !selectedAnswer) return null
 
@@ -71,18 +80,41 @@ export default function AnswerModal({
           {/* 관련 단어 섹션 */}
           {question.relatedWords && question.relatedWords.length > 0 && (
             <div className='border-t pt-3'>
-              <h4 className='text-base font-semibold text-gray-700 mb-2'>
-                관련 단어
-              </h4>
+              <div className='flex items-center justify-between gap-2 mb-2'>
+                <h4 className='text-base font-semibold text-gray-700'>
+                  관련 단어
+                </h4>
+                {onReportDataIssue && question.hanziId && (
+                  <button
+                    type='button'
+                    onClick={() => onReportDataIssue(question.hanziId)}
+                    disabled={reportLoadingHanziId === question.hanziId}
+                    className='flex items-center gap-1 px-2 py-1 text-xs text-amber-700 bg-amber-100 hover:bg-amber-200 rounded transition-colors disabled:opacity-70 disabled:cursor-not-allowed'
+                    title='이 한자 데이터에 문제가 있다고 신고 (한자 목록에서 확인·삭제)'
+                  >
+                    {reportLoadingHanziId === question.hanziId ? (
+                      <>
+                        <Loader2 className='h-3.5 w-3 animate-spin' />
+                        신고 중...
+                      </>
+                    ) : reportSuccessHanziId === question.hanziId ? (
+                      <>신고됨</>
+                    ) : (
+                      <>
+                        <AlertTriangle className='h-3.5 w-3' />
+                        데이터 문제 신고
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
                 {question.relatedWords.slice(0, 4).map((word, index) => (
                   <div
                     key={index}
                     className='bg-white rounded-md p-2 text-base'
                   >
-                    <div className='font-medium text-gray-900'>
-                      {word.hanzi}
-                    </div>
+                    <div className='font-medium text-gray-900'>{word.hanzi}</div>
                     <div className='text-gray-600'>{word.korean}</div>
                   </div>
                 ))}

@@ -142,6 +142,27 @@ export default function QuizGame() {
     setShowExitModal(false)
   }
 
+  const [reportLoadingHanziId, setReportLoadingHanziId] = useState<
+    string | null
+  >(null)
+  const [reportSuccessHanziId, setReportSuccessHanziId] = useState<
+    string | null
+  >(null)
+
+  const handleReportDataIssue = useCallback(async (hanziId: string) => {
+    setReportLoadingHanziId(hanziId)
+    setReportSuccessHanziId(null)
+    try {
+      await ApiClient.reportHanziDataIssue(hanziId)
+      setReportSuccessHanziId(hanziId)
+      setTimeout(() => setReportSuccessHanziId(null), 1500)
+    } catch (e) {
+      console.error("데이터 문제 신고 실패:", e)
+    } finally {
+      setReportLoadingHanziId(null)
+    }
+  }, [])
+
   // 다음 급수 권장 모달 체크
   const checkNextGradeModal = useCallback(async () => {
     if (user) {
@@ -651,6 +672,9 @@ export default function QuizGame() {
           question={currentQuestion}
           selectedAnswer={gameLogic.selectedAnswer}
           isCorrect={gameLogic.isCorrect}
+          onReportDataIssue={handleReportDataIssue}
+          reportLoadingHanziId={reportLoadingHanziId}
+          reportSuccessHanziId={reportSuccessHanziId}
         />
 
         {/* 틀렸을 때 정답 모달 */}
@@ -661,6 +685,9 @@ export default function QuizGame() {
           question={currentQuestion}
           selectedAnswer={gameLogic.selectedAnswer}
           isCorrect={gameLogic.isCorrect}
+          onReportDataIssue={handleReportDataIssue}
+          reportLoadingHanziId={reportLoadingHanziId}
+          reportSuccessHanziId={reportSuccessHanziId}
         />
 
         {/* 모르겠음 선택 시 모달 */}
@@ -671,6 +698,9 @@ export default function QuizGame() {
           question={currentQuestion}
           selectedAnswer={gameLogic.selectedAnswer}
           isCorrect={gameLogic.isCorrect}
+          onReportDataIssue={handleReportDataIssue}
+          reportLoadingHanziId={reportLoadingHanziId}
+          reportSuccessHanziId={reportSuccessHanziId}
         />
       </main>
 

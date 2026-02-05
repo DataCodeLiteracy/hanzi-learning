@@ -425,6 +425,7 @@ export default function TextbookWordsPage() {
           await ApiClient.updateDocument("hanzi", targetHanzi.id, {
             relatedWords: updatedRelatedWords,
           })
+          await ApiClient.clearHanziDataIssue(targetHanzi.id)
 
           // 경험치 10 추가 (새로 등록하는 경우에만)
           if (!selectedWordForMeaning.meaning) {

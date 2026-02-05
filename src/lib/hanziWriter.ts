@@ -90,6 +90,7 @@ export const updateHanziStrokeOrder = async (
       strokeOrder,
       updatedAt: new Date().toISOString(),
     })
+    await ApiClient.clearHanziDataIssue(hanziId)
     console.log(`Stroke order 업데이트 완료: ${hanziId}`)
   } catch (error) {
     console.error(`Stroke order 업데이트 실패: ${hanziId}`, error)

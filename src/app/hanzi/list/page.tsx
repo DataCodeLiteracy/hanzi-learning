@@ -3,11 +3,22 @@
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { ArrowLeft, BookOpen, ExternalLink, Search, Info } from "lucide-react"
+import {
+  ArrowLeft,
+  BookOpen,
+  ExternalLink,
+  Search,
+  Info,
+  AlertTriangle,
+  Trash2,
+  X,
+  Pencil,
+  Check,
+} from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { ApiClient } from "@/lib/apiClient"
-import { Hanzi } from "@/types"
+import { Hanzi, RelatedWord } from "@/types"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import {
   checkGradeQueryLimit,
@@ -30,6 +41,19 @@ export default function HanziListPage() {
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
   const [showLimitModal, setShowLimitModal] = useState<boolean>(false) // 조회 제한 모달
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 초기 로드 여부
+  const [listFilter, setListFilter] = useState<"all" | "reported">("all") // 전체 | 신고한 한자만
+  const [listSort, setListSort] = useState<"default" | "reportedFirst">(
+    "default"
+  ) // 기본 순서 | 신고한 한자 먼저
+  const [reportedHanziModal, setReportedHanziModal] = useState<Hanzi | null>(
+    null
+  ) // 신고된 한자 클릭 시 관련 단어 수정 모달
+  const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null)
+  const [editDraftHanzi, setEditDraftHanzi] = useState("")
+  const [editDraftKorean, setEditDraftKorean] = useState("")
+  const [newWordHanzi, setNewWordHanzi] = useState("")
+  const [newWordKorean, setNewWordKorean] = useState("")
+  const [isSavingRelatedWords, setIsSavingRelatedWords] = useState(false)
 
   // 시간 추적 훅 (페이지 접속 시간 체크)
   const { endSession, isActive } = useTimeTracking({
@@ -412,6 +436,110 @@ export default function HanziListPage() {
     }
   }
 
+  // 신고된 한자: 관련 단어 배열 저장 후 Firestore 반영·신고 해제
+  const saveRelatedWordsAndClearIssue = async (
+    hanziId: string,
+    newRelatedWords: RelatedWord[]
+  ) => {
+    try {
+      setIsSavingRelatedWords(true)
+      await ApiClient.updateDocument("hanzi", hanziId, {
+        relatedWords: newRelatedWords,
+      })
+      await ApiClient.clearHanziDataIssue(hanziId)
+
+      setHanziList((prev) =>
+        prev.map((h) =>
+          h.id === hanziId
+            ? {
+                ...h,
+                relatedWords: newRelatedWords,
+                hasDataIssue: false,
+                reportedRelatedWord: undefined,
+              }
+            : h
+        )
+      )
+      setReportedHanziModal((prev) =>
+        prev?.id === hanziId
+          ? {
+              ...prev,
+              relatedWords: newRelatedWords,
+              hasDataIssue: false,
+              reportedRelatedWord: undefined,
+            }
+          : prev
+      )
+    } catch (error) {
+      console.error("관련 단어 저장 실패:", error)
+      alert("저장에 실패했습니다. 다시 시도해주세요.")
+    } finally {
+      setIsSavingRelatedWords(false)
+    }
+  }
+
+  const removeReportedRelatedWord = async (
+    hanziId: string,
+    indexToRemove: number
+  ) => {
+    const hanzi = hanziList.find((h) => h.id === hanziId)
+    if (!hanzi?.relatedWords?.length) return
+    const newRelatedWords = hanzi.relatedWords.filter(
+      (_, i) => i !== indexToRemove
+    )
+    await saveRelatedWordsAndClearIssue(hanziId, newRelatedWords)
+  }
+
+  const addReportedRelatedWord = async () => {
+    if (!reportedHanziModal) return
+    const hanziTrim = newWordHanzi.trim()
+    const koreanTrim = newWordKorean.trim()
+    if (!hanziTrim || !koreanTrim) {
+      alert("한자와 독음(한글)을 모두 입력해주세요.")
+      return
+    }
+    const current = reportedHanziModal.relatedWords || []
+    const newRelatedWords: RelatedWord[] = [
+      ...current,
+      { hanzi: hanziTrim, korean: koreanTrim },
+    ]
+    await saveRelatedWordsAndClearIssue(reportedHanziModal.id, newRelatedWords)
+    setNewWordHanzi("")
+    setNewWordKorean("")
+  }
+
+  const startEditWord = (index: number) => {
+    const word = reportedHanziModal?.relatedWords?.[index]
+    if (!word) return
+    setEditingWordIndex(index)
+    setEditDraftHanzi(word.hanzi)
+    setEditDraftKorean(word.korean)
+  }
+
+  const cancelEditWord = () => {
+    setEditingWordIndex(null)
+    setEditDraftHanzi("")
+    setEditDraftKorean("")
+  }
+
+  const saveEditWord = async () => {
+    if (!reportedHanziModal || editingWordIndex == null) return
+    const hanziTrim = editDraftHanzi.trim()
+    const koreanTrim = editDraftKorean.trim()
+    if (!hanziTrim || !koreanTrim) {
+      alert("한자와 독음(한글)을 모두 입력해주세요.")
+      return
+    }
+    const current = reportedHanziModal.relatedWords || []
+    const newRelatedWords = current.map((w, i) =>
+      i === editingWordIndex
+        ? { ...w, hanzi: hanziTrim, korean: koreanTrim }
+        : w
+    )
+    await saveRelatedWordsAndClearIssue(reportedHanziModal.id, newRelatedWords)
+    cancelEditWord()
+  }
+
   // 네이버 한자 사전으로 연결
   const openNaverDictionary = (character: string) => {
     const url = `https://hanja.dict.naver.com/search?query=${encodeURIComponent(
@@ -733,6 +861,23 @@ export default function HanziListPage() {
       ? "준3급"
       : `${selectedGrade}급`
 
+  // 필터/정렬: 필터로 목록 제한, 정렬은 유저 선택(기본은 일반 순서)
+  const displayedHanziList = (() => {
+    const list =
+      listFilter === "reported"
+        ? hanziList.filter((h) => h.hasDataIssue)
+        : hanziList
+    const sorted = [...list].sort((a, b) => {
+      if (listFilter === "all" && listSort === "reportedFirst") {
+        const aReported = a.hasDataIssue ? 1 : 0
+        const bReported = b.hasDataIssue ? 1 : 0
+        if (bReported !== aReported) return bReported - aReported
+      }
+      return (a.gradeNumber ?? 0) - (b.gradeNumber ?? 0)
+    })
+    return sorted
+  })()
+
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 로딩 오버레이 - 페이지 중간에 표시 */}
@@ -913,13 +1058,40 @@ export default function HanziListPage() {
 
           {/* 한자 목록 */}
           <div className='bg-white rounded-lg shadow-lg p-4 sm:p-6'>
-            <div className='flex items-center justify-between mb-4 sm:mb-6'>
+            <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6'>
               <h3 className='text-lg sm:text-xl font-semibold text-gray-900 flex items-center space-x-2'>
                 <Search className='h-4 w-4 sm:h-5 sm:w-5' />
                 <span>{gradeName} 한자 목록</span>
               </h3>
-              <div className='text-sm text-gray-600'>
-                총 {hanziList.length}개
+              <div className='flex flex-wrap items-center gap-3'>
+                <select
+                  value={listFilter}
+                  onChange={(e) =>
+                    setListFilter(e.target.value as "all" | "reported")
+                  }
+                  className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm font-medium'
+                >
+                  <option value='all'>전체</option>
+                  <option value='reported'>신고한 한자만</option>
+                </select>
+                {listFilter === "all" && (
+                  <select
+                    value={listSort}
+                    onChange={(e) =>
+                      setListSort(e.target.value as "default" | "reportedFirst")
+                    }
+                    className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm font-medium'
+                  >
+                    <option value='default'>기본 순서</option>
+                    <option value='reportedFirst'>신고한 한자 먼저</option>
+                  </select>
+                )}
+                <div className='text-sm text-gray-600'>
+                  총 {displayedHanziList.length}개
+                  {listFilter === "reported" &&
+                    hanziList.some((h) => h.hasDataIssue) &&
+                    ` (전체 ${hanziList.length}개 중)`}
+                </div>
               </div>
             </div>
 
@@ -949,17 +1121,50 @@ export default function HanziListPage() {
                       <th className='px-2 sm:px-2 lg:px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
                         학습완료
                       </th>
+                      <th className='hidden sm:table-cell px-2 sm:px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                        관련 단어
+                      </th>
                     </tr>
                   </thead>
                   <tbody className='bg-white divide-y divide-gray-200'>
-                    {hanziList.map((hanzi, index) => (
-                      <tr key={hanzi.id} className='hover:bg-gray-50'>
+                    {displayedHanziList.map((hanzi, index) => (
+                      <tr
+                        key={hanzi.id}
+                        className={
+                          hanzi.hasDataIssue
+                            ? "hover:bg-amber-50 bg-amber-50/50"
+                            : "hover:bg-gray-50"
+                        }
+                      >
                         <td className='px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center'>
                           {hanzi.gradeNumber || index + 1}
                         </td>
                         <td className='px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-center'>
-                          <div className='text-lg sm:text-xl lg:text-2xl font-bold text-gray-900'>
-                            {hanzi.character}
+                          <div className='flex items-center justify-center gap-1.5'>
+                            <span className='text-lg sm:text-xl lg:text-2xl font-bold text-gray-900'>
+                              {hanzi.character}
+                            </span>
+                            <button
+                              type='button'
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setReportedHanziModal(hanzi)
+                                setEditingWordIndex(null)
+                                setNewWordHanzi("")
+                                setNewWordKorean("")
+                              }}
+                              className='sm:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium hover:bg-gray-200 transition-colors'
+                              title='관련 단어 추가·수정·삭제'
+                            >
+                              {hanzi.hasDataIssue ? (
+                                <>
+                                  <AlertTriangle className='h-3 w-3' />
+                                  신고
+                                </>
+                              ) : (
+                                <>관련단어</>
+                              )}
+                            </button>
                           </div>
                         </td>
                         <td className='px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 text-center'>
@@ -991,6 +1196,32 @@ export default function HanziListPage() {
                             title='이 한자를 학습 완료했다고 체크하세요'
                           />
                         </td>
+                        <td className='hidden sm:table-cell px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-center'>
+                          <button
+                            type='button'
+                            onClick={() => {
+                              setReportedHanziModal(hanzi)
+                              setEditingWordIndex(null)
+                              setNewWordHanzi("")
+                              setNewWordKorean("")
+                            }}
+                            className={
+                              hanzi.hasDataIssue
+                                ? "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+                                : "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                            }
+                            title='관련 단어 추가·수정·삭제'
+                          >
+                            {hanzi.hasDataIssue ? (
+                              <>
+                                <AlertTriangle className='h-3.5 w-3.5' />
+                                신고됨
+                              </>
+                            ) : (
+                              <>관련 단어</>
+                            )}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -998,15 +1229,187 @@ export default function HanziListPage() {
               </div>
             )}
 
-            {!isLoading && hanziList.length === 0 && (
+            {!isLoading && hanziList.length === 0 && listFilter === "all" && (
               <div className='text-center py-6 sm:py-8'>
                 <Info className='h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4' />
                 <p className='text-gray-500'>등록된 한자가 없습니다.</p>
               </div>
             )}
+
+            {!isLoading &&
+              listFilter === "reported" &&
+              displayedHanziList.length === 0 && (
+                <div className='text-center py-6 sm:py-8'>
+                  <AlertTriangle className='h-10 w-10 sm:h-12 sm:w-12 text-amber-400 mx-auto mb-3 sm:mb-4' />
+                  <p className='text-gray-500'>
+                    신고한 한자가 없습니다. 퀴즈/부분 맞추기에서 관련 단어 옆
+                    &quot;잘못됨&quot; 버튼으로 신고할 수 있습니다.
+                  </p>
+                </div>
+              )}
           </div>
         </div>
       </main>
+
+      {/* 신고된 한자 관련 단어 수정 모달 */}
+      {reportedHanziModal && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
+          <div className='bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col'>
+            <div className='flex items-center justify-between p-4 border-b'>
+              <h3 className='text-lg font-semibold text-gray-900'>
+                관련 단어 수정 · {reportedHanziModal.character}
+              </h3>
+              <button
+                type='button'
+                onClick={() => setReportedHanziModal(null)}
+                className='p-1 rounded hover:bg-gray-100 text-gray-500'
+                aria-label='닫기'
+              >
+                <X className='h-5 w-5' />
+              </button>
+            </div>
+            <div className='p-4 overflow-y-auto flex-1'>
+              <div className='mb-4 text-sm text-gray-600'>
+                <span className='font-medium'>뜻:</span>{" "}
+                {reportedHanziModal.meaning}{" "}
+                <span className='font-medium ml-2'>음:</span>{" "}
+                {reportedHanziModal.sound}
+              </div>
+
+              {/* 새 관련 단어 추가 */}
+              <h4 className='text-sm font-semibold text-gray-700 mb-2'>
+                관련 단어 추가
+              </h4>
+              <div className='flex flex-wrap gap-2 mb-4'>
+                <input
+                  type='text'
+                  placeholder='한자'
+                  value={newWordHanzi}
+                  onChange={(e) => setNewWordHanzi(e.target.value)}
+                  className='flex-1 min-w-[80px] px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 font-medium placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                />
+                <input
+                  type='text'
+                  placeholder='독음(한글)'
+                  value={newWordKorean}
+                  onChange={(e) => setNewWordKorean(e.target.value)}
+                  className='flex-1 min-w-[80px] px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 font-medium placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                />
+                <button
+                  type='button'
+                  onClick={addReportedRelatedWord}
+                  disabled={isSavingRelatedWords}
+                  className='px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50'
+                >
+                  추가
+                </button>
+              </div>
+
+              <h4 className='text-sm font-semibold text-gray-700 mb-2'>
+                관련 단어 목록 (수정·삭제)
+              </h4>
+              {reportedHanziModal.relatedWords &&
+              reportedHanziModal.relatedWords.length > 0 ? (
+                <ul className='space-y-2'>
+                  {reportedHanziModal.relatedWords.map((word, index) => (
+                    <li
+                      key={index}
+                      className='flex items-center gap-2 p-3 bg-gray-50 rounded-md'
+                    >
+                      {editingWordIndex === index ? (
+                        <>
+                          <input
+                            type='text'
+                            value={editDraftHanzi}
+                            onChange={(e) =>
+                              setEditDraftHanzi(e.target.value)
+                            }
+                            placeholder='한자'
+                            className='flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 font-medium placeholder:text-gray-500'
+                          />
+                          <input
+                            type='text'
+                            value={editDraftKorean}
+                            onChange={(e) =>
+                              setEditDraftKorean(e.target.value)
+                            }
+                            placeholder='독음'
+                            className='flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 font-medium placeholder:text-gray-500'
+                          />
+                          <button
+                            type='button'
+                            onClick={saveEditWord}
+                            disabled={isSavingRelatedWords}
+                            className='p-1.5 text-green-600 hover:bg-green-50 rounded'
+                            title='저장'
+                          >
+                            <Check className='h-4 w-4' />
+                          </button>
+                          <button
+                            type='button'
+                            onClick={cancelEditWord}
+                            className='p-1.5 text-gray-500 hover:bg-gray-200 rounded'
+                            title='취소'
+                          >
+                            <X className='h-4 w-4' />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className='flex-1 min-w-0'>
+                            <span className='font-medium text-gray-900'>
+                              {word.hanzi}
+                            </span>
+                            <span className='text-gray-600 ml-2'>
+                              {word.korean}
+                            </span>
+                          </div>
+                          <button
+                            type='button'
+                            onClick={() => startEditWord(index)}
+                            className='p-1.5 text-gray-600 hover:bg-gray-200 rounded'
+                            title='수정'
+                          >
+                            <Pencil className='h-4 w-4' />
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() =>
+                              removeReportedRelatedWord(
+                                reportedHanziModal.id,
+                                index
+                              )
+                            }
+                            disabled={isSavingRelatedWords}
+                            className='p-1.5 text-red-600 hover:bg-red-50 rounded'
+                            title='삭제'
+                          >
+                            <Trash2 className='h-4 w-4' />
+                          </button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className='text-gray-500 text-sm'>
+                  관련 단어가 없습니다. 위에서 추가하거나, 변경 후 신고 상태가
+                  해제됩니다.
+                </p>
+              )}
+            </div>
+            <div className='p-4 border-t flex justify-end'>
+              <button
+                type='button'
+                onClick={() => setReportedHanziModal(null)}
+                className='px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300'
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 데이터 없음 모달 */}
       {showNoDataModal && (

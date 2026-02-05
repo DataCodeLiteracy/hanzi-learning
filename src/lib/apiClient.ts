@@ -13,6 +13,7 @@ import {
   QueryDocumentSnapshot,
   setDoc,
   writeBatch,
+  deleteField,
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { Hanzi, UserStatistics } from "@/types"
@@ -266,6 +267,37 @@ export class ApiClient {
     } catch (error) {
       console.error("등급별 한자 조회 실패:", error)
       return []
+    }
+  }
+
+  // 한자 데이터 오류 신고 (관련단어 잘못됨 등)
+  static async reportHanziDataIssue(
+    hanziId: string,
+    reportedRelatedWord?: string
+  ): Promise<void> {
+    try {
+      await this.updateDocument("hanzi", hanziId, {
+        hasDataIssue: true,
+        ...(reportedRelatedWord && { reportedRelatedWord }),
+      })
+    } catch (error) {
+      console.error("한자 데이터 신고 실패:", error)
+      throw error
+    }
+  }
+
+  /** 한자 추가/수정/삭제 등 변경 시 신고 상태 해제 (신고 안 된 한자로 전환) */
+  static async clearHanziDataIssue(hanziId: string): Promise<void> {
+    try {
+      const docRef = doc(db, "hanzi", hanziId)
+      await updateDoc(docRef, {
+        hasDataIssue: false,
+        reportedRelatedWord: deleteField(),
+        updatedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error("한자 신고 상태 해제 실패:", error)
+      throw error
     }
   }
 
