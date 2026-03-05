@@ -9,6 +9,7 @@ import { ApiClient } from "@/lib/apiClient"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import NextGradeModal from "@/components/NextGradeModal"
 import { useGameLogic, GameQuestion } from "@/hooks/useGameLogic"
+import { getSelectedHanziForGame } from "@/lib/quizHanziSelection"
 import GameHeader from "@/components/game/GameHeader"
 import GameCompletionCard from "@/components/game/GameCompletionCard"
 import AnswerModal from "@/components/game/AnswerModal"
@@ -216,10 +217,17 @@ export default function QuizGame() {
     setIsGenerating(true)
 
     try {
-      // hanziList에서 직접 문제 생성 (IndexedDB 데이터 사용)
-      const selectedHanzi = hanziList
-        .sort(() => Math.random() - 0.5)
-        .slice(0, questionCount)
+      // 30%: 아래 급수와 겹치는 한자(알 가능성 높음) / 70%: 랜덤 (IndexedDB·캐시 우선, API는 아래 급수 최초 1회만)
+      const selectedHanzi = user
+        ? await getSelectedHanziForGame(
+            user.id,
+            selectedGrade,
+            hanziList,
+            questionCount
+          )
+        : hanziList
+            .sort(() => Math.random() - 0.5)
+            .slice(0, questionCount)
 
       const generatedQuestions: QuizQuestion[] = selectedHanzi.map((hanzi) => {
         const questionType = Math.random() > 0.5 ? "meaning" : "sound"

@@ -154,6 +154,42 @@ export class HanziStorage {
     })
   }
 
+  /** 특정 급수용 저장 키 (아래 급수 캐시 등) */
+  private getStorageKeyForGrade(grade: number): string {
+    return `${this.getStorageKey()}_grade_${grade}`
+  }
+
+  /** 특정 급수 데이터 조회 (아래 급수 캐시용) */
+  async getDataByGrade(grade: number): Promise<HanziStorageData | null> {
+    await this.ensureDBReady()
+    if (!this.db || !this.userId) return null
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(["hanziStore"], "readonly")
+      const store = transaction.objectStore("hanziStore")
+      const request = store.get(this.getStorageKeyForGrade(grade))
+      request.onsuccess = () => resolve(request.result ?? null)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  /** 특정 급수 데이터 저장 (아래 급수 캐시용) */
+  async saveDataByGrade(grade: number, data: Hanzi[]): Promise<void> {
+    await this.ensureDBReady()
+    if (!this.db || !this.userId) return
+    const payload: HanziStorageData = {
+      grade,
+      lastUpdated: new Date().toISOString(),
+      data,
+    }
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(["hanziStore"], "readwrite")
+      const store = transaction.objectStore("hanziStore")
+      const request = store.put(payload, this.getStorageKeyForGrade(grade))
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
   async clearData(): Promise<void> {
     console.debug("Clearing stored data...")
     

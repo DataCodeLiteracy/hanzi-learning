@@ -37,3 +37,15 @@ export function getNextGrade(currentGrade: number): number | null {
   return gradeProgression[currentIndex + 1]
 }
 
+/**
+ * 바로 아래 급수(한 단계 쉬운 급수) 계산
+ * 급수 체계: 8급(쉬움) → … → 3급(어려움) 이므로 "아래" = 더 쉬운 = 숫자가 큰 쪽
+ * @param currentGrade 현재 공부 중인 급수
+ * @returns 바로 아래 급수(더 쉬운 급수), 8급이면 null
+ */
+export function getGradeBelow(currentGrade: number): number | null {
+  const gradeProgression: number[] = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2, 1]
+  const currentIndex = gradeProgression.indexOf(currentGrade)
+  if (currentIndex <= 0) return null
+  return gradeProgression[currentIndex - 1]
+}

@@ -12,6 +12,7 @@ import { ApiClient } from "@/lib/apiClient"
 import { Hanzi, UserStatistics, LearningSession } from "@/types"
 import { useAuth } from "./AuthContext"
 import { HanziStorage } from "@/lib/hanziStorage"
+import { getGradeBelow } from "@/lib/gradeUtils"
 
 interface DataContextType {
   // 한자 데이터
@@ -52,6 +53,24 @@ interface DataContextType {
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
+
+/** 로그인/데이터 로드 시 아래 급수를 IndexedDB에 미리 저장 → 퀴즈마다 API 호출 방지 */
+async function preloadGradeBelowIfNeeded(
+  storage: HanziStorage | null,
+  targetGrade: number
+): Promise<void> {
+  if (!storage) return
+  const gradeBelow = getGradeBelow(targetGrade)
+  if (gradeBelow === null) return
+  try {
+    const cached = await storage.getDataByGrade(gradeBelow)
+    if (cached?.data?.length) return
+    const data = await ApiClient.getHanziByGrade(gradeBelow)
+    if (data.length) await storage.saveDataByGrade(gradeBelow, data)
+  } catch (e) {
+    console.error("아래 급수 IndexedDB 사전 로드 실패:", e)
+  }
+}
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -136,6 +155,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               setHanziList(cached.data)
               setIsLoading(false)
               console.log(`✅ IndexedDB 데이터로 hanziList 업데이트 완료!`)
+              // 아래 급수도 IndexedDB에 있으면 퀴즈 시 API 호출 없음 → 백그라운드로 사전 로드
+              preloadGradeBelowIfNeeded(storage, targetGrade).catch(() => {})
               return
             }
           }
@@ -188,6 +209,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       })
 
       setHanziList(hanziData)
+
+      // 아래 급수도 같은 시점에 IndexedDB에 저장 → 퀴즈할 때마다 1300 read 방지
+      await preloadGradeBelowIfNeeded(storage, targetGrade)
 
       // 🔍 업데이트 후 확인
       setTimeout(() => {
@@ -354,6 +378,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               })
               setHanziList(cached.data)
               setIsLoading(false)
+              // 아래 급수도 IndexedDB에 미리 넣어두면 퀴즈 시 API 호출 없음
+              preloadGradeBelowIfNeeded(storage, targetGrade).catch(() => {})
               return
             }
           }
