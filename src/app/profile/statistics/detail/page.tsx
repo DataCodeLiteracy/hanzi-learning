@@ -3,15 +3,23 @@
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { ArrowLeft, TrendingUp, Calendar, Target, Trophy } from "lucide-react"
+import {
+  ArrowLeft,
+  TrendingUp,
+  Calendar,
+  Target,
+  Trophy,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   calculateLevelProgress,
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
-import { ApiClient } from "@/lib/apiClient"
+import { ApiClient, getKSTDateISO } from "@/lib/apiClient"
 import { UserStatistics } from "@/types"
 
 export default function DetailStatisticsPage() {
@@ -56,6 +64,55 @@ export default function DetailStatisticsPage() {
 
     loadUserStatistics()
   }, [user])
+
+  // 달력: 한국 시간(KST) 기준 오늘 → 초기 표시 월도 KST로
+  const kstToday = useMemo(() => {
+    const iso = getKSTDateISO()
+    const [y, m, d] = iso.split("-").map(Number)
+    return { year: y, month: m, day: d, dateStr: iso }
+  }, [])
+  const [viewYear, setViewYear] = useState(kstToday.year)
+  const [viewMonth, setViewMonth] = useState(kstToday.month)
+
+  // 리셋일 반영한 목표 달성 기록 → 날짜별 맵
+  const goalHistoryByDate = useMemo(() => {
+    if (!userStatistics?.goalAchievementHistory) return new Map<string, { achieved: boolean; experience: number; goal?: number }>()
+    const history = userStatistics.goalAchievementHistory
+    const resetAt = userStatistics.consecutiveDaysResetAt
+    const list = resetAt ? history.filter((r) => r.date > resetAt) : history
+    const map = new Map<string, { achieved: boolean; experience: number; goal?: number }>()
+    list.forEach((r) => map.set(r.date, { achieved: r.achieved, experience: r.experience, goal: r.goal }))
+    return map
+  }, [userStatistics?.goalAchievementHistory, userStatistics?.consecutiveDaysResetAt])
+
+  // 선택한 월의 달력 그리드 (일~토, 빈 칸은 null)
+  const calendarGrid = useMemo(() => {
+    const first = new Date(viewYear, viewMonth - 1, 1)
+    const last = new Date(viewYear, viewMonth, 0)
+    const firstWeekday = first.getDay()
+    const daysInMonth = last.getDate()
+    const cells: Array<{ day: number | null; dateStr: string | null }> = []
+    for (let i = 0; i < firstWeekday; i++) cells.push({ day: null, dateStr: null })
+    for (let d = 1; d <= daysInMonth; d++) {
+      const m = String(viewMonth).padStart(2, "0")
+      const dayStr = String(d).padStart(2, "0")
+      cells.push({ day: d, dateStr: `${viewYear}-${m}-${dayStr}` })
+    }
+    return cells
+  }, [viewYear, viewMonth])
+
+  const goPrevMonth = () => {
+    if (viewMonth === 1) {
+      setViewMonth(12)
+      setViewYear((y) => y - 1)
+    } else setViewMonth((m) => m - 1)
+  }
+  const goNextMonth = () => {
+    if (viewMonth === 12) {
+      setViewMonth(1)
+      setViewYear((y) => y + 1)
+    } else setViewMonth((m) => m + 1)
+  }
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading || isLoadingStats) {
@@ -256,36 +313,134 @@ export default function DetailStatisticsPage() {
                 </div>
               </div>
 
-              {/* 최근 30일 달성 현황 */}
+              {/* 월별 달력: 몇 월 몇 일 달성 + 날짜별 경험치 */}
               {userStatistics.goalAchievementHistory &&
                 userStatistics.goalAchievementHistory.length > 0 && (
-                  <div className='mt-6'>
-                    <h4 className='text-lg font-semibold text-gray-900 mb-3'>
-                      최근 30일 달성 현황
+                  <div className='mt-6 border-t pt-6'>
+                    <h4 className='text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2'>
+                      <Calendar className='h-5 w-5' />
+                      월별 목표 달성 현황
                     </h4>
-                    <div className='grid grid-cols-15 gap-1'>
-                      {userStatistics.goalAchievementHistory
-                        .slice(-30)
-                        .map((record, index) => (
+
+                    {/* 월 이동 */}
+                    <div className='flex items-center justify-between mb-4'>
+                      <button
+                        type='button'
+                        onClick={goPrevMonth}
+                        className='p-2 rounded-lg hover:bg-gray-100 text-gray-600'
+                        aria-label='이전 달'
+                      >
+                        <ChevronLeft className='h-5 w-5' />
+                      </button>
+                      <span className='text-lg font-semibold text-gray-900'>
+                        {viewYear}년 {viewMonth}월
+                      </span>
+                      <button
+                        type='button'
+                        onClick={goNextMonth}
+                        className='p-2 rounded-lg hover:bg-gray-100 text-gray-600'
+                        aria-label='다음 달'
+                      >
+                        <ChevronRight className='h-5 w-5' />
+                      </button>
+                    </div>
+
+                    {/* 요일 헤더 */}
+                    <div className='grid grid-cols-7 gap-1 mb-1'>
+                      {["일", "월", "화", "수", "목", "금", "토"].map(
+                        (w) => (
                           <div
-                            key={index}
-                            className={`w-6 h-6 rounded text-xs flex items-center justify-center ${
-                              record.achieved
-                                ? "bg-green-500 text-white"
-                                : "bg-gray-200 text-gray-500"
-                            }`}
-                            title={`${record.date}: ${
-                              record.achieved ? "달성" : "미달성"
-                            } (${record.experience}EXP)`}
+                            key={w}
+                            className='text-center text-xs font-medium text-gray-500 py-1'
                           >
-                            {record.achieved ? "✓" : "✗"}
+                            {w}
                           </div>
-                        ))}
+                        )
+                      )}
                     </div>
-                    <div className='flex justify-between text-xs text-gray-500 mt-2'>
-                      <span>30일 전</span>
-                      <span>오늘</span>
+
+                    {/* 날짜 그리드 */}
+                    <div className='grid grid-cols-7 gap-1'>
+                      {calendarGrid.map((cell, idx) => {
+                        if (cell.day === null) {
+                          return (
+                            <div
+                              key={`empty-${idx}`}
+                              className='aspect-square rounded-lg bg-gray-50/50'
+                            />
+                          )
+                        }
+                        const record = cell.dateStr
+                          ? goalHistoryByDate.get(cell.dateStr)
+                          : null
+                        const achieved = record?.achieved ?? false
+                        const exp = record?.experience ?? 0
+                        const goal = record?.goal
+                        const isKstToday =
+                          cell.dateStr === kstToday.dateStr
+                        const title = cell.dateStr
+                          ? `${cell.dateStr}${record ? `\n${achieved ? "달성" : "미달성"} · ${exp} EXP${goal != null ? ` (목표 ${goal})` : ""}` : ""}`
+                          : ""
+                        return (
+                          <div
+                            key={cell.dateStr ?? idx}
+                            className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs border transition-colors relative ${
+                              record
+                                ? achieved
+                                  ? "bg-green-500 text-white border-green-600"
+                                  : "bg-amber-100 text-amber-800 border-amber-200"
+                                : "bg-gray-100 text-gray-400 border-gray-200"
+                            } ${isKstToday ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}
+                            title={title}
+                          >
+                            {isKstToday && (
+                              <span className='absolute -top-0.5 -right-0.5 text-[10px] bg-blue-500 text-white rounded px-0.5'>
+                                오늘
+                              </span>
+                            )}
+                            <span className='font-medium'>{cell.day}</span>
+                            {record && (
+                              <span
+                                className='mt-0.5 truncate w-full text-center px-0.5'
+                                title={`${exp} EXP`}
+                              >
+                                {exp > 0 ? `${exp}` : "-"}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
+
+                    <div className='flex items-center gap-4 mt-3 text-xs text-gray-500'>
+                      <span className='flex items-center gap-1'>
+                        <span className='w-3 h-3 rounded bg-green-500' />
+                        목표 달성
+                      </span>
+                      <span className='flex items-center gap-1'>
+                        <span className='w-3 h-3 rounded bg-amber-100 border border-amber-200' />
+                        미달성
+                      </span>
+                      <span className='flex items-center gap-1'>
+                        <span className='w-3 h-3 rounded bg-gray-100' />
+                        기록 없음
+                      </span>
+                    </div>
+                    <p className='text-xs text-gray-500 mt-1'>
+                      날짜를 마우스오버하면 해당 날의 경험치와 목표를 볼 수
+                      있습니다.
+                    </p>
+                    <p className='text-xs text-gray-400 mt-0.5'>
+                      표시 데이터: Firestore{" "}
+                      <code className='bg-gray-100 px-1 rounded'>
+                        userStatistics
+                      </code>{" "}
+                      컬렉션의{" "}
+                      <code className='bg-gray-100 px-1 rounded'>
+                        goalAchievementHistory
+                      </code>{" "}
+                      (날짜는 한국 시간 기준)
+                    </p>
                   </div>
                 )}
             </div>

@@ -53,10 +53,17 @@ const getKSTDateString = () => {
 }
 
 export const getKSTDateISO = () => {
-  const kstDate = getKSTDate()
-  const year = kstDate.getFullYear()
-  const month = String(kstDate.getMonth() + 1).padStart(2, "0")
-  const day = String(kstDate.getDate()).padStart(2, "0")
+  // KST 문자열에서 연/월/일만 사용 (Date 객체의 로컬 해석 방지)
+  const now = new Date()
+  const kstTimeString = now.toLocaleString("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour12: false,
+  })
+  const [datePart] = kstTimeString.split(", ")
+  const [month, day, year] = datePart.split("/")
   return `${year}-${month}-${day}` // YYYY-MM-DD
 }
 
