@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi, RelatedWord } from "@/types"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
+import { HanziStorage } from "@/lib/hanziStorage"
 import {
   checkGradeQueryLimit,
   incrementGradeQueryCount,
@@ -613,6 +614,14 @@ export default function HanziListPage() {
         setUserStatsCache(updatedStats)
       } catch (error) {
         console.error("통계 캐시 업데이트 실패:", error)
+      }
+
+      // IndexedDB isKnown 캐시 즉시 업데이트
+      try {
+        const storage = new HanziStorage(user.id)
+        await storage.updateSingleHanziKnownStatus(hanziId, isKnown)
+      } catch (error) {
+        console.error("IndexedDB isKnown 캐시 업데이트 실패:", error)
       }
 
       console.log(

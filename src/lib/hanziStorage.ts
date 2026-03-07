@@ -6,6 +6,22 @@ interface HanziStorageData {
   data: Hanzi[]
 }
 
+/** isKnown 상태가 포함된 한자 데이터 */
+export interface HanziWithKnownStatus {
+  hanziId: string
+  character: string
+  meaning: string
+  sound: string
+  isKnown: boolean
+}
+
+/** isKnown 캐시 데이터 (주간 동기화용) */
+export interface KnownStatusCache {
+  grade: number
+  lastSyncedAt: string // ISO string (마지막 동기화 시간)
+  data: HanziWithKnownStatus[]
+}
+
 export class HanziStorage {
   private readonly STORAGE_KEY_PREFIX = "currentHanziData_"
   private db: IDBDatabase | null = null
@@ -239,5 +255,79 @@ export class HanziStorage {
         resolve() // 에러가 발생해도 진행
       }
     })
+  }
+
+  // ============================================
+  // isKnown 캐시 관련 메서드 (주간 동기화용)
+  // ============================================
+
+  /** isKnown 캐시 저장 키 */
+  private getKnownStatusKey(): string {
+    return `knownStatus_${this.userId}`
+  }
+
+  /** isKnown 캐시 조회 */
+  async getKnownStatusCache(): Promise<KnownStatusCache | null> {
+    await this.ensureDBReady()
+    if (!this.db || !this.userId) return null
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(["hanziStore"], "readonly")
+      const store = transaction.objectStore("hanziStore")
+      const request = store.get(this.getKnownStatusKey())
+      request.onsuccess = () => resolve(request.result ?? null)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  /** isKnown 캐시 저장 */
+  async saveKnownStatusCache(cache: KnownStatusCache): Promise<void> {
+    await this.ensureDBReady()
+    if (!this.db || !this.userId) return
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(["hanziStore"], "readwrite")
+      const store = transaction.objectStore("hanziStore")
+      const request = store.put(cache, this.getKnownStatusKey())
+      request.onsuccess = () => {
+        console.debug(`✅ isKnown 캐시 저장 완료 (${cache.data.length}개)`)
+        resolve()
+      }
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  /** 단일 한자 isKnown 상태 업데이트 (체크 변경 시 즉시 반영) */
+  async updateSingleHanziKnownStatus(hanziId: string, isKnown: boolean): Promise<void> {
+    const cache = await this.getKnownStatusCache()
+    if (!cache) return
+
+    const index = cache.data.findIndex((h) => h.hanziId === hanziId)
+    if (index >= 0) {
+      cache.data[index].isKnown = isKnown
+      await this.saveKnownStatusCache(cache)
+      console.debug(`✅ 한자 ${hanziId} isKnown 업데이트: ${isKnown}`)
+    }
+  }
+
+  /** 주간 동기화 필요 여부 확인 (매주 월요일 00:00 KST 기준) */
+  needsWeeklySync(cache: KnownStatusCache | null): boolean {
+    if (!cache) return true
+
+    const lastSynced = new Date(cache.lastSyncedAt)
+    const now = new Date()
+
+    // 한국 시간 기준으로 이번주 월요일 00:00 계산
+    const kstNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }))
+    const dayOfWeek = kstNow.getDay() // 0=일, 1=월, ..., 6=토
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    
+    const thisMonday = new Date(kstNow)
+    thisMonday.setDate(kstNow.getDate() - daysSinceMonday)
+    thisMonday.setHours(0, 0, 0, 0)
+
+    // 마지막 동기화가 이번주 월요일 이전이면 동기화 필요
+    const lastSyncedKST = new Date(lastSynced.toLocaleString("en-US", { timeZone: "Asia/Seoul" }))
+    return lastSyncedKST < thisMonday
   }
 }

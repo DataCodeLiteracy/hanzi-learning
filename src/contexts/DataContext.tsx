@@ -11,8 +11,7 @@ import React, {
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi, UserStatistics, LearningSession } from "@/types"
 import { useAuth } from "./AuthContext"
-import { HanziStorage } from "@/lib/hanziStorage"
-import { getGradeBelow } from "@/lib/gradeUtils"
+import { HanziStorage, HanziWithKnownStatus } from "@/lib/hanziStorage"
 
 interface DataContextType {
   // 한자 데이터
@@ -54,21 +53,54 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
-/** 로그인/데이터 로드 시 아래 급수를 IndexedDB에 미리 저장 → 퀴즈마다 API 호출 방지 */
-async function preloadGradeBelowIfNeeded(
+/**
+ * isKnown 상태 주간 동기화 (매주 월요일 00:00 KST 기준)
+ * - 캐시가 없거나 이번주 월요일 이전에 동기화되었으면 Firebase에서 새로 가져옴
+ * - 그렇지 않으면 기존 캐시 사용
+ */
+async function syncKnownStatusIfNeeded(
   storage: HanziStorage | null,
-  targetGrade: number
+  userId: string,
+  targetGrade: number,
+  hanziList: Hanzi[]
 ): Promise<void> {
-  if (!storage) return
-  const gradeBelow = getGradeBelow(targetGrade)
-  if (gradeBelow === null) return
+  if (!storage || !userId || !targetGrade || hanziList.length === 0) return
+
   try {
-    const cached = await storage.getDataByGrade(gradeBelow)
-    if (cached?.data?.length) return
-    const data = await ApiClient.getHanziByGrade(gradeBelow)
-    if (data.length) await storage.saveDataByGrade(gradeBelow, data)
+    const cache = await storage.getKnownStatusCache()
+    
+    // 캐시가 있고 같은 급수이며 주간 동기화가 필요 없으면 스킵
+    if (cache && cache.grade === targetGrade && !storage.needsWeeklySync(cache)) {
+      console.debug("✅ isKnown 캐시 유효 - 동기화 스킵")
+      return
+    }
+
+    // Firebase에서 isKnown 상태 가져오기
+    console.debug("🔄 isKnown 상태 Firebase 동기화 시작...")
+    const stats = await ApiClient.getHanziStatisticsByGrade(userId, targetGrade)
+    
+    // 한자 목록과 통계를 합쳐서 KnownStatusCache 생성
+    const knownStatusData: HanziWithKnownStatus[] = hanziList.map((hanzi) => {
+      const stat = stats.find((s) => s.hanziId === hanzi.id)
+      return {
+        hanziId: hanzi.id,
+        character: hanzi.character,
+        meaning: hanzi.meaning,
+        sound: hanzi.sound,
+        isKnown: stat?.isKnown || false,
+      }
+    })
+
+    // IndexedDB에 저장
+    await storage.saveKnownStatusCache({
+      grade: targetGrade,
+      lastSyncedAt: new Date().toISOString(),
+      data: knownStatusData,
+    })
+
+    console.debug(`✅ isKnown 캐시 동기화 완료 (${knownStatusData.length}개)`)
   } catch (e) {
-    console.error("아래 급수 IndexedDB 사전 로드 실패:", e)
+    console.error("isKnown 동기화 실패:", e)
   }
 }
 
@@ -155,8 +187,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               setHanziList(cached.data)
               setIsLoading(false)
               console.log(`✅ IndexedDB 데이터로 hanziList 업데이트 완료!`)
-              // 아래 급수도 IndexedDB에 있으면 퀴즈 시 API 호출 없음 → 백그라운드로 사전 로드
-              preloadGradeBelowIfNeeded(storage, targetGrade).catch(() => {})
+              // isKnown 캐시 주간 동기화 (백그라운드)
+              syncKnownStatusIfNeeded(storage, user!.id, targetGrade, cached.data).catch(() => {})
               return
             }
           }
@@ -210,8 +242,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       setHanziList(hanziData)
 
-      // 아래 급수도 같은 시점에 IndexedDB에 저장 → 퀴즈할 때마다 1300 read 방지
-      await preloadGradeBelowIfNeeded(storage, targetGrade)
+      // isKnown 캐시 동기화
+      await syncKnownStatusIfNeeded(storage, user!.id, targetGrade, hanziData)
 
       // 🔍 업데이트 후 확인
       setTimeout(() => {
@@ -378,8 +410,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               })
               setHanziList(cached.data)
               setIsLoading(false)
-              // 아래 급수도 IndexedDB에 미리 넣어두면 퀴즈 시 API 호출 없음
-              preloadGradeBelowIfNeeded(storage, targetGrade).catch(() => {})
+              // isKnown 캐시 주간 동기화 (백그라운드)
+              syncKnownStatusIfNeeded(storage, user!.id, targetGrade, cached.data).catch(() => {})
               return
             }
           }

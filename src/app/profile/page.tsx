@@ -43,7 +43,6 @@ import {
   GameStatistics,
 } from "@/lib/services/gameStatisticsService"
 import { HanziStorage } from "@/lib/hanziStorage"
-import { getGradeBelow } from "@/lib/gradeUtils"
 
 export default function ProfilePage() {
   const {
@@ -75,7 +74,7 @@ export default function ProfilePage() {
   // IndexedDB 캐시 상태 (관리자용 디버그)
   const [indexedDBStatus, setIndexedDBStatus] = useState<{
     currentGrade: { exists: boolean; grade: number | null; count: number; lastUpdated: string | null }
-    belowGrade: { exists: boolean; grade: number | null; count: number; lastUpdated: string | null }
+    knownStatus: { exists: boolean; grade: number | null; totalCount: number; knownCount: number; unknownCount: number; lastSyncedAt: string | null }
   } | null>(null)
 
   // 데이터베이스의 level과 experience 사용
@@ -138,8 +137,6 @@ export default function ProfilePage() {
     const loadIndexedDBStatus = async () => {
       try {
         const storage = new HanziStorage(user.id)
-        const preferredGrade = user.preferredGrade || 8
-        const belowGrade = getGradeBelow(preferredGrade)
 
         // 현재 급수 캐시
         const currentCache = await storage.getCurrentStorageState()
@@ -150,19 +147,20 @@ export default function ProfilePage() {
           lastUpdated: currentCache?.lastUpdated ?? null,
         }
 
-        // 아래 급수 캐시
-        let belowStatus = { exists: false, grade: belowGrade, count: 0, lastUpdated: null as string | null }
-        if (belowGrade !== null) {
-          const belowCache = await storage.getDataByGrade(belowGrade)
-          belowStatus = {
-            exists: !!(belowCache?.data?.length),
-            grade: belowGrade,
-            count: belowCache?.data?.length ?? 0,
-            lastUpdated: belowCache?.lastUpdated ?? null,
-          }
+        // isKnown 캐시 상태
+        const knownCache = await storage.getKnownStatusCache()
+        const knownCount = knownCache?.data?.filter(h => h.isKnown).length ?? 0
+        const unknownCount = knownCache?.data?.filter(h => !h.isKnown).length ?? 0
+        const knownStatus = {
+          exists: !!(knownCache?.data?.length),
+          grade: knownCache?.grade ?? null,
+          totalCount: knownCache?.data?.length ?? 0,
+          knownCount,
+          unknownCount,
+          lastSyncedAt: knownCache?.lastSyncedAt ?? null,
         }
 
-        setIndexedDBStatus({ currentGrade: currentStatus, belowGrade: belowStatus })
+        setIndexedDBStatus({ currentGrade: currentStatus, knownStatus })
       } catch (e) {
         console.error("IndexedDB 상태 로드 실패:", e)
       }
@@ -718,26 +716,27 @@ export default function ProfilePage() {
                       )}
                     </div>
                   </div>
-                  {/* 아래 급수 */}
+                  {/* isKnown 캐시 */}
                   <div className='flex items-center justify-between p-2 bg-white rounded border'>
-                    <span className='text-gray-600'>아래 급수 캐시</span>
+                    <span className='text-gray-600'>학습상태 캐시</span>
                     <div className='flex items-center gap-2'>
-                      {indexedDBStatus.belowGrade.grade === null ? (
-                        <span className='text-gray-400'>— 해당없음 (8급)</span>
-                      ) : indexedDBStatus.belowGrade.exists ? (
+                      {indexedDBStatus.knownStatus.exists ? (
                         <>
-                          <span className='text-green-600 font-medium'>✅ {indexedDBStatus.belowGrade.grade}급</span>
-                          <span className='text-gray-500'>({indexedDBStatus.belowGrade.count}자)</span>
+                          <span className='text-green-600 font-medium'>✅ {indexedDBStatus.knownStatus.grade}급</span>
+                          <span className='text-gray-500'>
+                            (아는: {indexedDBStatus.knownStatus.knownCount} / 모르는: {indexedDBStatus.knownStatus.unknownCount})
+                          </span>
                         </>
                       ) : (
-                        <span className='text-red-500'>❌ 없음 ({indexedDBStatus.belowGrade.grade}급)</span>
+                        <span className='text-red-500'>❌ 없음</span>
                       )}
                     </div>
                   </div>
-                  {/* 마지막 업데이트 */}
-                  {indexedDBStatus.currentGrade.lastUpdated && (
+                  {/* 마지막 동기화 */}
+                  {indexedDBStatus.knownStatus.lastSyncedAt && (
                     <div className='text-xs text-gray-400 mt-2'>
-                      마지막 업데이트: {new Date(indexedDBStatus.currentGrade.lastUpdated).toLocaleString("ko-KR")}
+                      마지막 동기화: {new Date(indexedDBStatus.knownStatus.lastSyncedAt).toLocaleString("ko-KR")}
+                      {' '}(매주 월요일 00:00 자동 갱신)
                     </div>
                   )}
                 </div>
