@@ -1888,13 +1888,19 @@ export class ApiClient {
           existingData.correctAnswers + (isCorrect ? 1 : 0)
         const newWrongAnswers = existingData.wrongAnswers + (isCorrect ? 0 : 1)
 
+        // 100번 이상 학습 시 자동으로 isKnown = true (유저 명시적 설정 우선)
+        const autoKnown = newTotalStudied >= 100
+        const finalIsKnown =
+          isKnown !== undefined
+            ? isKnown // 유저가 명시적으로 설정한 경우 우선
+            : autoKnown || existingData.isKnown || false // 100번 이상이면 자동 true
+
         const updatedData = {
           ...existingData,
           totalStudied: newTotalStudied,
           correctAnswers: newCorrectAnswers,
           wrongAnswers: newWrongAnswers,
-          isKnown:
-            isKnown !== undefined ? isKnown : existingData.isKnown || false,
+          isKnown: finalIsKnown,
           lastStudied: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
