@@ -1015,7 +1015,7 @@ export class ApiClient {
   }
 
   // 이번주 목표 달성 현황 계산 (한국 시간 기준, 월요일~일요일)
-  private static calculateWeeklyGoalAchievement(
+  static calculateWeeklyGoalAchievement(
     history: Array<{ date: string; achieved: boolean; experience: number }>
   ): {
     currentWeek: string

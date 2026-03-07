@@ -868,29 +868,12 @@ export default function Home() {
               ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
             setConsecutiveGoalDays(calculatedConsecutiveDays)
             
-            // 이번주 달성 현황 확인 (한국 시간 기준)
-            const kstToday = getKSTDate()
-            const currentWeek = ApiClient.getWeekNumber(kstToday)
-            
-            if (userStats.weeklyGoalAchievement) {
-              // 저장된 주차와 현재 주차가 다르면 초기화 (월요일 00:00 기준)
-              if (userStats.weeklyGoalAchievement.currentWeek !== currentWeek) {
-                setWeeklyGoalAchievement({
-                  achievedDays: 0,
-                  totalDays: 7,
-                })
-              } else {
-                setWeeklyGoalAchievement({
-                  achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
-                  totalDays: userStats.weeklyGoalAchievement.totalDays || 7,
-                })
-              }
-            } else {
-              setWeeklyGoalAchievement({
-                achievedDays: 0,
-                totalDays: 7,
-              })
-            }
+            // 이번주 달성 현황 실시간 계산 (goalAchievementHistory 기반)
+            const weeklyStats = ApiClient.calculateWeeklyGoalAchievement(history)
+            setWeeklyGoalAchievement({
+              achievedDays: weeklyStats.achievedDays,
+              totalDays: weeklyStats.totalDays,
+            })
 
           }
         } catch (error) {

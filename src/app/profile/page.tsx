@@ -42,6 +42,8 @@ import {
   GameStatisticsService,
   GameStatistics,
 } from "@/lib/services/gameStatisticsService"
+import { HanziStorage } from "@/lib/hanziStorage"
+import { getGradeBelow } from "@/lib/gradeUtils"
 
 export default function ProfilePage() {
   const {
@@ -69,6 +71,12 @@ export default function ProfilePage() {
     totalDays: number
   }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
   const [totalStudyTime, setTotalStudyTime] = useState<number>(0) // 총 학습시간 (초 단위)
+
+  // IndexedDB 캐시 상태 (관리자용 디버그)
+  const [indexedDBStatus, setIndexedDBStatus] = useState<{
+    currentGrade: { exists: boolean; grade: number | null; count: number; lastUpdated: string | null }
+    belowGrade: { exists: boolean; grade: number | null; count: number; lastUpdated: string | null }
+  } | null>(null)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -109,29 +117,12 @@ export default function ProfilePage() {
               ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
             setConsecutiveGoalDays(calculatedConsecutiveDays)
             
-            // 이번주 달성 현황 확인 (한국 시간 기준)
-            const kstToday = getKSTDate()
-            const currentWeek = ApiClient.getWeekNumber(kstToday)
-            
-            if (userStats.weeklyGoalAchievement) {
-              // 저장된 주차와 현재 주차가 다르면 초기화 (월요일 00:00 기준)
-              if (userStats.weeklyGoalAchievement.currentWeek !== currentWeek) {
-                setWeeklyGoalAchievement({
-                  achievedDays: 0,
-                  totalDays: 7,
-                })
-              } else {
-                setWeeklyGoalAchievement({
-                  achievedDays: userStats.weeklyGoalAchievement.achievedDays || 0,
-                  totalDays: userStats.weeklyGoalAchievement.totalDays || 7,
-                })
-              }
-            } else {
-              setWeeklyGoalAchievement({
-                achievedDays: 0,
-                totalDays: 7,
-              })
-            }
+            // 이번주 달성 현황 실시간 계산 (goalAchievementHistory 기반)
+            const weeklyStats = ApiClient.calculateWeeklyGoalAchievement(history)
+            setWeeklyGoalAchievement({
+              achievedDays: weeklyStats.achievedDays,
+              totalDays: weeklyStats.totalDays,
+            })
           }
         } catch (error) {
           console.error("데이터 로드 실패:", error)
@@ -140,6 +131,44 @@ export default function ProfilePage() {
       loadData()
     }
   }, [user])
+
+  // 관리자용: IndexedDB 캐시 상태 로드
+  useEffect(() => {
+    if (!user?.isAdmin) return
+    const loadIndexedDBStatus = async () => {
+      try {
+        const storage = new HanziStorage(user.id)
+        const preferredGrade = user.preferredGrade || 8
+        const belowGrade = getGradeBelow(preferredGrade)
+
+        // 현재 급수 캐시
+        const currentCache = await storage.getCurrentStorageState()
+        const currentStatus = {
+          exists: !!(currentCache?.data?.length),
+          grade: currentCache?.grade ?? null,
+          count: currentCache?.data?.length ?? 0,
+          lastUpdated: currentCache?.lastUpdated ?? null,
+        }
+
+        // 아래 급수 캐시
+        let belowStatus = { exists: false, grade: belowGrade, count: 0, lastUpdated: null as string | null }
+        if (belowGrade !== null) {
+          const belowCache = await storage.getDataByGrade(belowGrade)
+          belowStatus = {
+            exists: !!(belowCache?.data?.length),
+            grade: belowGrade,
+            count: belowCache?.data?.length ?? 0,
+            lastUpdated: belowCache?.lastUpdated ?? null,
+          }
+        }
+
+        setIndexedDBStatus({ currentGrade: currentStatus, belowGrade: belowStatus })
+      } catch (e) {
+        console.error("IndexedDB 상태 로드 실패:", e)
+      }
+    }
+    loadIndexedDBStatus()
+  }, [user?.id, user?.isAdmin, user?.preferredGrade])
 
   // 목표 설정 핸들러 (향후 사용 예정)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -665,6 +694,53 @@ export default function ProfilePage() {
                   <Settings className='h-4 w-4' />
                   <span>사용자 학습 급수 마이그레이션</span>
                 </button>
+              </div>
+            )}
+
+            {/* IndexedDB 디버그 패널 (관리자 전용) */}
+            {user?.isAdmin && indexedDBStatus && (
+              <div className='mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg'>
+                <h3 className='text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2'>
+                  <span className='text-lg'>🗄️</span> IndexedDB 캐시 상태
+                </h3>
+                <div className='space-y-2 text-sm'>
+                  {/* 현재 급수 */}
+                  <div className='flex items-center justify-between p-2 bg-white rounded border'>
+                    <span className='text-gray-600'>현재 급수 캐시</span>
+                    <div className='flex items-center gap-2'>
+                      {indexedDBStatus.currentGrade.exists ? (
+                        <>
+                          <span className='text-green-600 font-medium'>✅ {indexedDBStatus.currentGrade.grade}급</span>
+                          <span className='text-gray-500'>({indexedDBStatus.currentGrade.count}자)</span>
+                        </>
+                      ) : (
+                        <span className='text-red-500'>❌ 없음</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* 아래 급수 */}
+                  <div className='flex items-center justify-between p-2 bg-white rounded border'>
+                    <span className='text-gray-600'>아래 급수 캐시</span>
+                    <div className='flex items-center gap-2'>
+                      {indexedDBStatus.belowGrade.grade === null ? (
+                        <span className='text-gray-400'>— 해당없음 (8급)</span>
+                      ) : indexedDBStatus.belowGrade.exists ? (
+                        <>
+                          <span className='text-green-600 font-medium'>✅ {indexedDBStatus.belowGrade.grade}급</span>
+                          <span className='text-gray-500'>({indexedDBStatus.belowGrade.count}자)</span>
+                        </>
+                      ) : (
+                        <span className='text-red-500'>❌ 없음 ({indexedDBStatus.belowGrade.grade}급)</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* 마지막 업데이트 */}
+                  {indexedDBStatus.currentGrade.lastUpdated && (
+                    <div className='text-xs text-gray-400 mt-2'>
+                      마지막 업데이트: {new Date(indexedDBStatus.currentGrade.lastUpdated).toLocaleString("ko-KR")}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
