@@ -8,6 +8,10 @@ import {
   deleteDoc,
   query,
   where,
+  orderBy,
+  limit,
+  startAfter,
+  documentId,
   QueryConstraint,
   DocumentData,
   QueryDocumentSnapshot,
@@ -243,25 +247,52 @@ export class ApiClient {
     }
   }
 
-  // 등급별 한자 조회
+  // 등급별 한자 조회 (페이지네이션으로 전체 조회 — 250개 제한 등 누락 방지)
   static async getHanziByGrade(grade: number): Promise<Hanzi[]> {
     try {
-      const gradeConstraint = where("grade", "==", grade)
+      const hanziRef = collection(db, "hanzi")
+      const BATCH_SIZE = 500
+      const allResults: Hanzi[] = []
+      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null
 
+      // orderBy(documentId())로 페이지네이션 (복합 인덱스 불필요)
+      while (true) {
+        const constraints: QueryConstraint[] = [
+          where("grade", "==", grade),
+          orderBy(documentId()),
+          limit(BATCH_SIZE),
+        ]
+        if (lastDoc) {
+          constraints.push(startAfter(lastDoc))
+        }
+
+        const q = query(hanziRef, ...constraints)
+        const snapshot = await getDocs(q)
+
+        const batch = snapshot.docs.map((docSnap: QueryDocumentSnapshot) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        })) as Hanzi[]
+        allResults.push(...batch)
+
+        if (snapshot.docs.length < BATCH_SIZE) break
+        lastDoc = snapshot.docs[snapshot.docs.length - 1]
+      }
+
+      // gradeNumber 순서로 정렬
+      return allResults.sort(
+        (a, b) => (a.gradeNumber || 0) - (b.gradeNumber || 0)
+      )
+    } catch (error) {
+      // 복합 인덱스(grade + __name__) 없을 수 있음 → 단일 쿼리로 폴백
+      console.warn("등급별 한자 페이지네이션 실패, 단일 쿼리로 시도:", error)
+      const gradeConstraint = where("grade", "==", grade)
       const results = await this.queryDocuments<Hanzi>("hanzi", [
         gradeConstraint,
       ])
-
-      // gradeNumber 순서대로 정렬
-      const sortedResults = results.sort(
+      return results.sort(
         (a, b) => (a.gradeNumber || 0) - (b.gradeNumber || 0)
       )
-
-      return sortedResults
-    } catch (error) {
-      console.error("등급별 한자 조회 실패:", error)
-      // 오류가 발생해도 빈 배열을 반환하여 앱이 중단되지 않도록 함
-      return []
     }
   }
 

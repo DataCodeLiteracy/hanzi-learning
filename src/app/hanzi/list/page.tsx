@@ -246,6 +246,21 @@ export default function HanziListPage() {
 
             setKnownHanzi(knownIds)
             calculateLearningStats(data, knownIds) // 통계 계산
+
+            // 해당 급수 IndexedDB known/unknown 캐시 없으면 현재 목록 기준으로 생성
+            try {
+              const storage = new HanziStorage(user.id)
+              const cache = await storage.getKnownStatusCache(grade)
+              if (!cache && data.length > 0) {
+                await storage.buildAndSaveKnownStatusFromList(
+                  grade,
+                  data,
+                  knownIds
+                )
+              }
+            } catch (e) {
+              console.error("IndexedDB known/unknown 캐시 생성 실패:", e)
+            }
           } catch (error) {
             console.error("한자 통계 로드 실패:", error)
             setKnownHanzi(new Set())
@@ -405,6 +420,21 @@ export default function HanziListPage() {
 
           // 새로운 급수의 학습완료 통계 계산
           calculateLearningStats(data, knownIds)
+
+          // 해당 급수 IndexedDB known/unknown 캐시 없으면 현재 목록 기준으로 생성
+          try {
+            const storage = new HanziStorage(user.id)
+            const cache = await storage.getKnownStatusCache(grade)
+            if (!cache && data.length > 0) {
+              await storage.buildAndSaveKnownStatusFromList(
+                grade,
+                data,
+                knownIds
+              )
+            }
+          } catch (e) {
+            console.error("IndexedDB known/unknown 캐시 생성 실패:", e)
+          }
         } catch (error) {
           console.error("한자 통계 로드 실패:", error)
           setKnownHanzi(new Set())
@@ -616,10 +646,23 @@ export default function HanziListPage() {
         console.error("통계 캐시 업데이트 실패:", error)
       }
 
-      // IndexedDB isKnown 캐시 즉시 업데이트
+      // IndexedDB isKnown 캐시 즉시 업데이트 (해당 급수 캐시에 반영)
       try {
         const storage = new HanziStorage(user.id)
-        await storage.updateSingleHanziKnownStatus(hanziId, isKnown)
+        const cache = await storage.getKnownStatusCache(selectedGrade)
+        if (!cache) {
+          await storage.buildAndSaveKnownStatusFromList(
+            selectedGrade,
+            hanziList,
+            newKnownHanzi
+          )
+        } else {
+          await storage.updateSingleHanziKnownStatus(
+            hanziId,
+            isKnown,
+            selectedGrade
+          )
+        }
       } catch (error) {
         console.error("IndexedDB isKnown 캐시 업데이트 실패:", error)
       }

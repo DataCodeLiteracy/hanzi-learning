@@ -22,6 +22,7 @@ import {
 import { useState, useEffect, useCallback } from "react"
 import { ApiClient, getKSTDateISO, getKSTDate } from "@/lib/apiClient"
 import { getNextGrade } from "@/lib/gradeUtils"
+import { HanziStorage } from "@/lib/hanziStorage"
 import GradePromotionModal from "@/components/exam/GradePromotionModal"
 import type { User, Hanzi } from "@/types/index"
 
@@ -51,6 +52,56 @@ export default function Home() {
     // hanziList 전체 배열 출력
     console.log("📦 메인페이지 - hanziList 전체 배열:", hanziList)
   }, [hanziList, dataLoading, user?.preferredGrade])
+
+  // 메인 페이지 접근 시: known/unknown 캐시 없으면 현재 급수 기준으로 생성
+  // (기본 3개 한자 fallback이 아닌, 실제 로드된 목록일 때만 실행)
+  useEffect(() => {
+    const ensureKnownStatusCache = async () => {
+      if (!user?.id || !user?.preferredGrade || hanziList.length === 0) return
+      // 기본 데이터(3개)가 아닌 실제 급수 데이터일 때만 캐시 생성
+      const isDefaultData =
+        hanziList.length <= 3 &&
+        hanziList.some((h) => h.id?.startsWith("default_"))
+      if (isDefaultData) return
+
+      try {
+        const storage = new HanziStorage(user.id)
+        const grade = user.preferredGrade
+        const cache = await storage.getKnownStatusCache(grade)
+        const totalCached = (cache?.known?.length ?? 0) + (cache?.unknown?.length ?? 0)
+        // 캐시가 없거나, 이전에 기본 3개로 잘못 저장된 경우(총 개수 ≤ 3) 재생성
+        if (cache && totalCached > 3) return
+
+        const stats = await ApiClient.getHanziStatisticsByGrade(user.id, grade)
+        const knownStatusData = hanziList.map((hanzi) => {
+          const stat = stats.find((s) => s.hanziId === hanzi.id)
+          return {
+            hanziId: hanzi.id,
+            character: hanzi.character,
+            meaning: hanzi.meaning,
+            sound: hanzi.sound,
+            isKnown: stat?.isKnown ?? false,
+          }
+        })
+        const known = knownStatusData.filter((h) => h.isKnown)
+        const unknown = knownStatusData.filter((h) => !h.isKnown)
+
+        await storage.saveKnownStatusCache({
+          grade,
+          lastSyncedAt: new Date().toISOString(),
+          known,
+          unknown,
+        })
+        console.debug(
+          `✅ 메인페이지에서 known/unknown 캐시 생성 (${grade}급, 아는: ${known.length} / 모르는: ${unknown.length})`
+        )
+      } catch (e) {
+        console.error("known/unknown 캐시 생성 실패:", e)
+      }
+    }
+
+    ensureKnownStatusCache()
+  }, [user?.id, user?.preferredGrade, hanziList])
 
   // IndexedDB 새로운 데이터베이스 테스트
   useEffect(() => {

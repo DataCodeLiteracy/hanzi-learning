@@ -15,11 +15,14 @@ export interface HanziWithKnownStatus {
   isKnown: boolean
 }
 
-/** isKnown 캐시 데이터 (주간 동기화용) */
+/** isKnown 캐시 데이터 (주간 동기화용) — 아는 한자 / 모르는 한자 분리 저장 */
 export interface KnownStatusCache {
   grade: number
   lastSyncedAt: string // ISO string (마지막 동기화 시간)
-  data: HanziWithKnownStatus[]
+  /** 체크된 한자 (아는 한자) */
+  known: HanziWithKnownStatus[]
+  /** 체크 안 된 한자 (모르는 한자) */
+  unknown: HanziWithKnownStatus[]
 }
 
 export class HanziStorage {
@@ -261,53 +264,156 @@ export class HanziStorage {
   // isKnown 캐시 관련 메서드 (주간 동기화용)
   // ============================================
 
-  /** isKnown 캐시 저장 키 */
-  private getKnownStatusKey(): string {
-    return `knownStatus_${this.userId}`
+  /** isKnown 캐시 저장 키 (급수별로 분리) */
+  private getKnownStatusKey(grade: number): string {
+    return `knownStatus_${this.userId}_grade_${grade}`
   }
 
-  /** isKnown 캐시 조회 */
-  async getKnownStatusCache(): Promise<KnownStatusCache | null> {
+  /** isKnown 캐시 조회 (구 형식 data 배열 있으면 known/unknown으로 변환) — grade 필수 */
+  async getKnownStatusCache(grade: number): Promise<KnownStatusCache | null> {
     await this.ensureDBReady()
     if (!this.db || !this.userId) return null
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(["hanziStore"], "readonly")
       const store = transaction.objectStore("hanziStore")
-      const request = store.get(this.getKnownStatusKey())
-      request.onsuccess = () => resolve(request.result ?? null)
+      const request = store.get(this.getKnownStatusKey(grade))
+      request.onsuccess = () => {
+        const raw = request.result
+        if (!raw) return resolve(null)
+        // 새 형식 (known / unknown) — unknown 없거나 배열이 아니면 빈 배열로 보정
+        if (raw.known && Array.isArray(raw.known)) {
+          const unknown = Array.isArray(raw.unknown) ? raw.unknown : []
+          return resolve({
+            grade: raw.grade,
+            lastSyncedAt: raw.lastSyncedAt,
+            known: raw.known,
+            unknown,
+          } as KnownStatusCache)
+        }
+        // 구 형식 (data 배열) → known/unknown으로 변환
+        if (raw.data && Array.isArray(raw.data)) {
+          const known = raw.data.filter((h: HanziWithKnownStatus) => h.isKnown)
+          const unknown = raw.data.filter((h: HanziWithKnownStatus) => !h.isKnown)
+          resolve({
+            grade: raw.grade,
+            lastSyncedAt: raw.lastSyncedAt,
+            known,
+            unknown,
+          })
+          return
+        }
+        resolve(null)
+      }
       request.onerror = () => reject(request.error)
     })
   }
 
-  /** isKnown 캐시 저장 */
+  /** isKnown 캐시 저장 (급수별 키로 저장) — known/unknown 배열 모두 명시적으로 저장 */
   async saveKnownStatusCache(cache: KnownStatusCache): Promise<void> {
     await this.ensureDBReady()
     if (!this.db || !this.userId) return
 
+    const toStore: KnownStatusCache = {
+      grade: cache.grade,
+      lastSyncedAt: cache.lastSyncedAt,
+      known: Array.isArray(cache.known) ? [...cache.known] : [],
+      unknown: Array.isArray(cache.unknown) ? [...cache.unknown] : [],
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(["hanziStore"], "readwrite")
       const store = transaction.objectStore("hanziStore")
-      const request = store.put(cache, this.getKnownStatusKey())
+      const request = store.put(toStore, this.getKnownStatusKey(cache.grade))
       request.onsuccess = () => {
-        console.debug(`✅ isKnown 캐시 저장 완료 (${cache.data.length}개)`)
+        console.debug(
+          `✅ isKnown 캐시 저장 완료 (${toStore.grade}급, 아는: ${toStore.known.length} / 모르는: ${toStore.unknown.length})`
+        )
         resolve()
       }
       request.onerror = () => reject(request.error)
     })
   }
 
-  /** 단일 한자 isKnown 상태 업데이트 (체크 변경 시 즉시 반영) */
-  async updateSingleHanziKnownStatus(hanziId: string, isKnown: boolean): Promise<void> {
-    const cache = await this.getKnownStatusCache()
+  /** 단일 한자 isKnown 상태 업데이트 (체크 변경 시 즉시 반영 — 해당 급수 캐시에서 known ↔ unknown 이동) */
+  async updateSingleHanziKnownStatus(
+    hanziId: string,
+    isKnown: boolean,
+    grade: number
+  ): Promise<void> {
+    const cache = await this.getKnownStatusCache(grade)
     if (!cache) return
 
-    const index = cache.data.findIndex((h) => h.hanziId === hanziId)
-    if (index >= 0) {
-      cache.data[index].isKnown = isKnown
-      await this.saveKnownStatusCache(cache)
-      console.debug(`✅ 한자 ${hanziId} isKnown 업데이트: ${isKnown}`)
+    const inKnown = cache.known.find((h) => h.hanziId === hanziId)
+    const inUnknown = cache.unknown.find((h) => h.hanziId === hanziId)
+    const item = inKnown || inUnknown
+    if (!item) return
+
+    if (isKnown && inUnknown) {
+      cache.unknown = cache.unknown.filter((h) => h.hanziId !== hanziId)
+      cache.known.push({ ...item, isKnown: true })
+    } else if (!isKnown && inKnown) {
+      cache.known = cache.known.filter((h) => h.hanziId !== hanziId)
+      cache.unknown.push({ ...item, isKnown: false })
     }
+
+    await this.saveKnownStatusCache(cache)
+    console.debug(
+      `✅ 한자 ${hanziId} (${grade}급) → ${isKnown ? "아는 한자" : "모르는 한자"} 목록으로 반영`
+    )
+  }
+
+  /**
+   * 한자 목록 + 아는 한자 ID 집합으로 해당 급수 known/unknown 캐시 생성 후 저장
+   * (한자 목록 페이지에서 해당 급수 캐시가 없을 때 사용)
+   */
+  async buildAndSaveKnownStatusFromList(
+    grade: number,
+    hanziList: Array<{ id: string; character: string; meaning: string; sound: string }>,
+    knownIds: Set<string>
+  ): Promise<void> {
+    const known: HanziWithKnownStatus[] = []
+    const unknown: HanziWithKnownStatus[] = []
+    const knownIdSet = new Set(knownIds)
+
+    for (const h of hanziList) {
+      const id = h.id
+      const isKnown = knownIdSet.has(id)
+      const item: HanziWithKnownStatus = {
+        hanziId: id,
+        character: h.character,
+        meaning: h.meaning,
+        sound: h.sound,
+        isKnown,
+      }
+      if (isKnown) known.push(item)
+      else unknown.push(item)
+    }
+
+    // 방어: 모르는 한자가 0인데 전체보다 아는 한자가 적으면, 나머지는 unknown으로
+    if (unknown.length === 0 && hanziList.length > known.length) {
+      const knownHanziIds = new Set(known.map((x) => x.hanziId))
+      for (const h of hanziList) {
+        if (knownHanziIds.has(h.id)) continue
+        unknown.push({
+          hanziId: h.id,
+          character: h.character,
+          meaning: h.meaning,
+          sound: h.sound,
+          isKnown: false,
+        })
+      }
+    }
+
+    await this.saveKnownStatusCache({
+      grade,
+      lastSyncedAt: new Date().toISOString(),
+      known,
+      unknown,
+    })
+    console.debug(
+      `✅ ${grade}급 known/unknown 캐시 생성 (아는: ${known.length} / 모르는: ${unknown.length})`
+    )
   }
 
   /** 주간 동기화 필요 여부 확인 (매주 월요일 00:00 KST 기준) */

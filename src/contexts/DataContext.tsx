@@ -67,7 +67,7 @@ async function syncKnownStatusIfNeeded(
   if (!storage || !userId || !targetGrade || hanziList.length === 0) return
 
   try {
-    const cache = await storage.getKnownStatusCache()
+    const cache = await storage.getKnownStatusCache(targetGrade)
     
     // 캐시가 있고 같은 급수이며 주간 동기화가 필요 없으면 스킵
     if (cache && cache.grade === targetGrade && !storage.needsWeeklySync(cache)) {
@@ -79,7 +79,7 @@ async function syncKnownStatusIfNeeded(
     console.debug("🔄 isKnown 상태 Firebase 동기화 시작...")
     const stats = await ApiClient.getHanziStatisticsByGrade(userId, targetGrade)
     
-    // 한자 목록과 통계를 합쳐서 KnownStatusCache 생성
+    // 한자 목록과 통계를 합쳐서 known / unknown 분리
     const knownStatusData: HanziWithKnownStatus[] = hanziList.map((hanzi) => {
       const stat = stats.find((s) => s.hanziId === hanzi.id)
       return {
@@ -91,14 +91,19 @@ async function syncKnownStatusIfNeeded(
       }
     })
 
-    // IndexedDB에 저장
+    const known = knownStatusData.filter((h) => h.isKnown)
+    const unknown = knownStatusData.filter((h) => !h.isKnown)
+
     await storage.saveKnownStatusCache({
       grade: targetGrade,
       lastSyncedAt: new Date().toISOString(),
-      data: knownStatusData,
+      known,
+      unknown: Array.isArray(unknown) ? unknown : [],
     })
 
-    console.debug(`✅ isKnown 캐시 동기화 완료 (${knownStatusData.length}개)`)
+    console.debug(
+      `✅ isKnown 캐시 동기화 완료 (아는: ${known.length} / 모르는: ${unknown.length})`
+    )
   } catch (e) {
     console.error("isKnown 동기화 실패:", e)
   }

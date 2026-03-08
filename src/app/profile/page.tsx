@@ -147,14 +147,15 @@ export default function ProfilePage() {
           lastUpdated: currentCache?.lastUpdated ?? null,
         }
 
-        // isKnown 캐시 상태
-        const knownCache = await storage.getKnownStatusCache()
-        const knownCount = knownCache?.data?.filter(h => h.isKnown).length ?? 0
-        const unknownCount = knownCache?.data?.filter(h => !h.isKnown).length ?? 0
+        // isKnown 캐시 상태 (아는/모르는 분리 저장 형식) — 선호 급수 기준
+        const preferredGrade = user.preferredGrade || 8
+        const knownCache = await storage.getKnownStatusCache(preferredGrade)
+        const knownCount = knownCache?.known?.length ?? 0
+        const unknownCount = knownCache?.unknown?.length ?? 0
         const knownStatus = {
-          exists: !!(knownCache?.data?.length),
+          exists: !!(knownCache && (knownCount > 0 || unknownCount > 0)),
           grade: knownCache?.grade ?? null,
-          totalCount: knownCache?.data?.length ?? 0,
+          totalCount: knownCount + unknownCount,
           knownCount,
           unknownCount,
           lastSyncedAt: knownCache?.lastSyncedAt ?? null,
