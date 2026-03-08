@@ -53,19 +53,33 @@ export class HanziStorage {
       return Promise.resolve()
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = () => {
+        if (settled) return
+        settled = true
+        resolve()
+      }
+
+      const timeout = setTimeout(() => {
+        console.warn("IndexedDB open timeout (e.g. iOS 시크릿 모드 또는 저장소 비활성)")
+        finish()
+      }, 5000)
+
       try {
         const request = window.indexedDB.open("hanziDB", 1)
 
         request.onerror = () => {
-          console.error("Failed to open IndexedDB")
-          reject(request.error)
+          clearTimeout(timeout)
+          console.warn("IndexedDB open failed:", request.error?.message || request.error, "(시크릿 모드일 수 있음)")
+          finish()
         }
 
         request.onsuccess = () => {
+          clearTimeout(timeout)
           this.db = request.result
           console.debug("IndexedDB initialized successfully")
-          resolve()
+          finish()
         }
 
         request.onupgradeneeded = (event) => {
@@ -75,8 +89,9 @@ export class HanziStorage {
           }
         }
       } catch (error) {
+        clearTimeout(timeout)
         console.error("Error initializing IndexedDB:", error)
-        resolve() // 에러가 발생해도 진행할 수 있도록 함
+        finish()
       }
     })
   }
@@ -127,8 +142,8 @@ export class HanziStorage {
       }
 
       request.onerror = () => {
-        console.error("Failed to get storage state:", request.error)
-        reject(request.error)
+        console.warn("Failed to get storage state:", request.error)
+        resolve(null)
       }
     })
   }
@@ -148,13 +163,14 @@ export class HanziStorage {
     )
     await this.ensureDBReady()
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       if (!this.db) {
-        return reject(new Error("DB not initialized"))
+        console.warn("IndexedDB not available, save skipped")
+        return resolve()
       }
 
       if (!this.userId) {
-        return reject(new Error("User ID is required to save data"))
+        return resolve()
       }
 
       const transaction = this.db.transaction(["hanziStore"], "readwrite")
@@ -167,8 +183,8 @@ export class HanziStorage {
       }
 
       request.onerror = () => {
-        console.error("Failed to save data:", request.error)
-        reject(request.error)
+        console.warn("Failed to save data:", request.error)
+        resolve()
       }
     })
   }
@@ -182,12 +198,15 @@ export class HanziStorage {
   async getDataByGrade(grade: number): Promise<HanziStorageData | null> {
     await this.ensureDBReady()
     if (!this.db || !this.userId) return null
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const transaction = this.db!.transaction(["hanziStore"], "readonly")
       const store = transaction.objectStore("hanziStore")
       const request = store.get(this.getStorageKeyForGrade(grade))
       request.onsuccess = () => resolve(request.result ?? null)
-      request.onerror = () => reject(request.error)
+      request.onerror = () => {
+        console.warn("getDataByGrade failed:", request.error)
+        resolve(null)
+      }
     })
   }
 
@@ -200,12 +219,15 @@ export class HanziStorage {
       lastUpdated: new Date().toISOString(),
       data,
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const transaction = this.db!.transaction(["hanziStore"], "readwrite")
       const store = transaction.objectStore("hanziStore")
       const request = store.put(payload, this.getStorageKeyForGrade(grade))
       request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
+      request.onerror = () => {
+        console.warn("saveDataByGrade failed:", request.error)
+        resolve()
+      }
     })
   }
 
@@ -274,7 +296,7 @@ export class HanziStorage {
     await this.ensureDBReady()
     if (!this.db || !this.userId) return null
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const transaction = this.db!.transaction(["hanziStore"], "readonly")
       const store = transaction.objectStore("hanziStore")
       const request = store.get(this.getKnownStatusKey(grade))
@@ -305,7 +327,10 @@ export class HanziStorage {
         }
         resolve(null)
       }
-      request.onerror = () => reject(request.error)
+      request.onerror = () => {
+        console.warn("getKnownStatusCache failed:", request.error)
+        resolve(null)
+      }
     })
   }
 
@@ -321,7 +346,7 @@ export class HanziStorage {
       unknown: Array.isArray(cache.unknown) ? [...cache.unknown] : [],
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const transaction = this.db!.transaction(["hanziStore"], "readwrite")
       const store = transaction.objectStore("hanziStore")
       const request = store.put(toStore, this.getKnownStatusKey(cache.grade))
@@ -331,7 +356,10 @@ export class HanziStorage {
         )
         resolve()
       }
-      request.onerror = () => reject(request.error)
+      request.onerror = () => {
+        console.warn("saveKnownStatusCache failed:", request.error)
+        resolve()
+      }
     })
   }
 
@@ -435,5 +463,21 @@ export class HanziStorage {
     // 마지막 동기화가 이번주 월요일 이전이면 동기화 필요
     const lastSyncedKST = new Date(lastSynced.toLocaleString("en-US", { timeZone: "Asia/Seoul" }))
     return lastSyncedKST < thisMonday
+  }
+}
+
+/** iOS 등에서 첫 연결 실패를 줄이기 위해 앱 로드 직후 DB를 한 번 열어둠 */
+export function warmupIndexedDB(): void {
+  if (typeof window === "undefined" || !window.indexedDB) return
+  try {
+    const req = window.indexedDB.open("hanziDB", 1)
+    req.onupgradeneeded = (ev) => {
+      const db = (ev.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains("hanziStore")) db.createObjectStore("hanziStore")
+    }
+    req.onsuccess = () => req.result.close()
+    req.onerror = () => { /* 무시 */ }
+  } catch {
+    // 무시
   }
 }

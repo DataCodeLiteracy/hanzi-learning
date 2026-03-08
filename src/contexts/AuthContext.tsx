@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore"
 import { User } from "@/types"
 import { calculateLevel } from "@/lib/experienceSystem"
+import { warmupIndexedDB } from "@/lib/hanziStorage"
 
 interface AuthContextType {
   user: User | null
@@ -42,6 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initialLoading, setInitialLoading] = useState(true) // 초기 로딩 상태
   const [hasInitialized, setHasInitialized] = useState(false) // 초기화 완료 여부
   const [isAuthenticated, setIsAuthenticated] = useState(false) // 인증 상태 캐싱
+
+  // iOS 등: IndexedDB 첫 연결 실패 완화를 위해 앱 로드 직후 DB 한 번 열기
+  useEffect(() => {
+    warmupIndexedDB()
+  }, [])
 
   // Firestore에서 사용자 정보 저장/업데이트 (간단한 방식)
   const saveUserToFirestore = async (firebaseUser: FirebaseUser) => {
