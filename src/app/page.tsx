@@ -55,6 +55,7 @@ export default function Home() {
 
   // 메인 페이지 접근 시: known/unknown 캐시 없으면 현재 급수 기준으로 생성
   // (기본 3개 한자 fallback이 아닌, 실제 로드된 목록일 때만 실행)
+  // 이미 저장된 캐시라도 개수가 목록과 다르면 재생성 (다른 급수 데이터로 저장된 경우 대비)
   useEffect(() => {
     const ensureKnownStatusCache = async () => {
       if (!user?.id || !user?.preferredGrade || hanziList.length === 0) return
@@ -63,15 +64,19 @@ export default function Home() {
         hanziList.length <= 3 &&
         hanziList.some((h) => h.id?.startsWith("default_"))
       if (isDefaultData) return
+      // hanziList가 현재 선호 급수 데이터가 맞을 때만 사용 (다른 급수로 잘못 저장 방지)
+      const grade = user.preferredGrade
+      const isListForPreferredGrade =
+        hanziList.length > 0 && hanziList.every((h) => h.grade === grade)
+      if (!isListForPreferredGrade) return
 
       try {
         const storage = new HanziStorage(user.id)
-        const grade = user.preferredGrade
         const cache = await storage.getKnownStatusCache(grade)
         const totalCached = (cache?.known?.length ?? 0) + (cache?.unknown?.length ?? 0)
-        // 캐시가 없거나, 이전에 기본 3개로 잘못 저장된 경우(총 개수 ≤ 3) 재생성
-        if (cache && totalCached > 3) return
-
+        // 캐시가 있고, 개수가 현재 목록과 같으면 스킵 (이미 올바른 캐시)
+        if (cache && totalCached === hanziList.length) return
+        // 캐시 없음 / 개수 다름 / 3개 이하 잘못 저장분 → 재생성
         const stats = await ApiClient.getHanziStatisticsByGrade(user.id, grade)
         const knownStatusData = hanziList.map((hanzi) => {
           const stat = stats.find((s) => s.hanziId === hanzi.id)

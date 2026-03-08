@@ -255,7 +255,7 @@ export class HanziStorage {
       return Promise.resolve()
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       try {
         if (!this.userId) {
           console.debug("User ID not set, cannot clear data")
@@ -272,12 +272,58 @@ export class HanziStorage {
         }
 
         request.onerror = () => {
-          console.error("❌ Failed to clear data:", request.error)
-          reject(request.error)
+          console.warn("Failed to clear data:", request.error)
+          resolve()
         }
       } catch (error) {
         console.error("❌ Error during clear operation:", error)
         resolve() // 에러가 발생해도 진행
+      }
+    })
+  }
+
+  /** 해당 사용자의 IndexedDB 캐시 전부 삭제 (현재 급수 캐시 + 급수별 한자 캐시 + 학습상태 캐시) */
+  async clearAllCacheForUser(): Promise<void> {
+    await this.ensureDBReady()
+    if (!this.db || !this.userId) return
+
+    const prefixHanzi = `${this.STORAGE_KEY_PREFIX}${this.userId}`
+    const prefixKnown = `knownStatus_${this.userId}_`
+
+    return new Promise((resolve) => {
+      const transaction = this.db!.transaction(["hanziStore"], "readwrite")
+      const store = transaction.objectStore("hanziStore")
+      const getAllKeysRequest = store.getAllKeys()
+
+      getAllKeysRequest.onsuccess = () => {
+        const keys = getAllKeysRequest.result as string[]
+        const toDelete = keys.filter(
+          (k) => k.startsWith(prefixHanzi) || k.startsWith(prefixKnown)
+        )
+        if (toDelete.length === 0) {
+          console.debug("✅ clearAllCacheForUser: 삭제할 키 없음")
+          return resolve()
+        }
+        let done = 0
+        const onDone = () => {
+          done++
+          if (done === toDelete.length) {
+            console.debug(`✅ IndexedDB 전체 캐시 삭제 완료 (${toDelete.length}개 키)`)
+            resolve()
+          }
+        }
+        toDelete.forEach((key) => {
+          const req = store.delete(key)
+          req.onsuccess = () => onDone()
+          req.onerror = () => {
+            console.warn("clearAllCacheForUser delete failed:", key, req.error)
+            onDone()
+          }
+        })
+      }
+      getAllKeysRequest.onerror = () => {
+        console.warn("clearAllCacheForUser getAllKeys failed:", getAllKeysRequest.error)
+        resolve()
       }
     })
   }
@@ -289,6 +335,25 @@ export class HanziStorage {
   /** isKnown 캐시 저장 키 (급수별로 분리) */
   private getKnownStatusKey(grade: number): string {
     return `knownStatus_${this.userId}_grade_${grade}`
+  }
+
+  /** 특정 급수의 학습상태 캐시만 삭제 (마이페이지에서 수동 새로고침용) */
+  async clearKnownStatusCache(grade: number): Promise<void> {
+    await this.ensureDBReady()
+    if (!this.db || !this.userId) return
+    return new Promise((resolve) => {
+      const transaction = this.db!.transaction(["hanziStore"], "readwrite")
+      const store = transaction.objectStore("hanziStore")
+      const request = store.delete(this.getKnownStatusKey(grade))
+      request.onsuccess = () => {
+        console.debug(`✅ 학습상태 캐시 삭제 완료 (${grade}급)`)
+        resolve()
+      }
+      request.onerror = () => {
+        console.warn("clearKnownStatusCache failed:", request.error)
+        resolve()
+      }
+    })
   }
 
   /** isKnown 캐시 조회 (구 형식 data 배열 있으면 known/unknown으로 변환) — grade 필수 */

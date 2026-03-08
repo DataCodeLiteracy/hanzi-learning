@@ -350,12 +350,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user, userStatistics]
   )
 
-  // IndexedDB 클리어 함수
+  // IndexedDB 클리어 함수 (해당 사용자 캐시 전부 삭제 — 메인 접근 시 다시 불러옴)
   const clearIndexedDB = useCallback(async () => {
     if (storage) {
       try {
-        console.debug("🧹 Clearing IndexedDB cache...")
-        await storage.clearData()
+        console.debug("🧹 Clearing all IndexedDB cache for user...")
+        await storage.clearAllCacheForUser()
         console.debug("✅ IndexedDB cache cleared successfully")
 
         // 한자 리스트도 초기화
@@ -363,7 +363,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.debug("✅ Hanzi list cleared")
       } catch (error) {
         console.error("❌ Error clearing IndexedDB:", error)
-        // 에러가 발생해도 한자 리스트는 초기화
         setHanziList([])
       }
     } else {
@@ -448,17 +447,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             console.debug(
               "⚠️ IndexedDB 데이터가 비어있음, Firebase에서 가져오기"
             )
-            // const hanziData = await ApiClient.getHanziByGrade(targetGrade)
-            hanziData = [] // 임시로 빈 배열
+            hanziData = await ApiClient.getHanziByGrade(targetGrade)
           }
         } catch (error) {
           console.error("IndexedDB 데이터 가져오기 실패:", error)
-          hanziData = [] // 임시로 빈 배열
+          hanziData = await ApiClient.getHanziByGrade(targetGrade)
         }
       } else {
         console.debug("⚠️ Storage가 없음, Firebase에서 가져오기")
-        // const hanziData = await ApiClient.getHanziByGrade(targetGrade)
-        hanziData = [] // 임시로 빈 배열
+        hanziData = await ApiClient.getHanziByGrade(targetGrade)
       }
 
       // IndexedDB가 사용 가능한 경우에만 저장 시도
@@ -552,6 +549,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     loadInitialData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
+
+  // 캐시 삭제 후 한자 목록이 비었을 때 다시 불러오기 (메인 등 접근 시)
+  useEffect(() => {
+    if (!user?.id || isLoading || hanziList.length > 0) return
+    refreshHanziData()
+  }, [user?.id, isLoading, hanziList.length, refreshHanziData])
 
   // 한자 데이터가 없을 때 기본 데이터 제공
   useEffect(() => {

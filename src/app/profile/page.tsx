@@ -52,7 +52,11 @@ export default function ProfilePage() {
     isAuthenticated,
     signOutUser,
   } = useAuth()
-  const { userStatistics: _userStatistics, learningSessions, clearIndexedDB } = useData()
+  const {
+    userStatistics: _userStatistics,
+    learningSessions,
+    clearIndexedDB,
+  } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showGoalErrorModal, setShowGoalErrorModal] = useState(false)
@@ -76,6 +80,8 @@ export default function ProfilePage() {
     currentGrade: { exists: boolean; grade: number | null; count: number; lastUpdated: string | null }
     knownStatus: { exists: boolean; grade: number | null; totalCount: number; knownCount: number; unknownCount: number; lastSyncedAt: string | null }
   } | null>(null)
+  const [cacheRefreshMessage, setCacheRefreshMessage] = useState<string | null>(null)
+  const [refreshIndexedDBTrigger, setRefreshIndexedDBTrigger] = useState(0)
 
   // 데이터베이스의 level과 experience 사용
   const currentLevel = user?.level || 1
@@ -167,7 +173,7 @@ export default function ProfilePage() {
       }
     }
     loadIndexedDBStatus()
-  }, [user?.id, user?.isAdmin, user?.preferredGrade])
+  }, [user?.id, user?.isAdmin, user?.preferredGrade, refreshIndexedDBTrigger])
 
   // 목표 설정 핸들러 (향후 사용 예정)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -207,6 +213,23 @@ export default function ProfilePage() {
       console.log("탈퇴 기능 구현 필요")
     } catch (error) {
       console.error("탈퇴 에러:", error)
+    }
+  }
+
+  /** IndexedDB 전체 캐시 삭제 — 메인 접근 시 현재 급수·학습상태 다시 불러옴 */
+  const handleRefreshKnownStatusCache = async () => {
+    if (!user?.id) return
+    try {
+      await clearIndexedDB()
+      setCacheRefreshMessage(
+        "캐시를 모두 삭제했습니다. 메인 화면에 가면 현재 급수 목록과 학습상태(아는/모르는)가 다시 불러와집니다."
+      )
+      if (user?.isAdmin) setRefreshIndexedDBTrigger((t) => t + 1)
+      setTimeout(() => setCacheRefreshMessage(null), 6000)
+    } catch (e) {
+      console.error("캐시 삭제 실패:", e)
+      setCacheRefreshMessage("캐시 삭제에 실패했습니다.")
+      setTimeout(() => setCacheRefreshMessage(null), 3000)
     }
   }
 
@@ -743,6 +766,26 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
+
+            {/* 캐시 삭제 (모바일 등에서 IndexedDB 직접 삭제 어려울 때) — 전체 사용자 */}
+            <div className='mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg'>
+              <h3 className='text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2'>
+                <span className='text-lg'>🔄</span> 캐시 관리
+              </h3>
+              <p className='text-xs text-gray-600 mb-3'>
+                현재 급수 목록이나 학습상태(아는/모르는)가 잘못 나오면, 아래 버튼으로 IndexedDB에 있는 내 캐시를 전부 삭제한 뒤 메인 화면에 가면 다시 제대로 불러옵니다.
+              </p>
+              <button
+                type='button'
+                onClick={handleRefreshKnownStatusCache}
+                className='px-3 py-2 text-sm bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors'
+              >
+                IndexedDB 전체 캐시 삭제
+              </button>
+              {cacheRefreshMessage && (
+                <p className='text-xs text-green-600 mt-2'>{cacheRefreshMessage}</p>
+              )}
+            </div>
 
             {/* 고객 게시판 */}
             <div className='mb-6'>
