@@ -115,11 +115,6 @@ export default function QuizGame() {
     gameLogic.questionsAnsweredRef,
   ])
 
-  // 게임 종료 시 세션 완료 통계 업데이트
-  useEffect(() => {
-    gameLogic.handleGameEnd()
-  }, [gameLogic])
-
   // 뒤로가기 확인 처리
   const handleExitConfirm = async () => {
     if (
@@ -554,6 +549,7 @@ export default function QuizGame() {
       {/* 메인 컨텐츠 */}
       <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16'>
         {gameLogic.gameEnded ? (
+          <div className='w-full max-w-4xl mx-auto min-h-[calc(100vh-4rem)] flex items-center justify-center'>
           <GameCompletionCard
             gameType='quiz'
             questionCount={questionCount}
@@ -565,6 +561,7 @@ export default function QuizGame() {
             }}
             onGoHome={() => (window.location.href = "/")}
           />
+          </div>
         ) : (
           <div className='space-y-8'>
             {/* 문제 */}
@@ -672,7 +669,7 @@ export default function QuizGame() {
           </div>
         )}
 
-        {/* 정답 모달 */}
+        {/* 정답/오답/모르겠음 모달 */}
         <AnswerModal
           isOpen={
             gameLogic.selectedAnswer !== null && gameLogic.isCorrect === true
@@ -680,12 +677,16 @@ export default function QuizGame() {
           question={currentQuestion}
           selectedAnswer={gameLogic.selectedAnswer}
           isCorrect={gameLogic.isCorrect}
+          comboStreak={gameLogic.gameStats.comboStreak}
+          dontKnowRemainingForCombo={Math.max(
+            0,
+            3 - (gameLogic.gameStats.dontKnowComboUsed ?? 0)
+          )}
           onReportDataIssue={handleReportDataIssue}
           reportLoadingHanziId={reportLoadingHanziId}
           reportSuccessHanziId={reportSuccessHanziId}
         />
 
-        {/* 틀렸을 때 정답 모달 */}
         <AnswerModal
           isOpen={
             gameLogic.selectedAnswer !== null && gameLogic.isCorrect === false
@@ -693,12 +694,16 @@ export default function QuizGame() {
           question={currentQuestion}
           selectedAnswer={gameLogic.selectedAnswer}
           isCorrect={gameLogic.isCorrect}
+          comboStreak={gameLogic.gameStats.comboStreak}
+          dontKnowRemainingForCombo={Math.max(
+            0,
+            3 - (gameLogic.gameStats.dontKnowComboUsed ?? 0)
+          )}
           onReportDataIssue={handleReportDataIssue}
           reportLoadingHanziId={reportLoadingHanziId}
           reportSuccessHanziId={reportSuccessHanziId}
         />
 
-        {/* 모르겠음 선택 시 모달 */}
         <AnswerModal
           isOpen={
             gameLogic.selectedAnswer !== null && gameLogic.isCorrect === null
@@ -706,6 +711,11 @@ export default function QuizGame() {
           question={currentQuestion}
           selectedAnswer={gameLogic.selectedAnswer}
           isCorrect={gameLogic.isCorrect}
+          comboStreak={gameLogic.gameStats.comboStreak}
+          dontKnowRemainingForCombo={Math.max(
+            0,
+            3 - (gameLogic.gameStats.dontKnowComboUsed ?? 0)
+          )}
           onReportDataIssue={handleReportDataIssue}
           reportLoadingHanziId={reportLoadingHanziId}
           reportSuccessHanziId={reportSuccessHanziId}

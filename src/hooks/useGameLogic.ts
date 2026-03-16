@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBonusModal } from "@/contexts/BonusModalContext"
 import { ApiClient } from "@/lib/apiClient"
@@ -13,8 +13,11 @@ export interface GameStats {
   dontKnowCount: number
   wrongAnswers: number
   earnedExperience: number
+  // 콤보 관련 상태
+  comboStreak: number // 현재 연속 정답 수 (모르겠음 허용 범위 내)
+  dontKnowComboUsed: number // 콤보를 깨지 않고 사용한 '모르겠음' 횟수
   bonusExperience: number
-  bonusType?: "perfect" | "no_wrong" // perfect: 정답률 100%, no_wrong: 오답 없음
+  bonusType?: "perfect" | "no_wrong" // 기존 보너스 타입 (현재는 사용하지 않음)
 }
 
 export interface GameQuestion {
@@ -56,63 +59,16 @@ export const useGameLogic = (config: GameConfig) => {
     dontKnowCount: 0,
     wrongAnswers: 0,
     earnedExperience: 0,
+    comboStreak: 0,
+    dontKnowComboUsed: 0,
     bonusExperience: 0,
     bonusType: undefined,
   })
 
   // 문제 풀기 카운팅
   const questionsAnsweredRef = useRef<number>(0)
-
-  // 게임 완료 시 보너스 경험치 계산
-  const calculateGameBonus = useCallback(
-    async (
-      questionCount: number,
-      dontKnowCount: number,
-      correctAnswers: number,
-      wrongAnswers: number
-    ): Promise<number> => {
-      // 학습 완료도 체크 (80% 이상 완료 시 보너스 제한)
-      if (user) {
-        try {
-          const completionStatus = await ApiClient.checkGradeCompletionStatus(
-            user.id,
-            config.selectedGrade
-          )
-          if (completionStatus.isEligibleForBonus) {
-            return 0
-          }
-        } catch (error) {
-          console.error("보너스 경험치 계산 실패:", error)
-          // 에러 시에는 보너스 지급 (기존 로직 유지)
-        }
-      }
-
-      let bonus = 0
-
-      // 1. 정답률 100%면 문제수의 50%를 보너스로 추가
-      if (correctAnswers === questionCount && wrongAnswers === 0 && dontKnowCount === 0) {
-        bonus = Math.floor(questionCount * 0.5)
-        return bonus
-      }
-
-      // 2. 오답이 없고 모르겠음과 정답의 조합만 있으면 30% 보너스 (올림)
-      // 단, 모르겠음이 40% 이상이면 보너스 없음
-      // 예: 10문제 → +3, 20문제 → +6, 30문제 → +9
-      const dontKnowRatio = dontKnowCount / questionCount
-      if (
-        wrongAnswers === 0 &&
-        (dontKnowCount > 0 || correctAnswers > 0) &&
-        dontKnowRatio < 0.4
-      ) {
-        bonus = Math.ceil(questionCount * 0.3)
-        return bonus
-      }
-
-      // 오답이 있으면 보너스 없음
-      return 0
-    },
-    [user, config.selectedGrade]
-  )
+  // 콤보 보너스 1회 적용 여부
+  const comboBonusAppliedRef = useRef<boolean>(false)
 
   // 답변 선택 처리
   const handleAnswerSelect = useCallback(
@@ -125,7 +81,7 @@ export const useGameLogic = (config: GameConfig) => {
       const isDontKnow = answer === "모르겠음"
 
       setIsCorrect(correct)
-      questionsAnsweredRef.current = questionsAnsweredRef.current + 1
+    questionsAnsweredRef.current = questionsAnsweredRef.current + 1
 
       // 효과음 재생
       if (isDontKnow) {
@@ -136,25 +92,43 @@ export const useGameLogic = (config: GameConfig) => {
         playWrongSound()
       }
 
-      // 경험치 계산 로직
+      // 경험치 및 콤보 계산 로직
       let experienceToAdd = 0
+      let nextComboStreak = gameStats.comboStreak ?? 0
+      let nextDontKnowComboUsed = gameStats.dontKnowComboUsed ?? 0
+
       if (isDontKnow) {
-        // 모르겠음 선택 시 +1 경험치
-        experienceToAdd = 1
+        // 모르겠음: 경험치 없음, 콤보는 3번까지 유지 (콤보 시작 후에만 기회 차감)
+        experienceToAdd = 0
+
+        if (nextComboStreak > 0) {
+          // 콤보가 이미 시작된 상태에서만 보호 기회 차감
+          nextDontKnowComboUsed = nextDontKnowComboUsed + 1
+
+          // 3번까지는 콤보 유지, 4번째부터는 콤보 끊김
+          if (nextDontKnowComboUsed > 3) {
+            nextComboStreak = 0
+          }
+        }
+
         setGameStats((prev) => ({
           ...prev,
           dontKnowCount: prev.dontKnowCount + 1,
         }))
       } else if (correct) {
-        // 정답 시 +1 경험치
+        // 정답: 콤보 1 증가, 기본 점수 1점 (콤보 보너스는 게임 종료 시 일괄 적용)
+        nextComboStreak = nextComboStreak + 1
         experienceToAdd = 1
+
         setGameStats((prev) => ({
           ...prev,
           correctAnswers: prev.correctAnswers + 1,
         }))
       } else {
-        // 틀린 답안 시 -1 경험치 (차감)
-        experienceToAdd = -1
+        // 오답: 경험치 차감 없음, 콤보 초기화
+        experienceToAdd = 0
+        nextComboStreak = 0
+
         setGameStats((prev) => ({
           ...prev,
           wrongAnswers: prev.wrongAnswers + 1,
@@ -192,10 +166,12 @@ export const useGameLogic = (config: GameConfig) => {
         }
       }
 
-      // 경험치 상태 업데이트
+      // 경험치 및 콤보 상태 업데이트
       setGameStats((prev) => ({
         ...prev,
         earnedExperience: prev.earnedExperience + experienceToAdd,
+        comboStreak: nextComboStreak,
+        dontKnowComboUsed: nextDontKnowComboUsed,
       }))
 
       // 한자별 통계 업데이트
@@ -221,51 +197,6 @@ export const useGameLogic = (config: GameConfig) => {
             setIsCorrect(null)
           } else {
             // 마지막 문제인 경우 게임 종료
-            // 보너스 경험치 계산 및 적용
-            const finalCorrectAnswers =
-              gameStats.correctAnswers + (correct ? 1 : 0)
-            const finalDontKnowCount =
-              gameStats.dontKnowCount + (isDontKnow ? 1 : 0)
-            const finalWrongAnswers =
-              gameStats.wrongAnswers + (!correct && !isDontKnow ? 1 : 0)
-
-            const gameBonus = await calculateGameBonus(
-              questions.length,
-              finalDontKnowCount,
-              finalCorrectAnswers,
-              finalWrongAnswers
-            )
-
-            // 보너스 타입 계산
-            let bonusType: "perfect" | "no_wrong" | undefined = undefined
-            if (gameBonus > 0) {
-              if (
-                finalCorrectAnswers === questions.length &&
-                finalWrongAnswers === 0 &&
-                finalDontKnowCount === 0
-              ) {
-                bonusType = "perfect"
-              } else if (finalWrongAnswers === 0) {
-                bonusType = "no_wrong"
-              }
-            }
-
-            if (gameBonus > 0) {
-              // 추가 경험치를 사용자에게 적용
-              if (user) {
-                updateUserExperience(gameBonus)
-                ApiClient.updateTodayExperience(user.id, gameBonus)
-              }
-            }
-
-            // 보너스 경험치 저장
-            setGameStats((prev) => ({
-              ...prev,
-              bonusExperience: gameBonus,
-              bonusType: bonusType,
-              earnedExperience: prev.earnedExperience + gameBonus,
-            }))
-
             setSelectedAnswer(null)
             setIsCorrect(null)
             // questionsAnswered 업데이트 후 gameEnded 설정
@@ -289,7 +220,6 @@ export const useGameLogic = (config: GameConfig) => {
       user,
       config.gameType,
       gameStats,
-      calculateGameBonus,
     ]
   )
 
@@ -308,33 +238,80 @@ export const useGameLogic = (config: GameConfig) => {
       dontKnowCount: 0,
       wrongAnswers: 0,
       earnedExperience: 0,
+      comboStreak: 0,
+      dontKnowComboUsed: 0,
       bonusExperience: 0,
       bonusType: undefined,
     })
   }, [])
 
-  // 게임 종료 시 세션 완료 통계 업데이트
-  const handleGameEnd = useCallback(async () => {
-    if (
-      gameEnded &&
-      user &&
-      !hasUpdatedStats &&
-      questionsAnsweredRef.current === questions.length
-    ) {
-      // 세션 완료 통계 업데이트
-      ApiClient.updateGameStatisticsNew(user.id, config.gameType, {
-        completedSessions: 1, // 세션 1회 완료
-      })
-        .then(() => {
+  // 게임 종료 시 세션 완료 통계 및 콤보 보너스 적용 (내부 effect로 한 번만 실행)
+  useEffect(() => {
+    if (!gameEnded || comboBonusAppliedRef.current) return
+
+    // 이 effect 사이클에서만 콤보 보너스를 처리하도록 플래그 설정
+    comboBonusAppliedRef.current = true
+
+    const finalizeGame = async () => {
+      // 세션 완료 통계
+      if (
+        user &&
+        !hasUpdatedStats &&
+        questionsAnsweredRef.current === questions.length
+      ) {
+        try {
+          await ApiClient.updateGameStatisticsNew(user.id, config.gameType, {
+            completedSessions: 1, // 세션 1회 완료
+          })
           setHasUpdatedStats(true)
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error("세션 완료 통계 업데이트 실패:", error)
-        })
-    } else if (gameEnded && questionsAnsweredRef.current !== questions.length) {
-      setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
+        }
+      } else if (questionsAnsweredRef.current !== questions.length) {
+        setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
+      }
+
+      // 콤보 보너스는 한 번만 적용
+      if (user && gameStats.comboStreak > 0 && gameStats.bonusExperience === 0) {
+        const questionCount = questions.length
+        const finalCombo = gameStats.comboStreak
+
+        let rawComboBonus = finalCombo
+
+        // 5/10/15/20문제 세트에서는 콤보 보너스를 콤보/2 (올림)으로 조정
+        if ([5, 10, 15, 20].includes(questionCount)) {
+          rawComboBonus = Math.ceil(finalCombo / 2)
+        }
+
+        // 한 세션에서 받을 수 있는 콤보 보너스는 문제 수를 넘지 않도록 제한
+        const comboBonus = Math.min(rawComboBonus, questionCount)
+
+        try {
+          await updateUserExperience(comboBonus)
+          await ApiClient.updateTodayExperience(user.id, comboBonus)
+        } catch (error) {
+          console.error("콤보 보너스 경험치 업데이트 실패:", error)
+        }
+
+        setGameStats((prev) => ({
+          ...prev,
+          bonusExperience: comboBonus,
+          earnedExperience: prev.earnedExperience + comboBonus,
+        }))
+      }
     }
-  }, [gameEnded, user, hasUpdatedStats, questions.length, config.gameType])
+
+    void finalizeGame()
+  }, [
+    gameEnded,
+    user,
+    hasUpdatedStats,
+    questions.length,
+    config.gameType,
+    gameStats.comboStreak,
+    gameStats.bonusExperience,
+    updateUserExperience,
+  ])
 
   return {
     // 상태
@@ -359,7 +336,5 @@ export const useGameLogic = (config: GameConfig) => {
     // 함수
     handleAnswerSelect,
     initializeGame,
-    handleGameEnd,
-    calculateGameBonus,
   }
 }

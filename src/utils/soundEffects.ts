@@ -144,3 +144,15 @@ export function playDontKnowSound(): void {
   playTone(440, 0.4, "triangle", 0.8, 1.0) // A4
 }
 
+/**
+ * 콤보 효과음 (짧고 경쾌한 상승 톤, 콤보가 갱신될 때마다 재생)
+ */
+export function playComboSound(): void {
+  const ctx = getAudioContext()
+  if (!ctx) return
+
+  // 짧은 상승 멜로디: G5 -> C6
+  playTone(783.99, 0.18, "square", 0.7, 0) // G5
+  playTone(1046.5, 0.2, "square", 0.8, 0.15) // C6
+}
+

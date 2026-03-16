@@ -266,7 +266,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => unsubscribe()
-  }, [hasInitialized, user])
+  }, [])
 
   const signIn = async () => {
     try {
