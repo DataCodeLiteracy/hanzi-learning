@@ -38,9 +38,8 @@ export default function AnswerModal({
   // 문제당 점수/보너스는 이 모달에서 노출하지 않음 (콤보 상태만 표시)
 
   return (
-    <div className='fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start pt-16 sm:pt-20'>
-      {/* 헤더 높이를 고려해 상단에서부터 시작, 내부에서만 스크롤 */}
-      <div className='bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-3 sm:mx-4 text-center max-h-[calc(100vh-6rem)] overflow-y-auto'>
+    <div className='fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4'>
+      <div className='bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto text-center'>
         <div className='p-6 sm:p-7'>
         <div className='mb-4'>
           {isCorrect === true ? (
@@ -74,7 +73,7 @@ export default function AnswerModal({
           <div className='text-5xl font-bold text-blue-600 mb-4'>
             {question.hanzi}
           </div>
-          <div className='space-y-2 mb-4'>
+          <div className='flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mb-4'>
             <div className='text-lg text-gray-700'>
               <span className='text-gray-500 font-medium'>뜻:</span>
               <span className='font-bold text-green-600 ml-2'>
@@ -139,19 +138,19 @@ export default function AnswerModal({
 
         {/* 콤보 / 모르겠음 요약 영역 — 하단에서만 표시, 강조 */}
         {(hasComboInfo || hasDontKnowInfo) && (
-          <div className='mb-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 px-4 py-4 text-left'>
+          <div className='mb-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 px-3 py-2.5 text-left'>
             {hasComboInfo && (
-              <div className='flex justify-between items-center mb-2'>
-                <span className='text-base font-semibold text-gray-800'>
+              <div className='flex justify-between items-center mb-1'>
+                <span className='text-sm font-semibold text-gray-800'>
                   현재 콤보
                 </span>
-                <span className='text-xl font-extrabold text-blue-700'>
+                <span className='text-lg font-extrabold text-blue-700'>
                   {currentCombo}콤보
                 </span>
               </div>
             )}
             {hasDontKnowInfo && (
-              <div className='text-base text-blue-800'>
+              <div className='text-sm text-blue-800'>
                 {currentCombo > 0 ? (
                   dontKnowRemainingForCombo! > 0 ? (
                     <span>
