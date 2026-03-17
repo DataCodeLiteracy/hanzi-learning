@@ -15,6 +15,7 @@ export interface GameStats {
   earnedExperience: number
   // 콤보 관련 상태
   comboStreak: number // 현재 연속 정답 수 (모르겠음 허용 범위 내)
+  maxComboStreak: number // 세션 중 달성한 최고 콤보
   dontKnowComboUsed: number // 콤보를 깨지 않고 사용한 '모르겠음' 횟수
   bonusExperience: number
   bonusType?: "perfect" | "no_wrong" // 기존 보너스 타입 (현재는 사용하지 않음)
@@ -60,6 +61,7 @@ export const useGameLogic = (config: GameConfig) => {
     wrongAnswers: 0,
     earnedExperience: 0,
     comboStreak: 0,
+    maxComboStreak: 0,
     dontKnowComboUsed: 0,
     bonusExperience: 0,
     bonusType: undefined,
@@ -105,9 +107,10 @@ export const useGameLogic = (config: GameConfig) => {
           // 콤보가 이미 시작된 상태에서만 보호 기회 차감
           nextDontKnowComboUsed = nextDontKnowComboUsed + 1
 
-          // 3번까지는 콤보 유지, 4번째부터는 콤보 끊김
+          // 3번까지는 콤보 유지, 4번째부터는 콤보 끊김 + 모르겠음 누적 초기화(다시 3번부터)
           if (nextDontKnowComboUsed > 3) {
             nextComboStreak = 0
+            nextDontKnowComboUsed = 0
           }
         }
 
@@ -125,9 +128,10 @@ export const useGameLogic = (config: GameConfig) => {
           correctAnswers: prev.correctAnswers + 1,
         }))
       } else {
-        // 오답: 경험치 차감 없음, 콤보 초기화
+        // 오답: 경험치 차감 없음, 콤보 초기화 + 모르겠음 누적도 초기화(다시 3번부터)
         experienceToAdd = 0
         nextComboStreak = 0
+        nextDontKnowComboUsed = 0
 
         setGameStats((prev) => ({
           ...prev,
@@ -166,11 +170,12 @@ export const useGameLogic = (config: GameConfig) => {
         }
       }
 
-      // 경험치 및 콤보 상태 업데이트
+      // 경험치 및 콤보 상태 업데이트 (최고 콤보는 갱신 시에만)
       setGameStats((prev) => ({
         ...prev,
         earnedExperience: prev.earnedExperience + experienceToAdd,
         comboStreak: nextComboStreak,
+        maxComboStreak: Math.max(prev.maxComboStreak ?? 0, nextComboStreak),
         dontKnowComboUsed: nextDontKnowComboUsed,
       }))
 
@@ -239,6 +244,7 @@ export const useGameLogic = (config: GameConfig) => {
       wrongAnswers: 0,
       earnedExperience: 0,
       comboStreak: 0,
+      maxComboStreak: 0,
       dontKnowComboUsed: 0,
       bonusExperience: 0,
       bonusType: undefined,
@@ -271,10 +277,11 @@ export const useGameLogic = (config: GameConfig) => {
         setHasUpdatedStats(true) // 중도 포기 시에도 플래그 설정하여 중복 방지
       }
 
-      // 콤보 보너스는 한 번만 적용
-      if (user && gameStats.comboStreak > 0 && gameStats.bonusExperience === 0) {
+      // 콤보 보너스는 한 번만 적용 (세션 중 최고 콤보 기준)
+      const maxCombo = gameStats.maxComboStreak ?? gameStats.comboStreak ?? 0
+      if (user && maxCombo > 0 && gameStats.bonusExperience === 0) {
         const questionCount = questions.length
-        const finalCombo = gameStats.comboStreak
+        const finalCombo = maxCombo
 
         let rawComboBonus = finalCombo
 
@@ -309,6 +316,7 @@ export const useGameLogic = (config: GameConfig) => {
     questions.length,
     config.gameType,
     gameStats.comboStreak,
+    gameStats.maxComboStreak,
     gameStats.bonusExperience,
     updateUserExperience,
   ])

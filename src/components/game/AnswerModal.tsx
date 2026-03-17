@@ -50,13 +50,6 @@ export default function AnswerModal({
                 정답입니다!
               </h3>
               <p className='text-green-600 text-base'>잘 하셨습니다!</p>
-              {hasComboInfo && (
-                <p className='mt-2 text-sm text-green-700'>
-                  현재{" "}
-                  <span className='font-bold'>{currentCombo}콤보</span>
-                  입니다.
-                </p>
-              )}
             </>
           ) : isDontKnow ? (
             <>
@@ -65,29 +58,6 @@ export default function AnswerModal({
                 정답을 확인해보세요
               </h3>
               <p className='text-gray-600 text-base'>이 한자를 기억해두세요</p>
-              {hasDontKnowInfo && (
-                <>
-                  {currentCombo > 0 ? (
-                    <p className='mt-2 text-sm text-blue-600'>
-                      {dontKnowRemainingForCombo > 0 ? (
-                        <>
-                          콤보 유지 상태입니다. &quot;모르겠음&quot; 가능{" "}
-                          <span className='font-semibold'>
-                            {dontKnowRemainingForCombo}회
-                          </span>
-                          남았습니다.
-                        </>
-                      ) : (
-                        <>다음 &quot;모르겠음&quot;부터 콤보가 초기화됩니다.</>
-                      )}
-                    </p>
-                  ) : (
-                    <p className='mt-2 text-sm text-gray-600'>
-                      아직 콤보가 쌓이기 전이에요.
-                    </p>
-                  )}
-                </>
-              )}
             </>
           ) : (
             <>
@@ -96,11 +66,6 @@ export default function AnswerModal({
                 틀렸습니다
               </h3>
               <p className='text-gray-600 text-base'>정답을 확인해보세요</p>
-              {hasComboInfo && currentCombo === 0 && (
-                <p className='mt-2 text-sm text-red-600'>
-                  아직 콤보가 쌓이기 전이에요.
-                </p>
-              )}
             </>
           )}
         </div>
@@ -155,47 +120,55 @@ export default function AnswerModal({
                   </button>
                 )}
               </div>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-                {question.relatedWords.slice(0, 4).map((word, index) => (
-                  <div
-                    key={index}
-                    className='bg-white rounded-md p-2 text-base'
-                  >
-                    <div className='font-medium text-gray-900'>{word.hanzi}</div>
-                    <div className='text-gray-600'>{word.korean}</div>
-                  </div>
-                ))}
+              <div className='max-h-[8.5rem] overflow-y-auto rounded-md border border-gray-100'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 p-0.5'>
+                  {question.relatedWords.map((word, index) => (
+                    <div
+                      key={index}
+                      className='bg-white rounded-md p-2 text-base'
+                    >
+                      <div className='font-medium text-gray-900'>{word.hanzi}</div>
+                      <div className='text-gray-600'>{word.korean}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* 콤보 / 모르겠음 요약 영역 (점수 정보는 숨기고 상태만 표시) */}
+        {/* 콤보 / 모르겠음 요약 영역 — 하단에서만 표시, 강조 */}
         {(hasComboInfo || hasDontKnowInfo) && (
-          <div className='mb-3 text-xs sm:text-sm text-gray-700 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-left'>
+          <div className='mb-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 px-4 py-4 text-left'>
             {hasComboInfo && (
-              <div className='flex justify-between items-center mb-1'>
-                <span className='font-medium text-gray-800'>현재 콤보</span>
-                <span className='font-bold text-blue-700'>
+              <div className='flex justify-between items-center mb-2'>
+                <span className='text-base font-semibold text-gray-800'>
+                  현재 콤보
+                </span>
+                <span className='text-xl font-extrabold text-blue-700'>
                   {currentCombo}콤보
                 </span>
               </div>
             )}
-            {hasDontKnowInfo && isDontKnow && (
-              <div className='mt-1 text-blue-700'>
+            {hasDontKnowInfo && (
+              <div className='text-base text-blue-800'>
                 {currentCombo > 0 ? (
-                  <>
-                    콤보를 유지한 채로 사용할 수 있는 &quot;모르겠음&quot;이{" "}
-                    <span className='font-semibold'>
-                      {dontKnowRemainingForCombo > 0
-                        ? `${dontKnowRemainingForCombo}번`
-                        : "더 이상 없음"}
+                  dontKnowRemainingForCombo! > 0 ? (
+                    <span>
+                      콤보 유지 중 · &quot;모르겠음&quot;{" "}
+                      <span className='font-bold'>
+                        {dontKnowRemainingForCombo}번
+                      </span>{" "}
+                      더 사용 가능
                     </span>
-                    입니다.
-                  </>
+                  ) : (
+                    <span className='font-semibold'>
+                      다음 &quot;모르겠음&quot;부터 콤보 초기화
+                    </span>
+                  )
                 ) : (
-                  <span className='text-red-600'>
-                    아직 콤보가 쌓이기 전이에요.
+                  <span className='text-slate-600'>
+                    정답을 연속으로 맞추면 콤보가 쌓여요
                   </span>
                 )}
               </div>

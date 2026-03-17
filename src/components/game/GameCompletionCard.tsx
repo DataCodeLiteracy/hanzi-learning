@@ -20,9 +20,10 @@ export default function GameCompletionCard({
   const {
     correctAnswers,
     dontKnowCount,
-    comboStreak,
+    maxComboStreak,
     bonusExperience,
   } = gameStats
+  const bestCombo = maxComboStreak ?? 0
   const wrongAnswers = questionCount - correctAnswers - dontKnowCount
   const isPerfectGame = dontKnowCount === 0 && correctAnswers === questionCount
 
@@ -83,7 +84,7 @@ export default function GameCompletionCard({
               최고 콤보
             </div>
             <div className='text-base sm:text-lg font-bold text-purple-600'>
-              {comboStreak}콤보
+              {bestCombo}콤보
             </div>
           </div>
         </div>
@@ -130,7 +131,7 @@ export default function GameCompletionCard({
               <span className='text-purple-700 font-medium'>
                 콤보 보너스{" "}
                 <span className='text-xs text-purple-500'>
-                  (최고 {comboStreak}콤보)
+                  (최고 {bestCombo}콤보)
                 </span>
               </span>
               <span className='font-semibold text-purple-600'>
