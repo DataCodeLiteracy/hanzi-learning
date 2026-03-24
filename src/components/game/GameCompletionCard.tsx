@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react"
 import { GameStats } from "@/hooks/useGameLogic"
 
 interface GameCompletionCardProps {
@@ -7,6 +8,8 @@ interface GameCompletionCardProps {
   userExperience: number
   onRestart: () => void
   onGoHome: () => void
+  /** 세션 정산(콤보 보너스 등) 완료 전 true — 홈/다시 풀기 비활성화 */
+  actionsDisabled?: boolean
 }
 
 export default function GameCompletionCard({
@@ -16,6 +19,7 @@ export default function GameCompletionCard({
   userExperience,
   onRestart,
   onGoHome,
+  actionsDisabled = false,
 }: GameCompletionCardProps) {
   const {
     correctAnswers,
@@ -157,16 +161,29 @@ export default function GameCompletionCard({
       </div>
 
       {/* 다음 액션 안내 */}
+      {actionsDisabled && (
+        <p className='mb-3 flex items-center justify-center gap-2 text-center text-sm font-medium text-gray-700'>
+          <Loader2
+            className='h-4 w-4 shrink-0 animate-spin text-blue-600'
+            aria-hidden
+          />
+          콤보 보너스 계산 중입니다…
+        </p>
+      )}
       <div className='flex flex-row gap-3 mt-3'>
         <button
+          type='button'
+          disabled={actionsDisabled}
           onClick={onRestart}
-          className='flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm sm:text-base font-semibold shadow-md hover:from-blue-700 hover:to-indigo-700 transition-colors'
+          className='flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm sm:text-base font-semibold shadow-md hover:from-blue-700 hover:to-indigo-700 transition-colors disabled:opacity-50 disabled:pointer-events-none'
         >
           다시 풀기
         </button>
         <button
+          type='button'
+          disabled={actionsDisabled}
           onClick={onGoHome}
-          className='flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm sm:text-base font-semibold shadow-sm hover:bg-gray-800 transition-colors'
+          className='flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm sm:text-base font-semibold shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:pointer-events-none'
         >
           홈으로
         </button>

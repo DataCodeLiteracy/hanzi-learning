@@ -537,7 +537,16 @@ export default function PartialGame() {
         currentQuestionIndex={gameLogic.currentQuestionIndex}
         questionCount={questionCount}
         currentDuration={currentDuration}
+        backDisabled={
+          gameLogic.gameEnded && !gameLogic.sessionFinalizeComplete
+        }
         onBackClick={() => {
+          if (
+            gameLogic.gameEnded &&
+            !gameLogic.sessionFinalizeComplete
+          ) {
+            return
+          }
           if (
             !gameLogic.gameEnded &&
             !gameLogic.hasUpdatedStats &&
@@ -559,6 +568,7 @@ export default function PartialGame() {
             questionCount={questionCount}
             gameStats={gameLogic.gameStats}
             userExperience={user?.experience || 0}
+            actionsDisabled={!gameLogic.sessionFinalizeComplete}
             onRestart={() => {
               setShowSettings(true)
               gameLogic.initializeGame()

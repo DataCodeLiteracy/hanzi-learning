@@ -7,6 +7,8 @@ interface GameHeaderProps {
   questionCount: number
   currentDuration: number
   onBackClick: () => void
+  /** true면 뒤로가기 비활성 (예: 완료 후 경험치 정산 중) */
+  backDisabled?: boolean
 }
 
 export default function GameHeader({
@@ -16,6 +18,7 @@ export default function GameHeader({
   questionCount,
   currentDuration,
   onBackClick,
+  backDisabled = false,
 }: GameHeaderProps) {
   const gameTitle = gameType === "partial" ? "부분 맞추기" : "퀴즈"
 
@@ -25,8 +28,11 @@ export default function GameHeader({
         <div className='flex justify-between items-center py-4'>
           <div className='flex items-center space-x-4'>
             <button
+              type='button'
+              disabled={backDisabled}
               onClick={onBackClick}
-              className='text-blue-600 hover:text-blue-700'
+              className='text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:pointer-events-none'
+              aria-disabled={backDisabled}
             >
               <ArrowLeft className='h-5 w-5' />
             </button>

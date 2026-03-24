@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBonusModal } from "@/contexts/BonusModalContext"
 import { ApiClient } from "@/lib/apiClient"
@@ -71,6 +71,18 @@ export const useGameLogic = (config: GameConfig) => {
   const questionsAnsweredRef = useRef<number>(0)
   // 콤보 보너스 1회 적용 여부
   const comboBonusAppliedRef = useRef<boolean>(false)
+  /** 세션 정산(통계·콤보 보너스 API) 완료 전에는 홈/재시작 등으로 나가면 보너스가 누락될 수 있어 버튼을 막음 */
+  const [sessionFinalizeComplete, setSessionFinalizeComplete] =
+    useState(true)
+
+  const gameStatsRef = useRef(gameStats)
+  gameStatsRef.current = gameStats
+  const userRef = useRef(user)
+  userRef.current = user
+  const hasUpdatedStatsRef = useRef(hasUpdatedStats)
+  hasUpdatedStatsRef.current = hasUpdatedStats
+  const updateUserExperienceRef = useRef(updateUserExperience)
+  updateUserExperienceRef.current = updateUserExperience
 
   // 답변 선택 처리
   const handleAnswerSelect = useCallback(
@@ -238,6 +250,8 @@ export const useGameLogic = (config: GameConfig) => {
     setHasUpdatedStats(false)
     setUserConfirmedExit(false)
     questionsAnsweredRef.current = 0
+    comboBonusAppliedRef.current = false
+    setSessionFinalizeComplete(true)
     setGameStats({
       correctAnswers: 0,
       dontKnowCount: 0,
@@ -251,22 +265,33 @@ export const useGameLogic = (config: GameConfig) => {
     })
   }, [])
 
-  // 게임 종료 시 세션 완료 통계 및 콤보 보너스 적용 (내부 effect로 한 번만 실행)
-  useEffect(() => {
-    if (!gameEnded || comboBonusAppliedRef.current) return
+  useLayoutEffect(() => {
+    if (gameEnded) {
+      setSessionFinalizeComplete(false)
+    } else {
+      setSessionFinalizeComplete(true)
+    }
+  }, [gameEnded])
 
-    // 이 effect 사이클에서만 콤보 보너스를 처리하도록 플래그 설정
-    comboBonusAppliedRef.current = true
+  // 게임 종료 시 세션 완료 통계 및 콤보 보너스 적용
+  // gameStats/hasUpdatedStats 등을 deps에 넣으면 정산 중간에 effect가 다시 돌며
+  // sessionFinalizeComplete가 너무 일찍 true가 되어 보너스 API 전에 홈으로 나갈 수 있음 → ref + 최소 deps
+  useEffect(() => {
+    if (!gameEnded) return
 
     const finalizeGame = async () => {
+      const stats = gameStatsRef.current
+      const u = userRef.current
+      const hasStats = hasUpdatedStatsRef.current
+
       // 세션 완료 통계
       if (
-        user &&
-        !hasUpdatedStats &&
+        u &&
+        !hasStats &&
         questionsAnsweredRef.current === questions.length
       ) {
         try {
-          await ApiClient.updateGameStatisticsNew(user.id, config.gameType, {
+          await ApiClient.updateGameStatisticsNew(u.id, config.gameType, {
             completedSessions: 1, // 세션 1회 완료
           })
           setHasUpdatedStats(true)
@@ -278,8 +303,11 @@ export const useGameLogic = (config: GameConfig) => {
       }
 
       // 콤보 보너스는 한 번만 적용 (세션 중 최고 콤보 기준)
-      const maxCombo = gameStats.maxComboStreak ?? gameStats.comboStreak ?? 0
-      if (user && maxCombo > 0 && gameStats.bonusExperience === 0) {
+      const maxCombo = stats.maxComboStreak ?? stats.comboStreak ?? 0
+      if (u && maxCombo > 0 && stats.bonusExperience === 0) {
+        if (comboBonusAppliedRef.current) return
+        comboBonusAppliedRef.current = true
+
         const questionCount = questions.length
         const finalCombo = maxCombo
 
@@ -294,8 +322,8 @@ export const useGameLogic = (config: GameConfig) => {
         const comboBonus = Math.min(rawComboBonus, questionCount)
 
         try {
-          await updateUserExperience(comboBonus)
-          await ApiClient.updateTodayExperience(user.id, comboBonus)
+          await updateUserExperienceRef.current(comboBonus)
+          await ApiClient.updateTodayExperience(u.id, comboBonus)
         } catch (error) {
           console.error("콤보 보너스 경험치 업데이트 실패:", error)
         }
@@ -308,18 +336,21 @@ export const useGameLogic = (config: GameConfig) => {
       }
     }
 
-    void finalizeGame()
-  }, [
-    gameEnded,
-    user,
-    hasUpdatedStats,
-    questions.length,
-    config.gameType,
-    gameStats.comboStreak,
-    gameStats.maxComboStreak,
-    gameStats.bonusExperience,
-    updateUserExperience,
-  ])
+    let cancelled = false
+    ;(async () => {
+      try {
+        await finalizeGame()
+      } finally {
+        if (!cancelled) {
+          setSessionFinalizeComplete(true)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [gameEnded, questions.length, config.gameType])
 
   return {
     // 상태
@@ -340,6 +371,7 @@ export const useGameLogic = (config: GameConfig) => {
     gameStats,
     setGameStats,
     questionsAnsweredRef,
+    sessionFinalizeComplete,
 
     // 함수
     handleAnswerSelect,
