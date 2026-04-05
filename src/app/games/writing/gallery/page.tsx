@@ -13,6 +13,35 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { CustomSelect } from "@/components/ui/CustomSelect"
+
+const GALLERY_GRADE_FILTER_OPTIONS = [
+  { value: "all", label: "전체" },
+  { value: "3", label: "3급" },
+  { value: "4", label: "4급" },
+  { value: "5", label: "5급" },
+  { value: "6", label: "6급" },
+  { value: "7", label: "7급" },
+  { value: "8", label: "8급" },
+]
+
+const GALLERY_STATUS_OPTIONS = [
+  { value: "all", label: "전체" },
+  { value: "pending", label: "검토 중" },
+  { value: "approved", label: "승인됨" },
+  { value: "rejected", label: "거부됨" },
+]
+
+const GALLERY_SORT_BY_OPTIONS = [
+  { value: "date", label: "날짜" },
+  { value: "character", label: "한자" },
+  { value: "grade", label: "급수" },
+]
+
+const GALLERY_SORT_ORDER_OPTIONS = [
+  { value: "desc", label: "최신순" },
+  { value: "asc", label: "오래된순" },
+]
 
 interface WritingSubmission {
   id: string
@@ -252,21 +281,14 @@ export default function WritingGalleryPage() {
               <label className='block text-sm font-medium text-gray-700 mb-2'>
                 급수
               </label>
-              <select
+              <CustomSelect
                 value={selectedGrade}
-                onChange={(e) => setSelectedGrade(e.target.value)}
-                className='w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900'
-              >
-                <option value='all' className='text-gray-900'>
-                  전체
-                </option>
-                <option value='3'>3급</option>
-                <option value='4'>4급</option>
-                <option value='5'>5급</option>
-                <option value='6'>6급</option>
-                <option value='7'>7급</option>
-                <option value='8'>8급</option>
-              </select>
+                onChange={setSelectedGrade}
+                options={GALLERY_GRADE_FILTER_OPTIONS}
+                className='w-full'
+                buttonClassName='p-2'
+                aria-label='급수 필터'
+              />
             </div>
 
             {/* 날짜 필터 */}
@@ -287,18 +309,14 @@ export default function WritingGalleryPage() {
               <label className='block text-sm font-medium text-gray-700 mb-2'>
                 상태
               </label>
-              <select
+              <CustomSelect
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className='w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900'
-              >
-                <option value='all' className='text-gray-900'>
-                  전체
-                </option>
-                <option value='pending'>검토 중</option>
-                <option value='approved'>승인됨</option>
-                <option value='rejected'>거부됨</option>
-              </select>
+                onChange={setSelectedStatus}
+                options={GALLERY_STATUS_OPTIONS}
+                className='w-full'
+                buttonClassName='p-2'
+                aria-label='상태 필터'
+              />
             </div>
 
             {/* 정렬 기준 */}
@@ -306,21 +324,14 @@ export default function WritingGalleryPage() {
               <label className='block text-sm font-medium text-gray-700 mb-2'>
                 정렬 기준
               </label>
-              <select
+              <CustomSelect
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className='w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900'
-              >
-                <option value='date' className='text-gray-900'>
-                  날짜
-                </option>
-                <option value='character' className='text-gray-900'>
-                  한자
-                </option>
-                <option value='grade' className='text-gray-900'>
-                  급수
-                </option>
-              </select>
+                onChange={setSortBy}
+                options={GALLERY_SORT_BY_OPTIONS}
+                className='w-full'
+                buttonClassName='p-2'
+                aria-label='정렬 기준'
+              />
             </div>
 
             {/* 정렬 순서 */}
@@ -328,18 +339,14 @@ export default function WritingGalleryPage() {
               <label className='block text-sm font-medium text-gray-700 mb-2'>
                 정렬 순서
               </label>
-              <select
+              <CustomSelect
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className='w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900'
-              >
-                <option value='desc' className='text-gray-900'>
-                  최신순
-                </option>
-                <option value='asc' className='text-gray-900'>
-                  오래된순
-                </option>
-              </select>
+                onChange={setSortOrder}
+                options={GALLERY_SORT_ORDER_OPTIONS}
+                className='w-full'
+                buttonClassName='p-2'
+                aria-label='정렬 순서'
+              />
             </div>
           </div>
         </div>

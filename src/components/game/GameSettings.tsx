@@ -1,5 +1,6 @@
-import React from "react"
+import React, { useMemo } from "react"
 import { ArrowLeft, Play } from "lucide-react"
+import { CustomSelect } from "@/components/ui/CustomSelect"
 
 interface GameSettingsProps {
   gameType: "partial" | "quiz"
@@ -40,6 +41,31 @@ export default function GameSettings({
   const gameTitle = gameType === "partial" ? "부분 맞추기" : "퀴즈"
   const startButtonText = gameType === "partial" ? "게임 시작" : "퀴즈 시작"
 
+  const gradeOptions = useMemo(
+    () =>
+      [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => ({
+        value: String(grade),
+        label:
+          grade === 5.5
+            ? "준5급"
+            : grade === 4.5
+            ? "준4급"
+            : grade === 3.5
+            ? "준3급"
+            : `${grade}급`,
+      })),
+    []
+  )
+
+  const questionOptions = useMemo(
+    () =>
+      [5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((count) => ({
+        value: String(count),
+        label: `${count}문제`,
+      })),
+    []
+  )
+
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 헤더 */}
@@ -71,24 +97,14 @@ export default function GameSettings({
             <label className='block text-base font-semibold text-gray-700 mb-2'>
               급수 선택
             </label>
-            <select
-              value={selectedGrade}
-              onChange={(e) => onGradeChange(Number(e.target.value))}
+            <CustomSelect
+              value={String(selectedGrade)}
+              onChange={(v) => onGradeChange(Number(v))}
+              options={gradeOptions}
               disabled={isLoadingGrade}
-              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
-            >
-              {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
-                <option key={grade} value={grade} className='font-medium'>
-                  {grade === 5.5
-                    ? "준5급"
-                    : grade === 4.5
-                    ? "준4급"
-                    : grade === 3.5
-                    ? "준3급"
-                    : `${grade}급`}
-                </option>
-              ))}
-            </select>
+              className='w-full'
+              aria-label='급수 선택'
+            />
 
             {isLoadingGrade && (
               <div className='mt-2 flex items-center space-x-2'>
@@ -117,17 +133,13 @@ export default function GameSettings({
             <label className='block text-base font-semibold text-gray-700 mb-2'>
               문제 수 선택
             </label>
-            <select
-              value={questionCount}
-              onChange={(e) => onQuestionCountChange(Number(e.target.value))}
-              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
-            >
-              {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((count) => (
-                <option key={count} value={count} className='font-medium'>
-                  {count}문제
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              value={String(questionCount)}
+              onChange={(v) => onQuestionCountChange(Number(v))}
+              options={questionOptions}
+              className='w-full'
+              aria-label='문제 수'
+            />
           </div>
 
           {/* 게임 시작 버튼 */}

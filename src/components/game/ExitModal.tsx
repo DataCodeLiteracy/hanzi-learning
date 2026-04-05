@@ -15,7 +15,7 @@ export default function ExitModal({
 
   return (
     <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'>
-      <div className='bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center'>
+      <div className='bg-white rounded-lg shadow-2xl py-8 px-[27px] max-w-md w-full mx-4 text-center'>
         <div className='mb-6'>
           <div className='text-yellow-500 text-4xl mb-4'>⚠️</div>
           <h3 className='text-2xl font-bold text-gray-900 mb-4'>

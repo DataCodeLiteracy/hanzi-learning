@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -15,6 +15,7 @@ import GameCompletionCard from "@/components/game/GameCompletionCard"
 import AnswerModal from "@/components/game/AnswerModal"
 import ExitModal from "@/components/game/ExitModal"
 import { CheckCircle, XCircle } from "lucide-react"
+import { CustomSelect } from "@/components/ui/CustomSelect"
 
 interface PartialQuestion extends GameQuestion {
   hiddenPart: "top-left" | "top-right" | "bottom-left" | "bottom-right"
@@ -38,6 +39,14 @@ export default function PartialGame() {
 
   // 현재 선택된 급수는 user.preferredGrade를 사용
   const selectedGrade = user?.preferredGrade || 8
+
+  const questionCountOptions = useMemo(() => {
+    const counts =
+      selectedGrade === 8
+        ? [5, 10, 15, 20, 25, 30, 40, 50]
+        : [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100]
+    return counts.map((c) => ({ value: String(c), label: `${c}문제` }))
+  }, [selectedGrade])
 
   // 게임 로직 훅
   const gameLogic = useGameLogic({
@@ -423,46 +432,14 @@ export default function PartialGame() {
             <label className='block text-base font-semibold text-gray-700 mb-2'>
               문제 수
             </label>
-            <div className='relative'>
-              <select
-                value={questionCount}
-                onChange={(e) => setQuestionCount(Number(e.target.value))}
-                className='block w-full px-4 py-3 text-base font-medium text-gray-900 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-              >
-                <option value={5}>5문제</option>
-                <option value={10}>10문제</option>
-                <option value={15}>15문제</option>
-                <option value={20}>20문제</option>
-                <option value={25}>25문제</option>
-                <option value={30}>30문제</option>
-                <option value={40}>40문제</option>
-                {selectedGrade === 8 ? (
-                  <option value={50}>50문제</option>
-                ) : (
-                  <>
-                    <option value={50}>50문제</option>
-                    <option value={60}>60문제</option>
-                    <option value={70}>70문제</option>
-                    <option value={80}>80문제</option>
-                    <option value={90}>90문제</option>
-                    <option value={100}>100문제</option>
-                  </>
-                )}
-              </select>
-              <div className='pointer-events-none absolute inset-y-0 right-0 flex items-center px-4'>
-                <svg
-                  className='h-5 w-5 text-gray-500'
-                  viewBox='0 0 20 20'
-                  fill='currentColor'
-                >
-                  <path
-                    fillRule='evenodd'
-                    d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z'
-                    clipRule='evenodd'
-                  />
-                </svg>
-              </div>
-            </div>
+            <CustomSelect
+              value={String(questionCount)}
+              onChange={(v) => setQuestionCount(Number(v))}
+              options={questionCountOptions}
+              className='w-full'
+              buttonClassName='block w-full px-4 py-3 text-base font-medium text-gray-900 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+              aria-label='문제 수'
+            />
           </div>
 
           {/* 시작 버튼 */}
@@ -560,7 +537,7 @@ export default function PartialGame() {
       />
 
       {/* 메인 컨텐츠 */}
-      <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16'>
+      <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[calc(4rem+70px)]'>
         {gameLogic.gameEnded ? (
           <div className='w-full max-w-4xl mx-auto min-h-[calc(100vh-4rem)] flex items-center justify-center'>
           <GameCompletionCard
@@ -577,27 +554,27 @@ export default function PartialGame() {
           />
           </div>
         ) : (
-          <div className='space-y-8'>
+          <div className='space-y-6'>
             {/* 문제 */}
-            <div className='bg-white rounded-lg shadow-lg p-8 text-center'>
-              <div className='mb-6'>
-                <h2 className='text-2xl font-bold text-gray-900 mb-4'>
+            <div className='bg-white rounded-lg shadow-lg p-6 sm:p-7 text-center'>
+              <div className='mb-4'>
+                <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-2'>
                   가려진 부분을 보고 한자를 맞춰보세요!
                 </h2>
-                <p className='text-gray-600 mb-4'>
+                <p className='text-base text-gray-600 leading-snug'>
                   한자의 3/4 부분만 보입니다. 나머지 1/4 부분을 상상해서
                   맞춰보세요.
                 </p>
               </div>
 
               {/* 한자 표시 영역 */}
-              <div className='mb-8'>
+              <div className='mb-6'>
                 <div className='relative inline-block'>
                   <div
-                    className='text-8xl font-bold text-blue-600 bg-gray-100 rounded-lg p-8 relative'
+                    className='text-7xl sm:text-8xl font-bold text-blue-600 bg-gray-100 rounded-lg p-5 relative leading-none'
                     style={{
-                      width: "200px",
-                      height: "200px",
+                      width: "184px",
+                      height: "184px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -608,8 +585,8 @@ export default function PartialGame() {
                   <div
                     className='absolute inset-0 bg-gray-800 rounded-lg'
                     style={{
-                      width: "200px",
-                      height: "200px",
+                      width: "184px",
+                      height: "184px",
                       ...getHiddenPartStyle(currentQuestion.hiddenPart),
                     }}
                   ></div>
@@ -617,7 +594,7 @@ export default function PartialGame() {
               </div>
 
               {/* 보기 */}
-              <div className='grid grid-cols-1 gap-3'>
+              <div className='grid grid-cols-1 gap-2.5'>
                 {currentQuestion.options.map((option, index) => (
                   <button
                     key={index}
@@ -649,18 +626,18 @@ export default function PartialGame() {
                     `}
                   >
                     <div className='flex items-center space-x-3'>
-                      <div className='w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-base font-bold'>
+                      <div className='w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold shrink-0'>
                         {String.fromCharCode(65 + index)}
                       </div>
-                      <span className='text-base font-semibold text-gray-900'>
+                      <span className='text-base sm:text-lg font-semibold text-gray-900'>
                         {option}
                       </span>
                       {gameLogic.selectedAnswer !== null && (
                         <div className='ml-auto'>
                           {option === currentQuestion.correctAnswer ? (
-                            <CheckCircle className='h-5 w-5 text-green-600' />
+                            <CheckCircle className='h-5 w-5 sm:h-6 sm:w-6 text-green-600' />
                           ) : gameLogic.selectedAnswer === option ? (
-                            <XCircle className='h-5 w-5 text-red-600' />
+                            <XCircle className='h-5 w-5 sm:h-6 sm:w-6 text-red-600' />
                           ) : null}
                         </div>
                       )}
@@ -671,19 +648,19 @@ export default function PartialGame() {
 
               {/* 정답 표시 */}
               {gameLogic.selectedAnswer !== null && (
-                <div className='mt-6 p-4 rounded-lg bg-blue-50 border border-blue-200'>
+                <div className='mt-5 p-3.5 rounded-lg bg-blue-50 border border-blue-200'>
                   <div className='flex items-center justify-center space-x-2'>
                     {gameLogic.isCorrect ? (
                       <>
-                        <CheckCircle className='h-5 w-5 text-green-600' />
-                        <span className='text-green-600 font-semibold'>
+                        <CheckCircle className='h-5 w-5 sm:h-6 sm:w-6 text-green-600' />
+                        <span className='text-green-600 font-semibold text-base'>
                           정답입니다!
                         </span>
                       </>
                     ) : (
                       <>
-                        <XCircle className='h-5 w-5 text-red-600' />
-                        <span className='text-red-600 font-semibold'>
+                        <XCircle className='h-5 w-5 sm:h-6 sm:w-6 text-red-600' />
+                        <span className='text-red-600 font-semibold text-base'>
                           틀렸습니다.
                         </span>
                       </>

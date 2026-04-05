@@ -7,6 +7,17 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Upload, Camera, X, CheckCircle, Search } from "lucide-react"
 import Image from "next/image"
+import { CustomSelect } from "@/components/ui/CustomSelect"
+
+const WRITING_UPLOAD_GRADE_OPTIONS = [
+  { value: "", label: "급수를 선택하세요" },
+  { value: "3", label: "3급" },
+  { value: "4", label: "4급" },
+  { value: "5", label: "5급" },
+  { value: "6", label: "6급" },
+  { value: "7", label: "7급" },
+  { value: "8", label: "8급" },
+]
 
 interface Hanzi {
   id: string
@@ -443,21 +454,14 @@ export default function WritingUploadPage() {
                 <label className='block text-sm font-medium text-gray-700 mb-2'>
                   연습할 급수
                 </label>
-                <select
+                <CustomSelect
                   value={selectedGrade}
-                  onChange={(e) => handleGradeChange(e.target.value)}
-                  className='w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900'
-                >
-                  <option value='' className='text-gray-900'>
-                    급수를 선택하세요
-                  </option>
-                  <option value='3'>3급</option>
-                  <option value='4'>4급</option>
-                  <option value='5'>5급</option>
-                  <option value='6'>6급</option>
-                  <option value='7'>7급</option>
-                  <option value='8'>8급</option>
-                </select>
+                  onChange={handleGradeChange}
+                  options={WRITING_UPLOAD_GRADE_OPTIONS}
+                  className='w-full'
+                  buttonClassName='p-3'
+                  aria-label='연습할 급수'
+                />
               </div>
 
               {/* 한자 검색 및 선택 */}

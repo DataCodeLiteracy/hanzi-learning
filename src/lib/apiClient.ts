@@ -12,6 +12,7 @@ import {
   limit,
   startAfter,
   documentId,
+  getCountFromServer,
   QueryConstraint,
   DocumentData,
   QueryDocumentSnapshot,
@@ -22,6 +23,18 @@ import {
 import { db } from "./firebase"
 import { Hanzi, UserStatistics } from "@/types"
 import { calculateLevel } from "./experienceSystem"
+
+/** 한자 목록 서버 페이지네이션 (Firestore limit)용 */
+export type HanziListServerSort = "soundAsc" | "gradeNumber" | "reportedFirst"
+
+export type HanziListServerReportFilter =
+  | "all"
+  | "reported_only"
+  | "not_reported"
+
+export type HanziListServerCursor = {
+  values: (string | number | boolean)[]
+}
 
 // 한국시간(KST, UTC+9) 기준으로 날짜를 계산하는 유틸리티 함수
 // 한국 시간대(Asia/Seoul)를 직접 사용하여 정확한 날짜 계산
@@ -294,6 +307,139 @@ export class ApiClient {
         (a, b) => (a.gradeNumber || 0) - (b.gradeNumber || 0)
       )
     }
+  }
+
+  /** 필터만 적용한 급수별 한자 개수 (집계 쿼리) */
+  static async countHanziForList(
+    grade: number,
+    reportFilter: HanziListServerReportFilter
+  ): Promise<number> {
+    const constraints: QueryConstraint[] = [where("grade", "==", grade)]
+    if (reportFilter === "reported_only") {
+      constraints.push(where("hasDataIssue", "==", true))
+    } else if (reportFilter === "not_reported") {
+      constraints.push(where("hasDataIssue", "==", false))
+    }
+    const q = query(collection(db, "hanzi"), ...constraints)
+    const snapshot = await getCountFromServer(q)
+    return snapshot.data().count
+  }
+
+  /**
+   * 한자 목록: 페이지당 최대 pageSize개 문서 읽기 (+ 다음 페이지 존재 여부용 최대 1건).
+   * 정렬·신고 필터는 Firestore 인덱스와 일치해야 함.
+   */
+  static async getHanziListPage(args: {
+    grade: number
+    pageSize: number
+    startAfterValues: (string | number | boolean)[] | null
+    sort: HanziListServerSort
+    reportFilter: HanziListServerReportFilter
+  }): Promise<{
+    items: Hanzi[]
+    nextStartAfter: HanziListServerCursor | null
+    hasMore: boolean
+  }> {
+    const { grade, pageSize, startAfterValues, sort, reportFilter } = args
+    const fetchLimit = pageSize + 1
+    const constraints: QueryConstraint[] = [where("grade", "==", grade)]
+
+    if (reportFilter === "reported_only") {
+      constraints.push(where("hasDataIssue", "==", true))
+    } else if (reportFilter === "not_reported") {
+      constraints.push(where("hasDataIssue", "==", false))
+    }
+
+    if (sort === "soundAsc") {
+      constraints.push(orderBy("sound"), orderBy(documentId()))
+    } else if (sort === "gradeNumber") {
+      constraints.push(orderBy("gradeNumber"), orderBy(documentId()))
+    } else {
+      // 신고 필터로 hasDataIssue가 고정이면 정렬에 쓸 필요 없음(동일 값)
+      if (reportFilter === "reported_only" || reportFilter === "not_reported") {
+        constraints.push(orderBy("sound"), orderBy(documentId()))
+      } else {
+        constraints.push(
+          orderBy("hasDataIssue", "desc"),
+          orderBy("sound"),
+          orderBy(documentId())
+        )
+      }
+    }
+
+    if (startAfterValues && startAfterValues.length > 0) {
+      constraints.push(
+        startAfter(
+          ...(startAfterValues as [string | number | boolean, ...unknown[]])
+        )
+      )
+    }
+
+    constraints.push(limit(fetchLimit))
+    const q = query(collection(db, "hanzi"), ...constraints)
+    const snapshot = await getDocs(q)
+    const docs = snapshot.docs
+    const hasMore = docs.length > fetchLimit - 1
+    const pageDocs = hasMore ? docs.slice(0, pageSize) : docs
+
+    const items = pageDocs.map(
+      (docSnap) =>
+        ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }) as Hanzi
+    )
+
+    let nextStartAfter: HanziListServerCursor | null = null
+    if (pageDocs.length > 0) {
+      const last = pageDocs[pageDocs.length - 1]
+      const d = last.data()
+      if (sort === "soundAsc") {
+        nextStartAfter = { values: [d.sound ?? "", last.id] }
+      } else if (sort === "gradeNumber") {
+        nextStartAfter = { values: [d.gradeNumber ?? 0, last.id] }
+      } else if (
+        reportFilter === "reported_only" ||
+        reportFilter === "not_reported"
+      ) {
+        nextStartAfter = { values: [d.sound ?? "", last.id] }
+      } else {
+        nextStartAfter = {
+          values: [d.hasDataIssue === true, d.sound ?? "", last.id],
+        }
+      }
+    }
+
+    return { items, nextStartAfter, hasMore }
+  }
+
+  /** 목록에 표시 중인 한자들에 대한 isKnown만 배치 조회 (문서당 1 read) */
+  static async getIsKnownMapForHanziIds(
+    userId: string,
+    hanziIds: string[]
+  ): Promise<Map<string, boolean>> {
+    const out = new Map<string, boolean>()
+    const unique = [...new Set(hanziIds)].filter(Boolean)
+    for (const id of unique) {
+      out.set(id, false)
+    }
+    const batchSize = 10
+    for (let i = 0; i < unique.length; i += batchSize) {
+      const batch = unique.slice(i, i + batchSize)
+      const hanziStatsRef = collection(db, "hanziStatistics")
+      const q = query(
+        hanziStatsRef,
+        where("userId", "==", userId),
+        where("hanziId", "in", batch)
+      )
+      const snapshot = await getDocs(q)
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data()
+        const hid = data.hanziId as string
+        out.set(hid, !!data.isKnown)
+      })
+    }
+    return out
   }
 
   // 모든 한자 조회 (테스트용)

@@ -14,10 +14,17 @@ import {
   X,
   Pencil,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect, useCallback, useRef } from "react"
-import { ApiClient } from "@/lib/apiClient"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import {
+  ApiClient,
+  type HanziListServerCursor,
+  type HanziListServerReportFilter,
+  type HanziListServerSort,
+} from "@/lib/apiClient"
 import { Hanzi, RelatedWord } from "@/types"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import { HanziStorage } from "@/lib/hanziStorage"
@@ -26,8 +33,20 @@ import {
   incrementGradeQueryCount,
   type PageType,
 } from "@/lib/gradeQueryLimit"
+import { CustomSelect } from "@/components/ui/CustomSelect"
 
 const PAGE_TYPE: PageType = "hanzi-list"
+const HANZI_LIST_PAGE_SIZE = 20
+
+type HanziListSortMode =
+  | "soundAsc"
+  | "gradeNumber"
+  | "completedFirst"
+  | "incompleteFirst"
+  | "reportedFirst"
+
+type ReportFilterMode = "all" | "reported_only" | "not_reported"
+type LearningFilterMode = "all" | "completed" | "incomplete"
 
 export default function HanziListPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
@@ -42,10 +61,12 @@ export default function HanziListPage() {
   const [showNoDataModal, setShowNoDataModal] = useState<boolean>(false)
   const [showLimitModal, setShowLimitModal] = useState<boolean>(false) // 조회 제한 모달
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 초기 로드 여부
-  const [listFilter, setListFilter] = useState<"all" | "reported">("all") // 전체 | 신고한 한자만
-  const [listSort, setListSort] = useState<"default" | "reportedFirst">(
-    "default"
-  ) // 기본 순서 | 신고한 한자 먼저
+  const [reportFilter, setReportFilter] = useState<ReportFilterMode>("all")
+  const [learningFilter, setLearningFilter] =
+    useState<LearningFilterMode>("all")
+  const [listSort, setListSort] = useState<HanziListSortMode>("soundAsc")
+  const [hanziSearchQuery, setHanziSearchQuery] = useState("")
+  const [hanziListPage, setHanziListPage] = useState(1)
   const [reportedHanziModal, setReportedHanziModal] = useState<Hanzi | null>(
     null
   ) // 신고된 한자 클릭 시 관련 단어 수정 모달
@@ -55,6 +76,9 @@ export default function HanziListPage() {
   const [newWordHanzi, setNewWordHanzi] = useState("")
   const [newWordKorean, setNewWordKorean] = useState("")
   const [isSavingRelatedWords, setIsSavingRelatedWords] = useState(false)
+  const [reportMeaningDraft, setReportMeaningDraft] = useState("")
+  const [reportSoundDraft, setReportSoundDraft] = useState("")
+  const [showHanziEditSuccess, setShowHanziEditSuccess] = useState(false)
 
   // 시간 추적 훅 (페이지 접속 시간 체크)
   const { endSession, isActive } = useTimeTracking({
@@ -105,6 +129,23 @@ export default function HanziListPage() {
     grades: number[]
   }>({ count: 0, grades: [] })
 
+  /** Firestore 페이지 단위 목록 (클라이언트 전체 로드가 아닐 때) */
+  const [serverListRows, setServerListRows] = useState<Hanzi[]>([])
+  const [serverPageIndex, setServerPageIndex] = useState(0)
+  const [serverHasMore, setServerHasMore] = useState(false)
+  const [serverTotalCount, setServerTotalCount] = useState<number | null>(null)
+  const [serverPageCache, setServerPageCache] = useState<Map<number, Hanzi[]>>(
+    () => new Map()
+  )
+  const serverPageCacheRef = useRef<Map<number, Hanzi[]>>(new Map())
+  const serverPageStartCursorsRef = useRef<(HanziListServerCursor | null)[]>([
+    null,
+  ])
+
+  useEffect(() => {
+    serverPageCacheRef.current = serverPageCache
+  }, [serverPageCache])
+
   // 학습완료 통계 계산 - 수정: 현재 선택된 급수의 한자만 카운트
   const calculateLearningStats = useCallback(
     (hanziList: Hanzi[], knownHanzi: Set<string>) => {
@@ -120,158 +161,173 @@ export default function HanziListPage() {
     []
   )
 
-  // 한자 데이터 로드 함수 수정
-  const loadHanziData = useCallback(
-    async (grade: number) => {
-      setIsLoading(true)
+  const clearServerPagingState = useCallback(() => {
+    setServerListRows([])
+    setServerTotalCount(null)
+    setServerHasMore(false)
+    setServerPageIndex(0)
+    setServerPageCache(new Map())
+    serverPageStartCursorsRef.current = [null]
+  }, [])
 
+  const applyUserStatsForClientList = useCallback(
+    async (data: Hanzi[], grade: number) => {
+      if (!user) {
+        calculateLearningStats(data, new Set())
+        return
+      }
       try {
-        let data: Hanzi[]
-
-        // preferredGrade일 때는 DataContext의 hanziList(IndexedDB) 사용
-        if (user?.preferredGrade === grade && dataHanziList.length > 0) {
-          // IndexedDB에서 로드 (preferredGrade)
-          const gradeHanzi = dataHanziList.filter(
-            (hanzi) => hanzi.grade === grade
-          )
-          if (gradeHanzi.length > 0) {
-            data = gradeHanzi
-            console.log(
-              `📚 IndexedDB에서 ${grade}급 한자 ${data.length}개 로드`
+        const gradeStats = await ApiClient.getHanziStatisticsByGrade(
+          user.id,
+          grade
+        )
+        const knownIds = new Set<string>()
+        data.forEach((hanzi) => {
+          const stat = gradeStats.find((s) => s.hanziId === hanzi.id)
+          if (stat?.isKnown) knownIds.add(hanzi.id)
+        })
+        setKnownHanzi(knownIds)
+        calculateLearningStats(data, knownIds)
+        try {
+          const storage = new HanziStorage(user.id)
+          const cache = await storage.getKnownStatusCache(grade)
+          if (!cache && data.length > 0) {
+            await storage.buildAndSaveKnownStatusFromList(
+              grade,
+              data,
+              knownIds
             )
-          } else {
-            // IndexedDB에 해당 급수 데이터가 없으면 API로 폴백
-            if (gradeDataCache.current.has(grade)) {
-              data = gradeDataCache.current.get(grade)!
-              console.log(
-                `📚 캐시에서 ${grade}급 한자 ${data.length}개 로드 (IndexedDB에 데이터 없음)`
-              )
-            } else {
-              // 조회 제한 확인
-              const { canQuery } = checkGradeQueryLimit(
-                grade,
-                user?.preferredGrade,
-                PAGE_TYPE
-              )
-
-              if (!canQuery) {
-                // 조회 제한 도달 - 모달 표시
-                setShowLimitModal(true)
-                setIsLoading(false)
-                return
-              }
-
-              data = await ApiClient.getHanziByGrade(grade)
-              gradeDataCache.current.set(grade, data)
-              // 조회 횟수 증가
-              incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
-              console.log(
-                `📚 API에서 ${grade}급 한자 ${data.length}개 로드 (IndexedDB에 데이터 없음)`
-              )
-            }
           }
-        } else {
-          // 다른 급수는 API에서 로드
-          // 캐시된 데이터가 있으면 사용
+        } catch (e) {
+          console.error("IndexedDB known/unknown 캐시 생성 실패:", e)
+        }
+      } catch (error) {
+        console.error("한자 통계 로드 실패:", error)
+        setKnownHanzi(new Set())
+        calculateLearningStats(data, new Set())
+      }
+    },
+    [user, calculateLearningStats]
+  )
+
+  const refreshListData = useCallback(
+    async (grade: number) => {
+      if (!user) return
+      setIsLoading(true)
+      try {
+        const idbFull =
+          user.preferredGrade === grade && dataHanziList.length > 0
+        const needClientBulk =
+          learningFilter !== "all" ||
+          listSort === "completedFirst" ||
+          listSort === "incompleteFirst" ||
+          hanziSearchQuery.trim() !== ""
+
+        if (idbFull) {
+          clearServerPagingState()
+          const gradeHanzi = dataHanziList.filter((h) => h.grade === grade)
+          setHanziList(gradeHanzi)
+          if (gradeHanzi.length === 0) {
+            const gradeName =
+              grade === 5.5
+                ? "준5급"
+                : grade === 4.5
+                ? "준4급"
+                : grade === 3.5
+                ? "준3급"
+                : `${grade}급`
+            setNoDataMessage(`${gradeName}에 등록된 한자가 없습니다.`)
+            setShowNoDataModal(true)
+          } else {
+            setNoDataMessage("")
+            setShowNoDataModal(false)
+          }
+          await applyUserStatsForClientList(gradeHanzi, grade)
+          return
+        }
+
+        if (needClientBulk) {
+          clearServerPagingState()
+          let data: Hanzi[]
           if (gradeDataCache.current.has(grade)) {
             data = gradeDataCache.current.get(grade)!
-            console.log(`📚 캐시에서 ${grade}급 한자 ${data.length}개 로드`)
-            // 캐시를 사용하더라도 선택한 급수이므로 카운트 증가 (하루 2회 제한 적용)
-            const { canQuery } = checkGradeQueryLimit(
-              grade,
-              user?.preferredGrade,
-              PAGE_TYPE
-            )
-            if (canQuery) {
-              incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
-            }
           } else {
-            // 조회 제한 확인
             const { canQuery } = checkGradeQueryLimit(
               grade,
-              user?.preferredGrade,
+              user.preferredGrade,
               PAGE_TYPE
             )
-
             if (!canQuery) {
-              // 조회 제한 도달 - 모달 표시
               setShowLimitModal(true)
-              setIsLoading(false)
               return
             }
-
-            // API 호출
             data = await ApiClient.getHanziByGrade(grade)
-            // 캐시에 저장
             gradeDataCache.current.set(grade, data)
-            // 조회 횟수 증가
-            incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
-            console.log(`📚 API에서 ${grade}급 한자 ${data.length}개 로드`)
+            incrementGradeQueryCount(grade, user.preferredGrade, PAGE_TYPE)
           }
+          setHanziList(data)
+          if (data.length === 0) {
+            const gradeName =
+              grade === 5.5
+                ? "준5급"
+                : grade === 4.5
+                ? "준4급"
+                : grade === 3.5
+                ? "준3급"
+                : `${grade}급`
+            setNoDataMessage(`${gradeName}에 등록된 한자가 없습니다.`)
+            setShowNoDataModal(true)
+          } else {
+            setNoDataMessage("")
+            setShowNoDataModal(false)
+          }
+          await applyUserStatsForClientList(data, grade)
+          return
         }
 
-        setHanziList(data)
-
-        // 알고 있는 한자 정보 로드 (캐시 활용)
-        if (user) {
-          try {
-            // 새로운 함수 사용: 해당 급수의 한자들에 대한 통계만 조회
-            const gradeStats = await ApiClient.getHanziStatisticsByGrade(
-              user.id,
-              grade
-            )
-
-            // 현재 급수의 한자들 중에서 학습완료된 것들 찾기
-            const knownIds = new Set<string>() // 로컬 변수로 선언
-            const matchedDetails: Array<{
-              hanziId: string
-              character: string
-              meaning: string
-              matchType: string
-            }> = []
-
-            data.forEach((hanzi) => {
-              // 해당 한자의 통계 찾기
-              const stat = gradeStats.find((s) => s.hanziId === hanzi.id)
-              if (stat?.isKnown) {
-                knownIds.add(hanzi.id)
-                matchedDetails.push({
-                  hanziId: hanzi.id,
-                  character: hanzi.character,
-                  meaning: hanzi.meaning,
-                  matchType: "직접 ID 매칭",
-                })
-              }
-            })
-
-            setKnownHanzi(knownIds)
-            calculateLearningStats(data, knownIds) // 통계 계산
-
-            // 해당 급수 IndexedDB known/unknown 캐시 없으면 현재 목록 기준으로 생성
-            try {
-              const storage = new HanziStorage(user.id)
-              const cache = await storage.getKnownStatusCache(grade)
-              if (!cache && data.length > 0) {
-                await storage.buildAndSaveKnownStatusFromList(
-                  grade,
-                  data,
-                  knownIds
-                )
-              }
-            } catch (e) {
-              console.error("IndexedDB known/unknown 캐시 생성 실패:", e)
-            }
-          } catch (error) {
-            console.error("한자 통계 로드 실패:", error)
-            setKnownHanzi(new Set())
-            calculateLearningStats(data, new Set())
-          }
-        } else {
-          // 사용자가 없으면 통계만 계산
-          calculateLearningStats(data, new Set())
+        // Firestore 페이지 모드 (급당 약 20+α 문서 읽기/페이지)
+        setHanziList([])
+        const { canQuery } = checkGradeQueryLimit(
+          grade,
+          user.preferredGrade,
+          PAGE_TYPE
+        )
+        if (!canQuery) {
+          setShowLimitModal(true)
+          return
         }
+        incrementGradeQueryCount(grade, user.preferredGrade, PAGE_TYPE)
 
-        if (data.length === 0) {
+        const sortFS: HanziListServerSort =
+          listSort === "gradeNumber"
+            ? "gradeNumber"
+            : listSort === "reportedFirst"
+            ? "reportedFirst"
+            : "soundAsc"
+        const rf = reportFilter as HanziListServerReportFilter
+
+        const [total, page] = await Promise.all([
+          ApiClient.countHanziForList(grade, rf),
+          ApiClient.getHanziListPage({
+            grade,
+            pageSize: HANZI_LIST_PAGE_SIZE,
+            startAfterValues: null,
+            sort: sortFS,
+            reportFilter: rf,
+          }),
+        ])
+
+        setServerTotalCount(total)
+        setServerListRows(page.items)
+        setServerHasMore(page.hasMore)
+        serverPageStartCursorsRef.current = [null]
+        if (page.nextStartAfter) {
+          serverPageStartCursorsRef.current[1] = page.nextStartAfter
+        }
+        setServerPageIndex(0)
+        setServerPageCache(new Map([[0, page.items]]))
+
+        if (total === 0) {
           const gradeName =
             grade === 5.5
               ? "준5급"
@@ -286,224 +342,397 @@ export default function HanziListPage() {
           setNoDataMessage("")
           setShowNoDataModal(false)
         }
+
+        const storage = new HanziStorage(user.id)
+        const cache = await storage.getKnownStatusCache(grade)
+        const idMap = await ApiClient.getIsKnownMapForHanziIds(
+          user.id,
+          page.items.map((h) => h.id)
+        )
+        if (cache) {
+          const ids = new Set(cache.known.map((k) => k.hanziId))
+          idMap.forEach((known, hid) => {
+            if (known) ids.add(hid)
+            else ids.delete(hid)
+          })
+          setKnownHanzi(ids)
+          setLearningStats({
+            total,
+            completed: cache.known.length,
+            percentage:
+              total > 0
+                ? Math.round((cache.known.length / total) * 100)
+                : 0,
+          })
+        } else {
+          const s = new Set<string>()
+          idMap.forEach((v, k) => {
+            if (v) s.add(k)
+          })
+          setKnownHanzi(s)
+          setLearningStats({
+            total,
+            completed: s.size,
+            percentage: total > 0 ? Math.round((s.size / total) * 100) : 0,
+          })
+        }
       } catch (error) {
         console.error("한자 데이터 로드 실패:", error)
       } finally {
-        // 로딩 종료
         setIsLoading(false)
       }
     },
-    [user, dataHanziList, calculateLearningStats]
+    [
+      user,
+      dataHanziList,
+      learningFilter,
+      listSort,
+      hanziSearchQuery,
+      reportFilter,
+      applyUserStatsForClientList,
+      clearServerPagingState,
+    ]
   )
 
   useEffect(() => {
     if (user && !authLoading && isInitialLoad) {
-      // preferredGrade가 있으면 그것부터 로드, 없으면 8급
-      const initialGrade = user?.preferredGrade || 8
+      const initialGrade = user.preferredGrade || 8
       setSelectedGrade(initialGrade)
-      loadHanziData(initialGrade)
-      setIsInitialLoad(false) // 초기 로드 완료
+      setIsInitialLoad(false)
     }
-  }, [user, authLoading, isInitialLoad, loadHanziData])
+  }, [user, authLoading, isInitialLoad])
 
-  // 초기 데이터 로드 후 통계 계산
   useEffect(() => {
+    if (!user || authLoading || isInitialLoad) return
+    void refreshListData(selectedGrade)
+  }, [
+    user,
+    authLoading,
+    isInitialLoad,
+    selectedGrade,
+    reportFilter,
+    listSort,
+    learningFilter,
+    hanziSearchQuery,
+    dataHanziList.length,
+    user?.preferredGrade,
+    refreshListData,
+  ])
+
+  const usesIndexedDbFullList =
+    !!user &&
+    user.preferredGrade === selectedGrade &&
+    dataHanziList.length > 0
+
+  const useServerSidePaging =
+    !usesIndexedDbFullList &&
+    learningFilter === "all" &&
+    listSort !== "completedFirst" &&
+    listSort !== "incompleteFirst" &&
+    hanziSearchQuery.trim() === ""
+
+  // 초기 데이터 로드 후 통계 (클라이언트 전체 목록일 때만 — 서버 페이징은 refreshListData에서 설정)
+  useEffect(() => {
+    if (useServerSidePaging) return
     if (hanziList.length > 0 && knownHanzi.size >= 0) {
       calculateLearningStats(hanziList, knownHanzi)
     }
-  }, [hanziList, knownHanzi, calculateLearningStats])
+  }, [
+    hanziList,
+    knownHanzi,
+    calculateLearningStats,
+    useServerSidePaging,
+  ])
 
-  // 급수 변경 시 데이터 로드
-  const handleGradeChange = async (grade: number) => {
-    if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
+  const filteredSortedHanziList = useMemo(() => {
+    let list = [...hanziList]
 
-    setSelectedGrade(grade)
-    setIsLoading(true)
+    if (reportFilter === "reported_only") {
+      list = list.filter((h) => h.hasDataIssue)
+    } else if (reportFilter === "not_reported") {
+      list = list.filter((h) => !h.hasDataIssue)
+    }
 
-    // 급수 변경 시 통계 초기화
-    setLearningStats({ total: 0, completed: 0, percentage: 0 })
+    const effLearning: LearningFilterMode = user ? learningFilter : "all"
+    if (effLearning === "completed") {
+      list = list.filter((h) => knownHanzi.has(h.id))
+    } else if (effLearning === "incomplete") {
+      list = list.filter((h) => !knownHanzi.has(h.id))
+    }
 
-    try {
-      let data: Hanzi[]
+    const q = hanziSearchQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter(
+        (h) =>
+          h.character.includes(q) ||
+          h.meaning.toLowerCase().includes(q) ||
+          (h.sound || "").toLowerCase().includes(q)
+      )
+    }
 
-      // preferredGrade일 때는 DataContext의 hanziList(IndexedDB) 사용
-      if (user?.preferredGrade === grade && dataHanziList.length > 0) {
-        const gradeHanzi = dataHanziList.filter(
-          (hanzi) => hanzi.grade === grade
-        )
-        if (gradeHanzi.length > 0) {
-          data = gradeHanzi
-          console.log(`📚 IndexedDB에서 ${grade}급 한자 ${data.length}개 로드`)
-        } else {
-          // IndexedDB에 해당 급수 데이터가 없으면 API로 폴백
-          // 조회 제한 확인
-          const { canQuery } = checkGradeQueryLimit(
-            grade,
-            user?.preferredGrade,
-            PAGE_TYPE
-          )
+    const compareSoundThenGrade = (a: Hanzi, b: Hanzi) => {
+      const s = (a.sound || "").localeCompare(b.sound || "", "ko", {
+        sensitivity: "base",
+      })
+      if (s !== 0) return s
+      return (a.gradeNumber ?? 0) - (b.gradeNumber ?? 0)
+    }
 
-          if (!canQuery) {
-            // 조회 제한 도달 - 모달 표시
-            setShowLimitModal(true)
-            setIsLoading(false)
-            return
-          }
-
-          data = await ApiClient.getHanziByGrade(grade)
-          // 조회 횟수 증가
-          incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
-          console.log(
-            `📚 API에서 ${grade}급 한자 ${data.length}개 로드 (IndexedDB에 데이터 없음)`
-          )
+    list.sort((a, b) => {
+      switch (listSort) {
+        case "gradeNumber":
+          return (a.gradeNumber ?? 0) - (b.gradeNumber ?? 0)
+        case "completedFirst": {
+          const ak = user ? knownHanzi.has(a.id) : false
+          const bk = user ? knownHanzi.has(b.id) : false
+          if (ak !== bk) return ak ? -1 : 1
+          return compareSoundThenGrade(a, b)
         }
-      } else {
-        // 다른 급수는 API에서 로드 (selectbox에서 선택할 때마다 API 호출)
-        // 조회 제한 확인
-        const { canQuery } = checkGradeQueryLimit(
-          grade,
-          user?.preferredGrade,
-          PAGE_TYPE
-        )
-
-        if (!canQuery) {
-          // 조회 제한 도달 - 모달 표시
-          setShowLimitModal(true)
-          setIsLoading(false)
-          return
+        case "incompleteFirst": {
+          const ak = user ? knownHanzi.has(a.id) : false
+          const bk = user ? knownHanzi.has(b.id) : false
+          if (ak !== bk) return ak ? 1 : -1
+          return compareSoundThenGrade(a, b)
         }
-
-        // API 호출
-        data = await ApiClient.getHanziByGrade(grade)
-        // 캐시에 저장 (다른 용도로 사용 가능)
-        gradeDataCache.current.set(grade, data)
-        // 조회 횟수 증가
-        incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
-        console.log(`📚 API에서 ${grade}급 한자 ${data.length}개 로드`)
+        case "reportedFirst": {
+          const ar = a.hasDataIssue ? 1 : 0
+          const br = b.hasDataIssue ? 1 : 0
+          if (br !== ar) return br - ar
+          return compareSoundThenGrade(a, b)
+        }
+        case "soundAsc":
+        default:
+          return compareSoundThenGrade(a, b)
       }
+    })
 
-      setHanziList(data)
+    return list
+  }, [
+    hanziList,
+    reportFilter,
+    learningFilter,
+    hanziSearchQuery,
+    listSort,
+    knownHanzi,
+    user,
+  ])
 
-      // 새로운 급수의 학습완료 상태 가져오기
-      if (user) {
-        try {
-          // 새로운 함수 사용: 해당 급수의 한자들에 대한 통계만 조회
-          const gradeStats = await ApiClient.getHanziStatisticsByGrade(
-            user.id,
-            grade
-          )
+  useEffect(() => {
+    setHanziListPage(1)
+  }, [
+    selectedGrade,
+    reportFilter,
+    learningFilter,
+    listSort,
+    hanziSearchQuery,
+  ])
 
-          // 현재 급수의 한자들 중에서 학습완료된 것들 찾기
-          const knownIds = new Set<string>()
-          const matchedDetails: Array<{
-            hanziId: string
-            character: string
-            meaning: string
-            matchType: string
-          }> = []
-
-          data.forEach((hanzi) => {
-            // 해당 한자의 통계 찾기
-            const stat = gradeStats.find((s) => s.hanziId === hanzi.id)
-            if (stat?.isKnown) {
-              knownIds.add(hanzi.id)
-              matchedDetails.push({
-                hanziId: hanzi.id,
-                character: hanzi.character,
-                meaning: hanzi.meaning,
-                matchType: "직접 ID 매칭",
-              })
-            }
-          })
-
-          setKnownHanzi(knownIds)
-
-          // 새로운 급수의 학습완료 통계 계산
-          calculateLearningStats(data, knownIds)
-
-          // 해당 급수 IndexedDB known/unknown 캐시 없으면 현재 목록 기준으로 생성
-          try {
-            const storage = new HanziStorage(user.id)
-            const cache = await storage.getKnownStatusCache(grade)
-            if (!cache && data.length > 0) {
-              await storage.buildAndSaveKnownStatusFromList(
-                grade,
-                data,
-                knownIds
-              )
-            }
-          } catch (e) {
-            console.error("IndexedDB known/unknown 캐시 생성 실패:", e)
-          }
-        } catch (error) {
-          console.error("한자 통계 로드 실패:", error)
-          setKnownHanzi(new Set())
-          calculateLearningStats(data, new Set())
-        }
-      } else {
-        // 사용자가 없으면 통계만 계산
-        calculateLearningStats(data, new Set())
-      }
-
-      if (data.length === 0) {
-        const gradeName =
+  const gradeSelectOptions = useMemo(
+    () =>
+      [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => ({
+        value: String(grade),
+        label:
           grade === 5.5
             ? "준5급"
             : grade === 4.5
             ? "준4급"
             : grade === 3.5
             ? "준3급"
-            : `${grade}급`
-        setNoDataMessage(`${gradeName}에 등록된 한자가 없습니다.`)
-        setShowNoDataModal(true)
-      } else {
-        setNoDataMessage("")
-        setShowNoDataModal(false)
-      }
-    } catch (error) {
-      console.error("한자 데이터 로드 실패:", error)
-    } finally {
-      setIsLoading(false)
-    }
+            : `${grade}급`,
+      })),
+    []
+  )
+
+  const reportFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "신고: 전체" },
+      { value: "reported_only", label: "신고된 항목만" },
+      { value: "not_reported", label: "신고 없음만" },
+    ],
+    []
+  )
+
+  const learningFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "학습완료: 전체" },
+      { value: "completed", label: "학습완료만" },
+      { value: "incomplete", label: "미완료만" },
+    ],
+    []
+  )
+
+  const listSortOptions = useMemo(
+    () => [
+      { value: "soundAsc", label: "음순 (가나다, 기본)" },
+      { value: "gradeNumber", label: "급 내 번호순" },
+      { value: "completedFirst", label: "학습완료 먼저" },
+      { value: "incompleteFirst", label: "미완료 먼저" },
+      { value: "reportedFirst", label: "신고 항목 먼저" },
+    ],
+    []
+  )
+
+  const openHanziEditModal = useCallback((h: Hanzi) => {
+    setReportedHanziModal(h)
+    setEditingWordIndex(null)
+    setNewWordHanzi("")
+    setNewWordKorean("")
+  }, [])
+
+  // 급수 변경 시 selectedGrade만 바꾸면 refreshListData effect가 로드
+  const handleGradeChange = (grade: number) => {
+    if (grade === selectedGrade) return
+    setSelectedGrade(grade)
+    setHanziListPage(1)
+    setLearningStats({ total: 0, completed: 0, percentage: 0 })
   }
 
-  // 신고된 한자: 관련 단어 배열 저장 후 Firestore 반영·신고 해제
-  const saveRelatedWordsAndClearIssue = async (
+  const fetchServerPage = useCallback(
+    async (pageIdx: number) => {
+      if (!user || !useServerSidePaging) return
+      const cached = serverPageCacheRef.current.get(pageIdx)
+      if (cached) {
+        setServerListRows(cached)
+        setServerPageIndex(pageIdx)
+        const totalPages = Math.max(
+          1,
+          Math.ceil((serverTotalCount ?? 0) / HANZI_LIST_PAGE_SIZE)
+        )
+        setServerHasMore(pageIdx < totalPages - 1)
+        const idMap = await ApiClient.getIsKnownMapForHanziIds(
+          user.id,
+          cached.map((h) => h.id)
+        )
+        setKnownHanzi((prev) => {
+          const n = new Set(prev)
+          idMap.forEach((known, hid) => {
+            if (known) n.add(hid)
+            else n.delete(hid)
+          })
+          return n
+        })
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const sortFS: HanziListServerSort =
+          listSort === "gradeNumber"
+            ? "gradeNumber"
+            : listSort === "reportedFirst"
+            ? "reportedFirst"
+            : "soundAsc"
+        const rf = reportFilter as HanziListServerReportFilter
+        const startVals =
+          pageIdx === 0
+            ? null
+            : serverPageStartCursorsRef.current[pageIdx]?.values ?? null
+
+        const page = await ApiClient.getHanziListPage({
+          grade: selectedGrade,
+          pageSize: HANZI_LIST_PAGE_SIZE,
+          startAfterValues: startVals,
+          sort: sortFS,
+          reportFilter: rf,
+        })
+
+        setServerPageCache((prev) => new Map(prev).set(pageIdx, page.items))
+        setServerListRows(page.items)
+        setServerPageIndex(pageIdx)
+        setServerHasMore(page.hasMore)
+        if (page.nextStartAfter) {
+          serverPageStartCursorsRef.current[pageIdx + 1] = page.nextStartAfter
+        }
+
+        const idMap = await ApiClient.getIsKnownMapForHanziIds(
+          user.id,
+          page.items.map((h) => h.id)
+        )
+        setKnownHanzi((prev) => {
+          const n = new Set(prev)
+          idMap.forEach((known, hid) => {
+            if (known) n.add(hid)
+            else n.delete(hid)
+          })
+          return n
+        })
+      } catch (e) {
+        console.error("서버 페이지 로드 실패:", e)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [user, useServerSidePaging, selectedGrade, listSort, reportFilter, serverTotalCount]
+  )
+
+  // 신고된 한자: 뜻·음·관련 단어 저장 후 Firestore 반영·신고 해제
+  const saveHanziDataFix = async (
     hanziId: string,
-    newRelatedWords: RelatedWord[]
-  ) => {
+    newRelatedWords: RelatedWord[],
+    opts?: { finishSession?: boolean }
+  ): Promise<boolean> => {
+    const meaningTrim = reportMeaningDraft.trim()
+    const soundTrim = reportSoundDraft.trim()
+    if (!meaningTrim || !soundTrim) {
+      alert("뜻과 음을 모두 입력해주세요.")
+      return false
+    }
     try {
       setIsSavingRelatedWords(true)
       await ApiClient.updateDocument("hanzi", hanziId, {
+        meaning: meaningTrim,
+        sound: soundTrim,
         relatedWords: newRelatedWords,
       })
       await ApiClient.clearHanziDataIssue(hanziId)
 
+      const patched = {
+        meaning: meaningTrim,
+        sound: soundTrim,
+        relatedWords: newRelatedWords,
+        hasDataIssue: false,
+        reportedRelatedWord: undefined as string | undefined,
+      }
+
       setHanziList((prev) =>
-        prev.map((h) =>
-          h.id === hanziId
+        prev.map((h) => (h.id === hanziId ? { ...h, ...patched } : h))
+      )
+      setServerListRows((prev) =>
+        prev.map((h) => (h.id === hanziId ? { ...h, ...patched } : h))
+      )
+      setServerPageCache((prev) => {
+        const m = new Map(prev)
+        for (const [k, rows] of m) {
+          m.set(
+            k,
+            rows.map((h) => (h.id === hanziId ? { ...h, ...patched } : h))
+          )
+        }
+        return m
+      })
+
+      if (opts?.finishSession) {
+        setReportedHanziModal(null)
+        setShowHanziEditSuccess(true)
+      } else {
+        setReportedHanziModal((prev) =>
+          prev?.id === hanziId
             ? {
-                ...h,
+                ...prev,
+                meaning: meaningTrim,
+                sound: soundTrim,
                 relatedWords: newRelatedWords,
                 hasDataIssue: false,
                 reportedRelatedWord: undefined,
               }
-            : h
+            : prev
         )
-      )
-      setReportedHanziModal((prev) =>
-        prev?.id === hanziId
-          ? {
-              ...prev,
-              relatedWords: newRelatedWords,
-              hasDataIssue: false,
-              reportedRelatedWord: undefined,
-            }
-          : prev
-      )
+      }
+      return true
     } catch (error) {
-      console.error("관련 단어 저장 실패:", error)
+      console.error("한자 데이터 저장 실패:", error)
       alert("저장에 실패했습니다. 다시 시도해주세요.")
+      return false
     } finally {
       setIsSavingRelatedWords(false)
     }
@@ -513,12 +742,14 @@ export default function HanziListPage() {
     hanziId: string,
     indexToRemove: number
   ) => {
-    const hanzi = hanziList.find((h) => h.id === hanziId)
+    const hanzi =
+      hanziList.find((h) => h.id === hanziId) ??
+      serverListRows.find((h) => h.id === hanziId)
     if (!hanzi?.relatedWords?.length) return
     const newRelatedWords = hanzi.relatedWords.filter(
       (_, i) => i !== indexToRemove
     )
-    await saveRelatedWordsAndClearIssue(hanziId, newRelatedWords)
+    await saveHanziDataFix(hanziId, newRelatedWords)
   }
 
   const addReportedRelatedWord = async () => {
@@ -534,7 +765,7 @@ export default function HanziListPage() {
       ...current,
       { hanzi: hanziTrim, korean: koreanTrim },
     ]
-    await saveRelatedWordsAndClearIssue(reportedHanziModal.id, newRelatedWords)
+    await saveHanziDataFix(reportedHanziModal.id, newRelatedWords)
     setNewWordHanzi("")
     setNewWordKorean("")
   }
@@ -567,9 +798,28 @@ export default function HanziListPage() {
         ? { ...w, hanzi: hanziTrim, korean: koreanTrim }
         : w
     )
-    await saveRelatedWordsAndClearIssue(reportedHanziModal.id, newRelatedWords)
+    await saveHanziDataFix(reportedHanziModal.id, newRelatedWords)
     cancelEditWord()
   }
+
+  const handleSaveReportedHanziAndClear = async () => {
+    if (!reportedHanziModal) return
+    await saveHanziDataFix(
+      reportedHanziModal.id,
+      reportedHanziModal.relatedWords || [],
+      { finishSession: true }
+    )
+  }
+
+  useEffect(() => {
+    if (!reportedHanziModal) {
+      setReportMeaningDraft("")
+      setReportSoundDraft("")
+      return
+    }
+    setReportMeaningDraft(reportedHanziModal.meaning)
+    setReportSoundDraft(reportedHanziModal.sound)
+  }, [reportedHanziModal])
 
   // 네이버 한자 사전으로 연결
   const openNaverDictionary = (character: string) => {
@@ -594,7 +844,9 @@ export default function HanziListPage() {
       setKnownHanzi(newKnownHanzi)
 
       // 현재 한자의 정보 가져오기 (character, meaning, sound 등)
-      const currentHanzi = hanziList.find((h) => h.id === hanziId)
+      const currentHanzi =
+        hanziList.find((h) => h.id === hanziId) ??
+        serverListRows.find((h) => h.id === hanziId)
       if (!currentHanzi) return
 
       // 모든 급수에서 동일한 한자 찾아서 업데이트
@@ -651,11 +903,13 @@ export default function HanziListPage() {
         const storage = new HanziStorage(user.id)
         const cache = await storage.getKnownStatusCache(selectedGrade)
         if (!cache) {
-          await storage.buildAndSaveKnownStatusFromList(
-            selectedGrade,
-            hanziList,
-            newKnownHanzi
-          )
+          if (hanziList.length > 0) {
+            await storage.buildAndSaveKnownStatusFromList(
+              selectedGrade,
+              hanziList,
+              newKnownHanzi
+            )
+          }
         } else {
           await storage.updateSingleHanziKnownStatus(
             hanziId,
@@ -674,7 +928,28 @@ export default function HanziListPage() {
       )
 
       // 학습완료 통계 다시 계산
-      calculateLearningStats(hanziList, newKnownHanzi)
+      if (
+        useServerSidePaging &&
+        serverTotalCount != null &&
+        serverTotalCount > 0
+      ) {
+        const wasKnown = knownHanzi.has(hanziId)
+        const delta =
+          isKnown && !wasKnown ? 1 : !isKnown && wasKnown ? -1 : 0
+        setLearningStats((prev) => {
+          const completed = Math.min(
+            serverTotalCount,
+            Math.max(0, prev.completed + delta)
+          )
+          return {
+            total: serverTotalCount,
+            completed,
+            percentage: Math.round((completed / serverTotalCount) * 100),
+          }
+        })
+      } else {
+        calculateLearningStats(hanziList, newKnownHanzi)
+      }
     } catch (error) {
       console.error("한자 상태 업데이트 실패:", error)
       // 실패 시 원래 상태로 되돌리기
@@ -696,16 +971,43 @@ export default function HanziListPage() {
         meaning: string
       }> = []
 
-      hanziList.forEach((hanzi) => {
-        if (knownHanzi.has(hanzi.id)) {
-          currentKnownCharacters.add(hanzi.character)
-          currentKnownDetails.push({
-            id: hanzi.id,
-            character: hanzi.character,
-            meaning: hanzi.meaning,
+      if (useServerSidePaging) {
+        const storage = new HanziStorage(user.id)
+        const cache = await storage.getKnownStatusCache(selectedGrade)
+        if (cache && cache.known.length > 0) {
+          cache.known.forEach((k) => {
+            currentKnownCharacters.add(k.character)
+            currentKnownDetails.push({
+              id: k.hanziId,
+              character: k.character,
+              meaning: k.meaning,
+            })
+          })
+        } else {
+          knownHanzi.forEach((hid) => {
+            const row = serverListRows.find((h) => h.id === hid)
+            if (row) {
+              currentKnownCharacters.add(row.character)
+              currentKnownDetails.push({
+                id: row.id,
+                character: row.character,
+                meaning: row.meaning,
+              })
+            }
           })
         }
-      })
+      } else {
+        hanziList.forEach((hanzi) => {
+          if (knownHanzi.has(hanzi.id)) {
+            currentKnownCharacters.add(hanzi.character)
+            currentKnownDetails.push({
+              id: hanzi.id,
+              character: hanzi.character,
+              meaning: hanzi.meaning,
+            })
+          }
+        })
+      }
 
       if (currentKnownCharacters.size === 0) {
         console.log("동기화할 학습완료 한자가 없습니다.")
@@ -913,22 +1215,28 @@ export default function HanziListPage() {
       ? "준3급"
       : `${selectedGrade}급`
 
-  // 필터/정렬: 필터로 목록 제한, 정렬은 유저 선택(기본은 일반 순서)
-  const displayedHanziList = (() => {
-    const list =
-      listFilter === "reported"
-        ? hanziList.filter((h) => h.hasDataIssue)
-        : hanziList
-    const sorted = [...list].sort((a, b) => {
-      if (listFilter === "all" && listSort === "reportedFirst") {
-        const aReported = a.hasDataIssue ? 1 : 0
-        const bReported = b.hasDataIssue ? 1 : 0
-        if (bReported !== aReported) return bReported - aReported
-      }
-      return (a.gradeNumber ?? 0) - (b.gradeNumber ?? 0)
-    })
-    return sorted
-  })()
+  const totalFilteredCount = useServerSidePaging
+    ? serverTotalCount ?? 0
+    : filteredSortedHanziList.length
+  const totalListPages = Math.max(
+    1,
+    Math.ceil(totalFilteredCount / HANZI_LIST_PAGE_SIZE)
+  )
+  const safeListPage = Math.min(hanziListPage, totalListPages)
+  const displayPageIndex = useServerSidePaging ? serverPageIndex : safeListPage - 1
+  const pageStart =
+    totalFilteredCount === 0
+      ? 0
+      : displayPageIndex * HANZI_LIST_PAGE_SIZE + 1
+  const pageEnd = Math.min(
+    (displayPageIndex + 1) * HANZI_LIST_PAGE_SIZE,
+    totalFilteredCount
+  )
+  const paginatedHanziList = filteredSortedHanziList.slice(
+    (safeListPage - 1) * HANZI_LIST_PAGE_SIZE,
+    safeListPage * HANZI_LIST_PAGE_SIZE
+  )
+  const tableHanziList = useServerSidePaging ? serverListRows : paginatedHanziList
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
@@ -972,24 +1280,14 @@ export default function HanziListPage() {
               <label className='block text-sm font-semibold text-gray-700 mb-2'>
                 급수 선택
               </label>
-              <select
-                value={selectedGrade}
-                onChange={(e) => handleGradeChange(Number(e.target.value))}
+              <CustomSelect
+                value={String(selectedGrade)}
+                onChange={(v) => handleGradeChange(Number(v))}
+                options={gradeSelectOptions}
                 disabled={isLoading}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
-              >
-                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
-                  <option key={grade} value={grade} className='font-medium'>
-                    {grade === 5.5
-                      ? "준5급"
-                      : grade === 4.5
-                      ? "준4급"
-                      : grade === 3.5
-                      ? "준3급"
-                      : `${grade}급`}
-                  </option>
-                ))}
-              </select>
+                className='w-full'
+                aria-label='급수 선택'
+              />
             </div>
           </div>
 
@@ -1110,206 +1408,323 @@ export default function HanziListPage() {
 
           {/* 한자 목록 */}
           <div className='bg-white rounded-lg shadow-lg p-4 sm:p-6'>
-            <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6'>
-              <h3 className='text-lg sm:text-xl font-semibold text-gray-900 flex items-center space-x-2'>
-                <Search className='h-4 w-4 sm:h-5 sm:w-5' />
+            <div className='mb-4 sm:mb-5'>
+              <h3 className='text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2 mb-3'>
+                <BookOpen className='h-5 w-5 text-blue-600 shrink-0' />
                 <span>{gradeName} 한자 목록</span>
               </h3>
-              <div className='flex flex-wrap items-center gap-3'>
-                <select
-                  value={listFilter}
-                  onChange={(e) =>
-                    setListFilter(e.target.value as "all" | "reported")
-                  }
-                  className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm font-medium'
-                >
-                  <option value='all'>전체</option>
-                  <option value='reported'>신고한 한자만</option>
-                </select>
-                {listFilter === "all" && (
-                  <select
-                    value={listSort}
-                    onChange={(e) =>
-                      setListSort(e.target.value as "default" | "reportedFirst")
-                    }
-                    className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm font-medium'
-                  >
-                    <option value='default'>기본 순서</option>
-                    <option value='reportedFirst'>신고한 한자 먼저</option>
-                  </select>
-                )}
-                <div className='text-sm text-gray-600'>
-                  총 {displayedHanziList.length}개
-                  {listFilter === "reported" &&
-                    hanziList.some((h) => h.hasDataIssue) &&
-                    ` (전체 ${hanziList.length}개 중)`}
+              <div className='relative mb-3'>
+                <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none' />
+                <input
+                  type='search'
+                  enterKeyHint='search'
+                  placeholder='한자·뜻·음 검색…'
+                  value={hanziSearchQuery}
+                  onChange={(e) => setHanziSearchQuery(e.target.value)}
+                  className='w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  aria-label='한자 목록 검색'
+                />
+              </div>
+              <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3'>
+                <CustomSelect
+                  value={reportFilter}
+                  onChange={(v) => setReportFilter(v as ReportFilterMode)}
+                  options={reportFilterOptions}
+                  className='w-full sm:w-[11rem]'
+                  aria-label='신고 필터'
+                />
+                <CustomSelect
+                  value={learningFilter}
+                  onChange={(v) => setLearningFilter(v as LearningFilterMode)}
+                  options={learningFilterOptions}
+                  className='w-full sm:w-[11rem]'
+                  aria-label='학습완료 필터'
+                />
+                <CustomSelect
+                  value={listSort}
+                  onChange={(v) => setListSort(v as HanziListSortMode)}
+                  options={listSortOptions}
+                  className='w-full sm:min-w-[12rem] sm:flex-1 sm:max-w-md'
+                  aria-label='정렬'
+                />
+                <div className='text-sm text-gray-600 sm:ml-auto'>
+                  총 {totalFilteredCount}개
+                  {totalFilteredCount > 0 &&
+                    ` · ${pageStart}–${pageEnd}번째 표시 (${HANZI_LIST_PAGE_SIZE}개/페이지)`}
+                  {reportFilter === "reported_only" &&
+                    totalFilteredCount > 0 &&
+                    ` · 필터 기준 ${totalFilteredCount}개 중 신고`}
                 </div>
               </div>
+              {useServerSidePaging && (
+                <p className='text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mt-2'>
+                  이 급수는 Firestore에서 페이지당 약 {HANZI_LIST_PAGE_SIZE}개(+다음
+                  페이지 확인용 최대 1건)만 읽습니다. 검색·학습완료 필터·「학습완료
+                  먼저/미완료 먼저」정렬을 쓰면 전체 목록을 한 번에 불러옵니다.
+                </p>
+              )}
             </div>
 
             {!isLoading && (
-              <div className='overflow-x-auto'>
-                <table className='min-w-full divide-y divide-gray-200'>
-                  <thead className='bg-gray-50'>
-                    <tr>
-                      <th className='px-2 sm:px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        순번
-                      </th>
-                      <th className='px-2 sm:px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        한자
-                      </th>
-                      <th className='px-2 sm:px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        뜻
-                      </th>
-                      <th className='px-2 sm:px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        음
-                      </th>
-                      <th className='hidden md:table-cell px-3 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        획수
-                      </th>
-                      <th className='px-2 sm:px-2 lg:px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        사전
-                      </th>
-                      <th className='px-2 sm:px-2 lg:px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        학습완료
-                      </th>
-                      <th className='hidden sm:table-cell px-2 sm:px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                        관련 단어
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className='bg-white divide-y divide-gray-200'>
-                    {displayedHanziList.map((hanzi, index) => (
-                      <tr
-                        key={hanzi.id}
-                        className={
-                          hanzi.hasDataIssue
-                            ? "hover:bg-amber-50 bg-amber-50/50"
-                            : "hover:bg-gray-50"
-                        }
-                      >
-                        <td className='px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center'>
-                          {hanzi.gradeNumber || index + 1}
-                        </td>
-                        <td className='px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-center'>
-                          <div className='flex items-center justify-center gap-1.5'>
-                            <span className='text-lg sm:text-xl lg:text-2xl font-bold text-gray-900'>
+              <>
+                <div className='overflow-x-auto rounded-lg border border-gray-200 -mx-1 sm:mx-0'>
+                  <table className='min-w-[640px] w-full divide-y divide-gray-200'>
+                    <thead className='bg-slate-100 sticky top-0 z-10 shadow-sm'>
+                      <tr>
+                        <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide'>
+                          순번
+                        </th>
+                        <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide'>
+                          한자
+                        </th>
+                        <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide min-w-[5rem]'>
+                          뜻
+                        </th>
+                        <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide min-w-[4rem]'>
+                          음
+                        </th>
+                        <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide'>
+                          획수
+                        </th>
+                        <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide'>
+                          사전
+                        </th>
+                        <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide'>
+                          학습완료
+                        </th>
+                        <th className='px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide w-14'>
+                          신고
+                        </th>
+                        <th className='px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide w-16'>
+                          수정
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className='bg-white divide-y divide-gray-100'>
+                      {tableHanziList.map((hanzi, index) => (
+                        <tr
+                          key={hanzi.id}
+                          className={
+                            hanzi.hasDataIssue
+                              ? "hover:bg-amber-50/80 bg-amber-50/30"
+                              : index % 2 === 0
+                              ? "hover:bg-slate-50 bg-white"
+                              : "hover:bg-slate-50 bg-slate-50/40"
+                          }
+                        >
+                          <td className='px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-800 text-center tabular-nums'>
+                            {hanzi.gradeNumber ?? index + 1}
+                          </td>
+                          <td className='px-3 py-3 whitespace-nowrap text-center'>
+                            <span className='text-2xl sm:text-xl lg:text-2xl font-bold text-gray-900'>
                               {hanzi.character}
                             </span>
+                          </td>
+                          <td className='px-3 py-3 text-sm text-gray-900 text-center max-w-[10rem] truncate'>
+                            {hanzi.meaning}
+                          </td>
+                          <td className='px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-center font-medium'>
+                            {hanzi.sound}
+                          </td>
+                          <td className='px-3 py-3 whitespace-nowrap text-sm text-gray-600 text-center'>
+                            {hanzi.strokes}획
+                          </td>
+                          <td className='px-3 py-3 whitespace-nowrap text-sm font-medium text-center'>
                             <button
                               type='button'
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setReportedHanziModal(hanzi)
-                                setEditingWordIndex(null)
-                                setNewWordHanzi("")
-                                setNewWordKorean("")
-                              }}
-                              className='sm:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium hover:bg-gray-200 transition-colors'
-                              title='관련 단어 추가·수정·삭제'
+                              onClick={() =>
+                                openNaverDictionary(hanzi.character)
+                              }
+                              className='inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500'
                             >
-                              {hanzi.hasDataIssue ? (
-                                <>
-                                  <AlertTriangle className='h-3 w-3' />
-                                  신고
-                                </>
-                              ) : (
-                                <>관련단어</>
-                              )}
+                              <ExternalLink className='h-3 w-3 mr-1' />
+                              사전
                             </button>
-                          </div>
-                        </td>
-                        <td className='px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 text-center'>
-                          {hanzi.meaning}
-                        </td>
-                        <td className='px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 text-center'>
-                          {hanzi.sound}
-                        </td>
-                        <td className='hidden md:table-cell px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 text-center'>
-                          {hanzi.strokes}획
-                        </td>
-                        <td className='px-2 sm:px-2 lg:px-3 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-center'>
-                          <button
-                            onClick={() => openNaverDictionary(hanzi.character)}
-                            className='inline-flex items-center px-2 sm:px-2 py-1 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                          >
-                            <ExternalLink className='h-3 w-3 mr-1' />
-                            사전
-                          </button>
-                        </td>
-                        <td className='px-2 sm:px-2 lg:px-3 py-3 sm:py-4 whitespace-nowrap text-center'>
-                          <input
-                            type='checkbox'
-                            checked={knownHanzi.has(hanzi.id)}
-                            onChange={(e) =>
-                              handleKnownToggle(hanzi.id, e.target.checked)
-                            }
-                            className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer'
-                            title='이 한자를 학습 완료했다고 체크하세요'
-                          />
-                        </td>
-                        <td className='hidden sm:table-cell px-2 sm:px-2 lg:px-4 py-3 sm:py-4 whitespace-nowrap text-center'>
-                          <button
-                            type='button'
-                            onClick={() => {
-                              setReportedHanziModal(hanzi)
-                              setEditingWordIndex(null)
-                              setNewWordHanzi("")
-                              setNewWordKorean("")
-                            }}
-                            className={
-                              hanzi.hasDataIssue
-                                ? "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
-                                : "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-                            }
-                            title='관련 단어 추가·수정·삭제'
-                          >
+                          </td>
+                          <td className='px-3 py-3 whitespace-nowrap text-center'>
+                            <input
+                              type='checkbox'
+                              checked={knownHanzi.has(hanzi.id)}
+                              onChange={(e) =>
+                                handleKnownToggle(hanzi.id, e.target.checked)
+                              }
+                              className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer'
+                              title='학습 완료'
+                            />
+                          </td>
+                          <td className='px-2 py-3 whitespace-nowrap text-center'>
                             {hanzi.hasDataIssue ? (
-                              <>
-                                <AlertTriangle className='h-3.5 w-3.5' />
-                                신고됨
-                              </>
+                              <span
+                                className='inline-flex text-amber-600'
+                                title='데이터 신고됨'
+                              >
+                                <AlertTriangle className='h-4 w-4 mx-auto' />
+                              </span>
                             ) : (
-                              <>관련 단어</>
+                              <span className='text-gray-300 text-xs'>—</span>
                             )}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          </td>
+                          <td className='px-2 py-3 whitespace-nowrap text-center'>
+                            <button
+                              type='button'
+                              onClick={() => openHanziEditModal(hanzi)}
+                              className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors mx-auto ${
+                                hanzi.hasDataIssue
+                                  ? "border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                              }`}
+                              title='뜻·음·관련 단어 수정'
+                              aria-label='데이터 수정'
+                            >
+                              <Pencil className='h-4 w-4' />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-            {!isLoading && hanziList.length === 0 && listFilter === "all" && (
-              <div className='text-center py-6 sm:py-8'>
-                <Info className='h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4' />
-                <p className='text-gray-500'>등록된 한자가 없습니다.</p>
-              </div>
+                {totalFilteredCount > HANZI_LIST_PAGE_SIZE && (
+                  <div className='flex flex-wrap items-center justify-center gap-2 sm:gap-4 mt-4 pt-4 border-t border-gray-100'>
+                    {useServerSidePaging ? (
+                      <>
+                        <button
+                          type='button'
+                          disabled={serverPageIndex <= 0}
+                          onClick={() => void fetchServerPage(serverPageIndex - 1)}
+                          className='inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+                        >
+                          <ChevronLeft className='h-4 w-4' />
+                          이전
+                        </button>
+                        <span className='text-sm text-gray-600 tabular-nums px-2'>
+                          {serverPageIndex + 1} / {totalListPages} 페이지
+                        </span>
+                        <button
+                          type='button'
+                          disabled={
+                            !serverHasMore &&
+                            serverPageIndex >= totalListPages - 1
+                          }
+                          onClick={() => void fetchServerPage(serverPageIndex + 1)}
+                          className='inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+                        >
+                          다음
+                          <ChevronRight className='h-4 w-4' />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type='button'
+                          disabled={safeListPage <= 1}
+                          onClick={() =>
+                            setHanziListPage((p) => Math.max(1, p - 1))
+                          }
+                          className='inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+                        >
+                          <ChevronLeft className='h-4 w-4' />
+                          이전
+                        </button>
+                        <span className='text-sm text-gray-600 tabular-nums px-2'>
+                          {safeListPage} / {totalListPages} 페이지
+                        </span>
+                        <button
+                          type='button'
+                          disabled={safeListPage >= totalListPages}
+                          onClick={() =>
+                            setHanziListPage((p) =>
+                              Math.min(totalListPages, p + 1)
+                            )
+                          }
+                          className='inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+                        >
+                          다음
+                          <ChevronRight className='h-4 w-4' />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {!isLoading &&
-              listFilter === "reported" &&
-              displayedHanziList.length === 0 && (
+              (useServerSidePaging
+                ? (serverTotalCount ?? 0) > 0
+                : hanziList.length > 0) &&
+              totalFilteredCount === 0 &&
+              hanziSearchQuery.trim() !== "" && (
                 <div className='text-center py-6 sm:py-8'>
-                  <AlertTriangle className='h-10 w-10 sm:h-12 sm:w-12 text-amber-400 mx-auto mb-3 sm:mb-4' />
+                  <Search className='h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4' />
                   <p className='text-gray-500'>
-                    신고한 한자가 없습니다. 퀴즈/부분 맞추기에서 관련 단어 옆
-                    &quot;잘못됨&quot; 버튼으로 신고할 수 있습니다.
+                    검색 조건에 맞는 한자가 없습니다.
                   </p>
+                </div>
+              )}
+
+            {!isLoading &&
+              (useServerSidePaging
+                ? (serverTotalCount ?? 0) > 0
+                : hanziList.length > 0) &&
+              totalFilteredCount === 0 &&
+              hanziSearchQuery.trim() === "" && (
+                <div className='text-center py-6 sm:py-8 space-y-2'>
+                  {reportFilter === "reported_only" ? (
+                    <>
+                      <AlertTriangle className='h-10 w-10 sm:h-12 sm:w-12 text-amber-400 mx-auto mb-3 sm:mb-4' />
+                      <p className='text-gray-500'>
+                        신고된 한자가 없습니다. 퀴즈·부분 맞추기 정답 확인
+                        모달에서 「데이터 문제 신고」로 신고할 수 있습니다.
+                      </p>
+                    </>
+                  ) : reportFilter === "not_reported" ? (
+                    <>
+                      <Info className='h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4' />
+                      <p className='text-gray-500'>
+                        신고되지 않은 한자가 없습니다. 이 급의 한자는 모두 신고
+                        상태이거나 다른 필터와 겹치지 않습니다.
+                      </p>
+                    </>
+                  ) : learningFilter === "completed" ? (
+                    <p className='text-gray-500'>
+                      학습완료된 한자가 없습니다.
+                    </p>
+                  ) : learningFilter === "incomplete" ? (
+                    <p className='text-gray-500'>
+                      미완료 한자가 없습니다. (이 급은 모두 학습완료이거나 필터와
+                      맞지 않습니다.)
+                    </p>
+                  ) : (
+                    <p className='text-gray-500'>
+                      조건에 맞는 한자가 없습니다.
+                    </p>
+                  )}
+                </div>
+              )}
+
+            {!isLoading &&
+              ((!useServerSidePaging && hanziList.length === 0) ||
+                (useServerSidePaging &&
+                  (serverTotalCount ?? 0) === 0 &&
+                  serverListRows.length === 0)) && (
+                <div className='text-center py-6 sm:py-8'>
+                  <Info className='h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4' />
+                  <p className='text-gray-500'>등록된 한자가 없습니다.</p>
                 </div>
               )}
           </div>
         </div>
       </main>
 
-      {/* 신고된 한자 관련 단어 수정 모달 */}
+      {/* 신고된 한자 데이터 수정 모달 (뜻·음·관련 단어) */}
       {reportedHanziModal && (
         <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
-          <div className='bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col'>
+          <div className='bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col'>
             <div className='flex items-center justify-between p-4 border-b'>
               <h3 className='text-lg font-semibold text-gray-900'>
-                관련 단어 수정 · {reportedHanziModal.character}
+                데이터 수정 · {reportedHanziModal.character}
               </h3>
               <button
                 type='button'
@@ -1321,11 +1736,38 @@ export default function HanziListPage() {
               </button>
             </div>
             <div className='p-4 overflow-y-auto flex-1'>
-              <div className='mb-4 text-sm text-gray-600'>
-                <span className='font-medium'>뜻:</span>{" "}
-                {reportedHanziModal.meaning}{" "}
-                <span className='font-medium ml-2'>음:</span>{" "}
-                {reportedHanziModal.sound}
+              <p className='text-xs text-gray-500 mb-3'>
+                뜻·음을 바로잡고 관련 단어를 추가·수정·삭제한 뒤 「저장」을
+                누르면 반영되며 신고 상태가 해제됩니다.
+              </p>
+              <h4 className='text-sm font-semibold text-gray-700 mb-2'>
+                뜻 · 음
+              </h4>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5'>
+                <label className='block text-left'>
+                  <span className='text-xs font-medium text-gray-600'>
+                    뜻 (의미)
+                  </span>
+                  <input
+                    type='text'
+                    value={reportMeaningDraft}
+                    onChange={(e) => setReportMeaningDraft(e.target.value)}
+                    className='mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    placeholder='예: 불'
+                  />
+                </label>
+                <label className='block text-left'>
+                  <span className='text-xs font-medium text-gray-600'>
+                    음 (한글 독음)
+                  </span>
+                  <input
+                    type='text'
+                    value={reportSoundDraft}
+                    onChange={(e) => setReportSoundDraft(e.target.value)}
+                    className='mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    placeholder='예: 화'
+                  />
+                </label>
               </div>
 
               {/* 새 관련 단어 추가 */}
@@ -1445,12 +1887,12 @@ export default function HanziListPage() {
                 </ul>
               ) : (
                 <p className='text-gray-500 text-sm'>
-                  관련 단어가 없습니다. 위에서 추가하거나, 변경 후 신고 상태가
-                  해제됩니다.
+                  관련 단어가 없습니다. 위에서 추가하거나, 뜻·음만 고친 뒤 하단
+                  「저장」을 누르세요.
                 </p>
               )}
             </div>
-            <div className='p-4 border-t flex justify-end'>
+            <div className='p-4 border-t flex flex-wrap justify-end gap-2'>
               <button
                 type='button'
                 onClick={() => setReportedHanziModal(null)}
@@ -1458,7 +1900,36 @@ export default function HanziListPage() {
               >
                 닫기
               </button>
+              <button
+                type='button'
+                onClick={handleSaveReportedHanziAndClear}
+                disabled={isSavingRelatedWords}
+                className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium'
+              >
+                {isSavingRelatedWords ? "저장 중…" : "저장"}
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showHanziEditSuccess && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4'>
+          <div className='bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center'>
+            <Check className='h-12 w-12 text-green-600 mx-auto mb-3' />
+            <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+              수정이 완료되었습니다
+            </h3>
+            <p className='text-sm text-gray-600 mb-5'>
+              변경 사항이 저장되었고 신고가 해제되었습니다.
+            </p>
+            <button
+              type='button'
+              onClick={() => setShowHanziEditSuccess(false)}
+              className='w-full px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium'
+            >
+              확인
+            </button>
           </div>
         </div>
       )}

@@ -16,6 +16,27 @@ import {
   ImageIcon,
 } from "lucide-react"
 import { migrateAllUsers, migrateUserData } from "@/lib/migration"
+import { CustomSelect } from "@/components/ui/CustomSelect"
+
+const ADMIN_GRADE_OPTIONS = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map(
+  (grade) => ({
+    value: String(grade),
+    label:
+      grade === 5.5
+        ? "준5급"
+        : grade === 4.5
+        ? "준4급"
+        : grade === 3.5
+        ? "준3급"
+        : `${grade}급`,
+  })
+)
+
+const DIFFICULTY_OPTIONS = [
+  { value: "easy", label: "쉬움" },
+  { value: "medium", label: "보통" },
+  { value: "hard", label: "어려움" },
+]
 
 export default function AdminPage() {
   const { user, loading: _authLoading, initialLoading } = useAuth()
@@ -909,27 +930,14 @@ export default function AdminPage() {
                 삭제할 급수를 선택하세요. 이 작업은 되돌릴 수 없습니다.
               </p>
 
-              <select
-                value={deleteGrade}
-                onChange={(e) => setDeleteGrade(Number(e.target.value))}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-red-500 font-semibold text-gray-900'
-              >
-                {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => {
-                  const gradeName =
-                    grade === 5.5
-                      ? "준5급"
-                      : grade === 4.5
-                      ? "준4급"
-                      : grade === 3.5
-                      ? "준3급"
-                      : `${grade}급`
-                  return (
-                    <option key={grade} value={grade}>
-                      {gradeName}
-                    </option>
-                  )
-                })}
-              </select>
+              <CustomSelect
+                value={String(deleteGrade)}
+                onChange={(v) => setDeleteGrade(Number(v))}
+                options={ADMIN_GRADE_OPTIONS}
+                className='w-full mb-4'
+                buttonClassName='font-semibold text-gray-900'
+                aria-label='삭제할 급수'
+              />
 
               <div className='flex justify-center space-x-3'>
                 <button
@@ -1092,28 +1100,18 @@ export default function AdminPage() {
                       <label className='block text-sm font-semibold text-gray-800 mb-1'>
                         급수
                       </label>
-                      <select
-                        value={editingHanzi.grade}
-                        onChange={(e) =>
+                      <CustomSelect
+                        value={String(editingHanzi.grade)}
+                        onChange={(v) =>
                           setEditingHanzi({
                             ...editingHanzi,
-                            grade: Number(e.target.value),
+                            grade: Number(v),
                           })
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
-                      >
-                        {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
-                          <option key={grade} value={grade}>
-                            {grade === 5.5
-                              ? "준5급"
-                              : grade === 4.5
-                              ? "준4급"
-                              : grade === 3.5
-                              ? "준3급"
-                              : `${grade}급`}
-                          </option>
-                        ))}
-                      </select>
+                        options={ADMIN_GRADE_OPTIONS}
+                        className='w-full'
+                        aria-label='급수'
+                      />
                     </div>
 
                     <div>
@@ -1174,23 +1172,18 @@ export default function AdminPage() {
                     <label className='block text-sm font-semibold text-gray-800 mb-1'>
                       난이도
                     </label>
-                    <select
+                    <CustomSelect
                       value={editingHanzi.difficulty || "easy"}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setEditingHanzi({
                           ...editingHanzi,
-                          difficulty: e.target.value as
-                            | "easy"
-                            | "medium"
-                            | "hard",
+                          difficulty: v as "easy" | "medium" | "hard",
                         })
                       }
-                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800'
-                    >
-                      <option value='easy'>쉬움</option>
-                      <option value='medium'>보통</option>
-                      <option value='hard'>어려움</option>
-                    </select>
+                      options={DIFFICULTY_OPTIONS}
+                      className='w-full'
+                      aria-label='난이도'
+                    />
                   </div>
 
                   <div>

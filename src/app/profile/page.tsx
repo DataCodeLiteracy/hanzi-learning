@@ -23,6 +23,21 @@ import {
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
+import { CustomSelect } from "@/components/ui/CustomSelect"
+
+const PREFERRED_GRADE_SELECT_OPTIONS = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map(
+  (grade) => ({
+    value: String(grade),
+    label:
+      grade === 5.5
+        ? "준5급"
+        : grade === 4.5
+        ? "준4급"
+        : grade === 3.5
+        ? "준3급"
+        : `${grade}급`,
+  })
+)
 
 // 학습시간 포맷팅 함수
 const formatStudyTime = (seconds: number): string => {
@@ -523,14 +538,15 @@ export default function ProfilePage() {
                 한자로 문제가 출제됩니다.
               </p>
               <div className='flex items-center space-x-3'>
-                <select
-                  value={user?.preferredGrade || 8}
-                  onChange={async (e) => {
+                <CustomSelect
+                  value={String(user?.preferredGrade || 8)}
+                  onChange={(v) => {
+                    void (async () => {
                     console.log("🔍 급수 변경 시작 - onChange 이벤트 발생")
                     if (user) {
                       console.log("🔍 사용자 존재 확인:", user.id)
                       try {
-                        const newGrade = Number(e.target.value)
+                        const newGrade = Number(v)
                         console.log("🔍 새로운 급수:", newGrade)
                         console.log("🔍 기존 급수:", user.preferredGrade)
                         console.debug(
@@ -660,21 +676,12 @@ export default function ProfilePage() {
                         console.error("선호 급수 업데이트 실패:", error)
                       }
                     }
+                    })()
                   }}
-                  className='px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium'
-                >
-                  {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => (
-                    <option key={grade} value={grade} className='font-medium'>
-                      {grade === 5.5
-                        ? "준5급"
-                        : grade === 4.5
-                        ? "준4급"
-                        : grade === 3.5
-                        ? "준3급"
-                        : `${grade}급`}
-                    </option>
-                  ))}
-                </select>
+                  options={PREFERRED_GRADE_SELECT_OPTIONS}
+                  className='flex-1 min-w-[10rem]'
+                  aria-label='학습 중인 급수'
+                />
                 <span className='text-sm text-gray-500'>
                   현재 학습 중:{" "}
                   {user?.preferredGrade === 5.5

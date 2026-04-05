@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
 import Link from "next/link"
+import { CustomSelect } from "@/components/ui/CustomSelect"
 
 interface HanziStatistics {
   hanziId: string
@@ -27,6 +28,22 @@ export default function HanziStatisticsPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isLoadingGrade, setIsLoadingGrade] = useState<boolean>(false)
+
+  const gradeSelectOptions = useMemo(
+    () =>
+      [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => ({
+        value: String(grade),
+        label:
+          grade === 5.5
+            ? "준5급"
+            : grade === 4.5
+            ? "준4급"
+            : grade === 3.5
+            ? "준3급"
+            : `${grade}급`,
+      })),
+    []
+  )
 
   // 급수별 한자 통계 로드
   const loadHanziStats = useCallback(async (grade: number) => {
@@ -162,26 +179,14 @@ export default function HanziStatisticsPage() {
               <TrendingUp className='h-5 w-5' />
               <span>급수 선택</span>
             </h3>
-            <select
-              value={selectedGrade}
-              onChange={(e) => handleGradeChange(Number(e.target.value))}
+            <CustomSelect
+              value={String(selectedGrade)}
+              onChange={(v) => handleGradeChange(Number(v))}
+              options={gradeSelectOptions}
               disabled={isLoadingGrade}
-              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium disabled:opacity-50'
-            >
-              {[8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map((grade) => {
-                return (
-                  <option key={grade} value={grade} className='font-medium'>
-                    {grade === 5.5
-                      ? "준5급"
-                      : grade === 4.5
-                      ? "준4급"
-                      : grade === 3.5
-                      ? "준3급"
-                      : `${grade}급`}
-                  </option>
-                )
-              })}
-            </select>
+              className='w-full'
+              aria-label='급수 선택'
+            />
 
             {isLoadingGrade && (
               <div className='mt-2 flex items-center space-x-2'>

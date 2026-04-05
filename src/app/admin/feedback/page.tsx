@@ -13,6 +13,13 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { CustomSelect } from "@/components/ui/CustomSelect"
+
+const FEEDBACK_STATUS_OPTIONS = [
+  { value: "pending", label: "대기중" },
+  { value: "in_progress", label: "처리중" },
+  { value: "completed", label: "완료" },
+]
 
 interface Feedback {
   id: string
@@ -379,23 +386,18 @@ export default function AdminFeedbackPage() {
                     <label className='block text-sm font-medium text-gray-700 mb-1'>
                       상태
                     </label>
-                    <select
+                    <CustomSelect
                       value={selectedFeedback.status}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         handleStatusUpdate(
                           selectedFeedback.id,
-                          e.target.value as
-                            | "pending"
-                            | "in_progress"
-                            | "completed"
+                          v as "pending" | "in_progress" | "completed"
                         )
                       }
-                      className='block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                    >
-                      <option value='pending'>대기중</option>
-                      <option value='in_progress'>처리중</option>
-                      <option value='completed'>완료</option>
-                    </select>
+                      options={FEEDBACK_STATUS_OPTIONS}
+                      className='w-full'
+                      aria-label='피드백 상태'
+                    />
                   </div>
 
                   <div>

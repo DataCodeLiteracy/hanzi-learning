@@ -14,8 +14,23 @@ import {
   incrementGradeQueryCount,
   type PageType,
 } from "@/lib/gradeQueryLimit"
+import { CustomSelect } from "@/components/ui/CustomSelect"
 
 const PAGE_TYPE: PageType = "textbook-words"
+
+const TEXTBOOK_GRADE_OPTIONS = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map(
+  (grade) => ({
+    value: String(grade),
+    label:
+      grade === 5.5
+        ? "준5급"
+        : grade === 4.5
+        ? "준4급"
+        : grade === 3.5
+        ? "준3급"
+        : `${grade}급`,
+  })
+)
 
 interface TextbookWord {
   word: string
@@ -526,45 +541,15 @@ export default function TextbookWordsPage() {
               <label className='text-lg font-bold text-gray-900'>
                 급수 선택:
               </label>
-              <select
-                value={selectedGrade}
-                onChange={(e) => handleGradeChange(Number(e.target.value))}
+              <CustomSelect
+                value={String(selectedGrade)}
+                onChange={(v) => handleGradeChange(Number(v))}
+                options={TEXTBOOK_GRADE_OPTIONS}
                 disabled={isLoading}
-                className='px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-bold text-lg disabled:opacity-50'
-                style={{
-                  fontWeight: "bold",
-                  color: "#1f2937",
-                }}
-              >
-                {/* 하드코딩된 급수 목록 */}
-                <option value={8} className='font-bold'>
-                  8급
-                </option>
-                <option value={7} className='font-bold'>
-                  7급
-                </option>
-                <option value={6} className='font-bold'>
-                  6급
-                </option>
-                <option value={5.5} className='font-bold'>
-                  준5급
-                </option>
-                <option value={5} className='font-bold'>
-                  5급
-                </option>
-                <option value={4.5} className='font-bold'>
-                  준4급
-                </option>
-                <option value={4} className='font-bold'>
-                  4급
-                </option>
-                <option value={3.5} className='font-bold'>
-                  준3급
-                </option>
-                <option value={3} className='font-bold'>
-                  3급
-                </option>
-              </select>
+                className='min-w-[8rem]'
+                buttonClassName='px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-bold text-lg disabled:opacity-50 text-gray-900'
+                aria-label='급수 선택'
+              />
             </div>
 
             {/* 결과 수 */}

@@ -10,7 +10,7 @@ interface AnswerModalProps {
   comboStreak?: number
   /** 콤보를 유지하면서 남은 '모르겠음' 기회 (0~3) */
   dontKnowRemainingForCombo?: number
-  /** 이 한자 데이터에 문제가 있다고 신고 (한자 목록에서 모달로 확인·삭제용) */
+  /** 이 한자 데이터에 문제가 있다고 신고 (한자 목록에서 뜻·음·관련 단어 수정 후 신고 해제) */
   onReportDataIssue?: (hanziId: string) => void
   /** 현재 신고 요청 중인 한자 ID (버튼 로딩 표시) */
   reportLoadingHanziId?: string | null
@@ -88,36 +88,42 @@ export default function AnswerModal({
             </div>
           </div>
 
+          {onReportDataIssue && question.hanziId && (
+            <div className='mt-3 flex flex-col items-center gap-1'>
+              <button
+                type='button'
+                onClick={() => onReportDataIssue(question.hanziId)}
+                disabled={reportLoadingHanziId === question.hanziId}
+                className='flex items-center gap-1 px-2 py-1 text-xs text-amber-700 bg-amber-100 hover:bg-amber-200 rounded transition-colors disabled:opacity-70 disabled:cursor-not-allowed'
+                title='한자 목록 → 신고한 한자 필터에서 뜻·음·관련 단어를 고칠 수 있습니다'
+              >
+                {reportLoadingHanziId === question.hanziId ? (
+                  <>
+                    <Loader2 className='h-3.5 w-3 animate-spin' />
+                    신고 중...
+                  </>
+                ) : reportSuccessHanziId === question.hanziId ? (
+                  <>신고됨</>
+                ) : (
+                  <>
+                    <AlertTriangle className='h-3.5 w-3' />
+                    데이터 문제 신고
+                  </>
+                )}
+              </button>
+              <span className='text-[11px] text-gray-500 max-w-xs'>
+                목록에서 뜻·음·관련 단어를 수정한 뒤 신고를 해제하세요.
+              </span>
+            </div>
+          )}
+
           {/* 관련 단어 섹션 */}
           {question.relatedWords && question.relatedWords.length > 0 && (
-            <div className='border-t pt-3'>
+            <div className='border-t pt-3 mt-3'>
               <div className='flex items-center justify-between gap-2 mb-2'>
                 <h4 className='text-base font-semibold text-gray-700'>
                   관련 단어
                 </h4>
-                {onReportDataIssue && question.hanziId && (
-                  <button
-                    type='button'
-                    onClick={() => onReportDataIssue(question.hanziId)}
-                    disabled={reportLoadingHanziId === question.hanziId}
-                    className='flex items-center gap-1 px-2 py-1 text-xs text-amber-700 bg-amber-100 hover:bg-amber-200 rounded transition-colors disabled:opacity-70 disabled:cursor-not-allowed'
-                    title='이 한자 데이터에 문제가 있다고 신고 (한자 목록에서 확인·삭제)'
-                  >
-                    {reportLoadingHanziId === question.hanziId ? (
-                      <>
-                        <Loader2 className='h-3.5 w-3 animate-spin' />
-                        신고 중...
-                      </>
-                    ) : reportSuccessHanziId === question.hanziId ? (
-                      <>신고됨</>
-                    ) : (
-                      <>
-                        <AlertTriangle className='h-3.5 w-3' />
-                        데이터 문제 신고
-                      </>
-                    )}
-                  </button>
-                )}
               </div>
               <div className='max-h-[8.5rem] overflow-y-auto rounded-md border border-gray-100'>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 p-0.5'>
