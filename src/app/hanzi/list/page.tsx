@@ -48,11 +48,16 @@ type ReportFilterMode = "all" | "reported_only" | "not_reported"
 type LearningFilterMode = "all" | "completed" | "incomplete"
 
 export default function HanziListPage() {
-  const { user, loading: authLoading, initialLoading } = useAuth()
+  const { user, loading: authLoading, initialLoading: authInitialLoading } =
+    useAuth()
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
   )
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
+  const hanziListRef = useRef<Hanzi[]>([])
+  useEffect(() => {
+    hanziListRef.current = hanziList
+  }, [hanziList])
   const [isLoading, setIsLoading] = useState(true) // 통합 로딩 상태
   const [isSyncing, setIsSyncing] = useState<boolean>(false) // 동기화 로딩 상태
   const [noDataMessage, setNoDataMessage] = useState<string>("")
@@ -164,7 +169,9 @@ export default function HanziListPage() {
     setServerTotalCount(null)
     setServerHasMore(false)
     setServerPageIndex(0)
-    setServerPageCache(new Map())
+    const empty = new Map<number, Hanzi[]>()
+    setServerPageCache(empty)
+    serverPageCacheRef.current = empty
     serverPageStartCursorsRef.current = [null]
   }, [])
 
@@ -242,7 +249,6 @@ export default function HanziListPage() {
             gradeDataCache.current.set(grade, data)
             incrementGradeQueryCount(grade, user.preferredGrade, PAGE_TYPE)
           }
-          setHanziList(data)
           if (data.length === 0) {
             const gradeName =
               grade === 5.5
@@ -254,11 +260,25 @@ export default function HanziListPage() {
                 : `${grade}급`
             setNoDataMessage(`${gradeName}에 등록된 한자가 없습니다.`)
             setShowNoDataModal(true)
-          } else {
-            setNoDataMessage("")
-            setShowNoDataModal(false)
+            setHanziList([])
+            setKnownHanzi(new Set())
+            return
           }
-          await applyUserStatsForClientList(data, grade)
+          setNoDataMessage("")
+          setShowNoDataModal(false)
+          const prevList = hanziListRef.current
+          const listAlreadyThisGrade =
+            prevList.length > 0 &&
+            prevList.every((h) => h.grade === grade)
+          // 서버 페이징 직후 등: 목록이 비었거나 다른 급이면 knownHanzi가 일부(페이지)만 반영된 상태일 수 있음
+          // → 통계를 먼저 맞춘 뒤 hanziList 설정. 이미 이 급 전체 목록이 있으면 기존 순서 유지(필터만 바뀐 경우).
+          if (!listAlreadyThisGrade) {
+            await applyUserStatsForClientList(data, grade)
+            setHanziList((prev) => (prev === data ? [...data] : data))
+          } else {
+            setHanziList((prev) => (prev === data ? [...data] : data))
+            await applyUserStatsForClientList(data, grade)
+          }
           return
         }
 
@@ -302,7 +322,9 @@ export default function HanziListPage() {
           serverPageStartCursorsRef.current[1] = page.nextStartAfter
         }
         setServerPageIndex(0)
-        setServerPageCache(new Map([[0, page.items]]))
+        const page0 = new Map<number, Hanzi[]>([[0, page.items]])
+        serverPageCacheRef.current = page0
+        setServerPageCache(page0)
 
         if (total === 0) {
           const gradeName =
@@ -378,11 +400,12 @@ export default function HanziListPage() {
   }, [user, authLoading, isInitialLoad])
 
   useEffect(() => {
-    if (!user || authLoading || isInitialLoad) return
+    if (!user || authLoading || authInitialLoading || isInitialLoad) return
     void refreshListData(selectedGrade)
   }, [
     user,
     authLoading,
+    authInitialLoading,
     isInitialLoad,
     selectedGrade,
     reportFilter,
@@ -600,7 +623,11 @@ export default function HanziListPage() {
           reportFilter: rf,
         })
 
-        setServerPageCache((prev) => new Map(prev).set(pageIdx, page.items))
+        setServerPageCache((prev) => {
+          const next = new Map(prev).set(pageIdx, page.items)
+          serverPageCacheRef.current = next
+          return next
+        })
         setServerListRows(page.items)
         setServerPageIndex(pageIdx)
         setServerHasMore(page.hasMore)
@@ -1161,7 +1188,7 @@ export default function HanziListPage() {
   }
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
-  if (initialLoading) {
+  if (authInitialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
         <LoadingSpinner message='인증 상태를 확인하는 중...' />
