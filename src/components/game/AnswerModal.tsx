@@ -93,8 +93,8 @@ export default function AnswerModal({
           {/* 관련 단어 + 데이터 신고 (한 줄: 라벨 | 신고) */}
           {((question.relatedWords && question.relatedWords.length > 0) ||
             (onReportDataIssue && question.hanziId)) && (
-            <div className='border-t pt-3 mt-3 text-left'>
-              <div className='flex items-center justify-between gap-2 mb-2 min-h-[1.5rem]'>
+            <div className='border-t pt-3 mt-3'>
+              <div className='flex items-center justify-between gap-2 mb-2 min-h-[1.5rem] text-left'>
                 <h4 className='text-base font-semibold text-gray-700'>
                   관련 단어
                 </h4>
@@ -128,12 +128,12 @@ export default function AnswerModal({
                     {question.relatedWords.map((word, index) => (
                       <div
                         key={index}
-                        className='bg-white rounded-md p-2 text-sm min-w-0'
+                        className='bg-white rounded-md p-2 sm:p-2.5 text-sm min-w-0 min-h-[4.25rem] flex flex-col items-center justify-center text-center gap-0.5'
                       >
-                        <div className='font-medium text-gray-900 truncate'>
+                        <div className='font-medium text-gray-900 w-full break-words'>
                           {word.hanzi}
                         </div>
-                        <div className='text-gray-600 text-xs leading-snug line-clamp-2'>
+                        <div className='text-gray-600 text-xs leading-snug line-clamp-2 w-full'>
                           {word.korean}
                         </div>
                       </div>
