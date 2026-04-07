@@ -44,15 +44,17 @@ export default function AnswerModal({
         <div className='mb-4'>
           {isCorrect === true ? (
             <>
-              <CheckCircle className='h-12 w-12 text-green-500 mx-auto mb-3' />
-              <h3 className='text-xl font-bold text-gray-900 mb-2'>
-                정답입니다!
-              </h3>
-              <p className='text-green-600 text-base'>잘 하셨습니다!</p>
+              <CheckCircle className='h-[2.1rem] w-[2.1rem] text-green-500 mx-auto mb-2 shrink-0' />
+              <p className='text-lg sm:text-xl font-bold text-gray-900 leading-snug flex flex-nowrap items-center justify-center gap-x-2 px-1'>
+                <span>정답입니다!</span>
+                <span className='text-green-600 font-semibold'>
+                  잘 하셨습니다!
+                </span>
+              </p>
             </>
           ) : isDontKnow ? (
             <>
-              <CheckCircle className='h-12 w-12 text-blue-500 mx-auto mb-3' />
+              <CheckCircle className='h-[2.1rem] w-[2.1rem] text-blue-500 mx-auto mb-2 shrink-0' />
               <h3 className='text-xl font-bold text-gray-900 mb-2'>
                 정답을 확인해보세요
               </h3>
@@ -60,7 +62,7 @@ export default function AnswerModal({
             </>
           ) : (
             <>
-              <XCircle className='h-12 w-12 text-red-500 mx-auto mb-3' />
+              <XCircle className='h-[2.1rem] w-[2.1rem] text-red-500 mx-auto mb-2 shrink-0' />
               <h3 className='text-xl font-bold text-gray-900 mb-2'>
                 틀렸습니다
               </h3>
@@ -88,56 +90,57 @@ export default function AnswerModal({
             </div>
           </div>
 
-          {onReportDataIssue && question.hanziId && (
-            <div className='mt-3 flex flex-col items-center gap-1'>
-              <button
-                type='button'
-                onClick={() => onReportDataIssue(question.hanziId)}
-                disabled={reportLoadingHanziId === question.hanziId}
-                className='flex items-center gap-1 px-2 py-1 text-xs text-amber-700 bg-amber-100 hover:bg-amber-200 rounded transition-colors disabled:opacity-70 disabled:cursor-not-allowed'
-                title='한자 목록 → 신고한 한자 필터에서 뜻·음·관련 단어를 고칠 수 있습니다'
-              >
-                {reportLoadingHanziId === question.hanziId ? (
-                  <>
-                    <Loader2 className='h-3.5 w-3 animate-spin' />
-                    신고 중...
-                  </>
-                ) : reportSuccessHanziId === question.hanziId ? (
-                  <>신고됨</>
-                ) : (
-                  <>
-                    <AlertTriangle className='h-3.5 w-3' />
-                    데이터 문제 신고
-                  </>
-                )}
-              </button>
-              <span className='text-[11px] text-gray-500 max-w-xs'>
-                목록에서 뜻·음·관련 단어를 수정한 뒤 신고를 해제하세요.
-              </span>
-            </div>
-          )}
-
-          {/* 관련 단어 섹션 */}
-          {question.relatedWords && question.relatedWords.length > 0 && (
-            <div className='border-t pt-3 mt-3'>
-              <div className='flex items-center justify-between gap-2 mb-2'>
+          {/* 관련 단어 + 데이터 신고 (한 줄: 라벨 | 신고) */}
+          {((question.relatedWords && question.relatedWords.length > 0) ||
+            (onReportDataIssue && question.hanziId)) && (
+            <div className='border-t pt-3 mt-3 text-left'>
+              <div className='flex items-center justify-between gap-2 mb-2 min-h-[1.5rem]'>
                 <h4 className='text-base font-semibold text-gray-700'>
                   관련 단어
                 </h4>
+                {onReportDataIssue && question.hanziId && (
+                  <button
+                    type='button'
+                    onClick={() => onReportDataIssue(question.hanziId)}
+                    disabled={reportLoadingHanziId === question.hanziId}
+                    className='flex shrink-0 items-center gap-1 px-2 py-1 text-xs text-amber-700 bg-amber-100 hover:bg-amber-200 rounded transition-colors disabled:opacity-70 disabled:cursor-not-allowed'
+                    title='한자 목록 → 신고한 한자 필터에서 뜻·음·관련 단어를 고칠 수 있습니다'
+                  >
+                    {reportLoadingHanziId === question.hanziId ? (
+                      <>
+                        <Loader2 className='h-3.5 w-3 animate-spin' />
+                        신고 중...
+                      </>
+                    ) : reportSuccessHanziId === question.hanziId ? (
+                      <>신고됨</>
+                    ) : (
+                      <>
+                        <AlertTriangle className='h-3.5 w-3' />
+                        데이터 문제 신고
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
-              <div className='max-h-[8.5rem] overflow-y-auto rounded-md border border-gray-100'>
-                <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 p-0.5'>
-                  {question.relatedWords.map((word, index) => (
-                    <div
-                      key={index}
-                      className='bg-white rounded-md p-2 text-base'
-                    >
-                      <div className='font-medium text-gray-900'>{word.hanzi}</div>
-                      <div className='text-gray-600'>{word.korean}</div>
-                    </div>
-                  ))}
+              {question.relatedWords && question.relatedWords.length > 0 && (
+                <div className='max-h-[8.5rem] overflow-y-auto rounded-md border border-gray-100'>
+                  <div className='grid grid-cols-2 gap-2 p-0.5'>
+                    {question.relatedWords.map((word, index) => (
+                      <div
+                        key={index}
+                        className='bg-white rounded-md p-2 text-sm min-w-0'
+                      >
+                        <div className='font-medium text-gray-900 truncate'>
+                          {word.hanzi}
+                        </div>
+                        <div className='text-gray-600 text-xs leading-snug line-clamp-2'>
+                          {word.korean}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>

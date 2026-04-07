@@ -132,6 +132,18 @@ html {
   scroll-behavior: smooth;
 }
 
+/*
+ * iOS/Android: 포커스 시 자동 줌 방지 (텍스트 입력의 computed font-size가 16px 미만이면 확대됨)
+ * 앱 느낌 유지용 — 접근성을 위해 viewport의 user-scalable 금지는 사용하지 않음
+ */
+@media screen and (max-width: 1024px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* 스크롤바 스타일링 */
 ::-webkit-scrollbar {
   width: 8px;

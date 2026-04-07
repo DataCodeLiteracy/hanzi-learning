@@ -21,7 +21,7 @@ import {
   deleteField,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import { Hanzi, UserStatistics } from "@/types"
+import { Hanzi, RelatedWord, UserStatistics } from "@/types"
 import { calculateLevel } from "./experienceSystem"
 
 /** 한자 목록 서버 페이지네이션 (Firestore limit)용 */
@@ -178,7 +178,7 @@ export class ApiClient {
       const docSnap = await getDoc(docRef)
 
       if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as T
+        return { ...docSnap.data(), id: docSnap.id } as T
       }
       return null
     } catch (error) {
@@ -228,9 +228,9 @@ export class ApiClient {
       const q = query(collection(db, collectionName), ...constraints)
       const querySnapshot = await getDocs(q)
 
-      return querySnapshot.docs.map((doc: QueryDocumentSnapshot) => ({
-        id: doc.id,
-        ...doc.data(),
+      return querySnapshot.docs.map((docSnap: QueryDocumentSnapshot) => ({
+        ...docSnap.data(),
+        id: docSnap.id,
       })) as T[]
     } catch (error) {
       console.error("문서 쿼리 실패:", error)
@@ -283,8 +283,8 @@ export class ApiClient {
         const snapshot = await getDocs(q)
 
         const batch = snapshot.docs.map((docSnap: QueryDocumentSnapshot) => ({
-          id: docSnap.id,
           ...docSnap.data(),
+          id: docSnap.id,
         })) as Hanzi[]
         allResults.push(...batch)
 
@@ -385,8 +385,8 @@ export class ApiClient {
     const items = pageDocs.map(
       (docSnap) =>
         ({
-          id: docSnap.id,
           ...docSnap.data(),
+          id: docSnap.id,
         }) as Hanzi
     )
 
@@ -481,6 +481,34 @@ export class ApiClient {
       })
     } catch (error) {
       console.error("한자 신고 상태 해제 실패:", error)
+      throw error
+    }
+  }
+
+  /**
+   * 한자 목록에서 뜻·음·관련 단어 수정 + 신고 해제를 한 번의 update로 처리.
+   * (updateDocument + clearHanziDataIssue 분리 시 경쟁/누락 가능성 줄임)
+   */
+  static async updateHanziMeaningSoundRelatedAndClearIssue(
+    hanziId: string,
+    payload: {
+      meaning: string
+      sound: string
+      relatedWords: RelatedWord[]
+    }
+  ): Promise<void> {
+    try {
+      const docRef = doc(db, "hanzi", hanziId)
+      await updateDoc(docRef, {
+        meaning: payload.meaning,
+        sound: payload.sound,
+        relatedWords: payload.relatedWords,
+        hasDataIssue: false,
+        reportedRelatedWord: deleteField(),
+        updatedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error("한자 데이터 수정(뜻·음·관련단어) 실패:", error)
       throw error
     }
   }

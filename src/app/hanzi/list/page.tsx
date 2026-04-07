@@ -1,7 +1,6 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
-import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import {
   ArrowLeft,
@@ -50,7 +49,6 @@ type LearningFilterMode = "all" | "completed" | "incomplete"
 
 export default function HanziListPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
-  const { hanziList: dataHanziList } = useData() // DataContext의 hanziList 가져오기
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
   )
@@ -210,43 +208,22 @@ export default function HanziListPage() {
     [user, calculateLearningStats]
   )
 
+  /** 검색·학습 필터·완료순 정렬일 때만 급 전체를 클라이언트로 로드 (그 외는 Firestore 페이지) */
+  const needClientBulkForList = useMemo(
+    () =>
+      learningFilter !== "all" ||
+      listSort === "completedFirst" ||
+      listSort === "incompleteFirst" ||
+      hanziSearchQuery.trim() !== "",
+    [learningFilter, listSort, hanziSearchQuery]
+  )
+
   const refreshListData = useCallback(
     async (grade: number) => {
       if (!user) return
       setIsLoading(true)
       try {
-        const idbFull =
-          user.preferredGrade === grade && dataHanziList.length > 0
-        const needClientBulk =
-          learningFilter !== "all" ||
-          listSort === "completedFirst" ||
-          listSort === "incompleteFirst" ||
-          hanziSearchQuery.trim() !== ""
-
-        if (idbFull) {
-          clearServerPagingState()
-          const gradeHanzi = dataHanziList.filter((h) => h.grade === grade)
-          setHanziList(gradeHanzi)
-          if (gradeHanzi.length === 0) {
-            const gradeName =
-              grade === 5.5
-                ? "준5급"
-                : grade === 4.5
-                ? "준4급"
-                : grade === 3.5
-                ? "준3급"
-                : `${grade}급`
-            setNoDataMessage(`${gradeName}에 등록된 한자가 없습니다.`)
-            setShowNoDataModal(true)
-          } else {
-            setNoDataMessage("")
-            setShowNoDataModal(false)
-          }
-          await applyUserStatsForClientList(gradeHanzi, grade)
-          return
-        }
-
-        if (needClientBulk) {
+        if (needClientBulkForList) {
           clearServerPagingState()
           let data: Hanzi[]
           if (gradeDataCache.current.has(grade)) {
@@ -384,11 +361,9 @@ export default function HanziListPage() {
     },
     [
       user,
-      dataHanziList,
-      learningFilter,
-      listSort,
-      hanziSearchQuery,
+      needClientBulkForList,
       reportFilter,
+      listSort,
       applyUserStatsForClientList,
       clearServerPagingState,
     ]
@@ -414,22 +389,11 @@ export default function HanziListPage() {
     listSort,
     learningFilter,
     hanziSearchQuery,
-    dataHanziList.length,
     user?.preferredGrade,
     refreshListData,
   ])
 
-  const usesIndexedDbFullList =
-    !!user &&
-    user.preferredGrade === selectedGrade &&
-    dataHanziList.length > 0
-
-  const useServerSidePaging =
-    !usesIndexedDbFullList &&
-    learningFilter === "all" &&
-    listSort !== "completedFirst" &&
-    listSort !== "incompleteFirst" &&
-    hanziSearchQuery.trim() === ""
+  const useServerSidePaging = !needClientBulkForList
 
   // 초기 데이터 로드 후 통계 (클라이언트 전체 목록일 때만 — 서버 페이징은 refreshListData에서 설정)
   useEffect(() => {
@@ -677,14 +641,22 @@ export default function HanziListPage() {
       alert("뜻과 음을 모두 입력해주세요.")
       return false
     }
+    if (!user) return false
     try {
       setIsSavingRelatedWords(true)
-      await ApiClient.updateDocument("hanzi", hanziId, {
+      await ApiClient.updateHanziMeaningSoundRelatedAndClearIssue(hanziId, {
         meaning: meaningTrim,
         sound: soundTrim,
         relatedWords: newRelatedWords,
       })
-      await ApiClient.clearHanziDataIssue(hanziId)
+
+      const gradeForCache =
+        reportedHanziModal?.id === hanziId
+          ? reportedHanziModal.grade
+          : hanziList.find((h) => h.id === hanziId)?.grade ??
+            serverListRows.find((h) => h.id === hanziId)?.grade ??
+            user?.preferredGrade ??
+            8
 
       const patched = {
         meaning: meaningTrim,
@@ -692,6 +664,13 @@ export default function HanziListPage() {
         relatedWords: newRelatedWords,
         hasDataIssue: false,
         reportedRelatedWord: undefined as string | undefined,
+      }
+
+      try {
+        const storage = new HanziStorage(user.id)
+        await storage.patchHanziInStoredCaches(hanziId, gradeForCache, patched)
+      } catch (e) {
+        console.warn("IndexedDB 한자 캐시 패치 실패 (표시는 로컬 상태로 반영됨):", e)
       }
 
       setHanziList((prev) =>

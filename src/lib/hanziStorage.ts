@@ -231,6 +231,42 @@ export class HanziStorage {
     })
   }
 
+  /**
+   * IndexedDB에 캐시된 한자 한 건을 패치 (Firestore 수정 후 새로고침 시 옛 데이터가 보이지 않게)
+   */
+  async patchHanziInStoredCaches(
+    hanziId: string,
+    grade: number,
+    patch: Partial<Hanzi>
+  ): Promise<void> {
+    await this.ensureDBReady()
+    if (!this.db || !this.userId) return
+
+    const main = await this.getCurrentStorageState()
+    if (
+      main?.grade === grade &&
+      main.data?.some((h) => h.id === hanziId)
+    ) {
+      await this.saveData({
+        grade: main.grade,
+        lastUpdated: new Date().toISOString(),
+        data: main.data.map((h) =>
+          h.id === hanziId ? { ...h, ...patch } : h
+        ),
+      })
+    }
+
+    const byGrade = await this.getDataByGrade(grade)
+    if (byGrade?.data?.some((h) => h.id === hanziId)) {
+      await this.saveDataByGrade(
+        grade,
+        byGrade.data.map((h) =>
+          h.id === hanziId ? { ...h, ...patch } : h
+        )
+      )
+    }
+  }
+
   async clearData(): Promise<void> {
     console.debug("Clearing stored data...")
     
