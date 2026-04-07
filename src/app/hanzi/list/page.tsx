@@ -1699,7 +1699,7 @@ export default function HanziListPage() {
 
       {/* 신고된 한자 데이터 수정 모달 (뜻·음·관련 단어) */}
       {reportedHanziModal && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'>
           <div className='bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col'>
             <div className='flex items-center justify-between p-4 border-b'>
               <h3 className='text-lg font-semibold text-gray-900'>
@@ -1893,7 +1893,7 @@ export default function HanziListPage() {
       )}
 
       {showHanziEditSuccess && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4'>
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4'>
           <div className='bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center'>
             <Check className='h-12 w-12 text-green-600 mx-auto mb-3' />
             <h3 className='text-lg font-semibold text-gray-900 mb-2'>
@@ -1915,7 +1915,7 @@ export default function HanziListPage() {
 
       {/* 데이터 없음 모달 */}
       {showNoDataModal && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50'>
           <div className='bg-white rounded-lg p-6 max-w-md w-full mx-4'>
             <div className='text-center'>
               <Info className='h-12 w-12 text-gray-400 mx-auto mb-4' />
@@ -1936,7 +1936,7 @@ export default function HanziListPage() {
 
       {/* 조회 제한 모달 */}
       {showLimitModal && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50'>
           <div className='bg-white rounded-lg p-6 max-w-md w-full mx-4'>
             <div className='text-center'>
               <div className='text-4xl mb-4'>⚠️</div>

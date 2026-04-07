@@ -36,6 +36,35 @@ export type HanziListServerCursor = {
   values: (string | number | boolean)[]
 }
 
+/** 교과서 한자어 페이지 — 다음 호출 시 이어 읽기 위치 */
+export type TextbookWordsPageCursor =
+  | {
+      mode: "resumeMidDoc"
+      gradeNumber: number
+      docId: string
+      relatedWordIndex: number
+    }
+  | {
+      mode: "afterDoc"
+      gradeNumber: number
+      docId: string
+    }
+
+export type TextbookWordListItem = {
+  word: string
+  korean: string
+  hanzi: string
+  meaning?: string
+  sourceHanziId: string
+  includedHanzi: Array<{
+    character: string
+    meaning: string
+    sound: string
+    grade: number
+    gradeNumber: number
+  }>
+}
+
 // 한국시간(KST, UTC+9) 기준으로 날짜를 계산하는 유틸리티 함수
 // 한국 시간대(Asia/Seoul)를 직접 사용하여 정확한 날짜 계산
 export const getKSTDate = () => {
@@ -307,6 +336,292 @@ export class ApiClient {
         (a, b) => (a.gradeNumber || 0) - (b.gradeNumber || 0)
       )
     }
+  }
+
+  private static findIncludedHanziForTextbookWord(
+    word: string,
+    resolverList: Hanzi[],
+    grade: number
+  ): TextbookWordListItem["includedHanzi"] {
+    const out: TextbookWordListItem["includedHanzi"] = []
+    for (let i = 0; i < word.length; i++) {
+      const char = word[i]
+      let hanzi = resolverList.find(
+        (h) => h.character === char && h.grade === grade
+      )
+      if (!hanzi) {
+        hanzi = resolverList.find((h) => h.character === char)
+      }
+      if (hanzi) {
+        out.push({
+          character: hanzi.character,
+          meaning: hanzi.meaning,
+          sound: hanzi.sound,
+          grade: hanzi.grade,
+          gradeNumber: hanzi.gradeNumber,
+        })
+      } else {
+        out.push({
+          character: char,
+          meaning: "?",
+          sound: "?",
+          grade: 0,
+          gradeNumber: 0,
+        })
+      }
+    }
+    return out
+  }
+
+  private static charResolvedForTextbookWord(
+    char: string,
+    resolverList: Hanzi[],
+    grade: number
+  ): boolean {
+    let hanzi = resolverList.find(
+      (h) => h.character === char && h.grade === grade
+    )
+    if (!hanzi) {
+      hanzi = resolverList.find((h) => h.character === char)
+    }
+    return !!hanzi
+  }
+
+  /**
+   * 구성 한자 표시용: 페이지 단어에 들어가는 글자 중 아직 resolver에 없는 문서만
+   * grade+character로 추가 조회해 뜻/음이 ?로 나오지 않게 함 (순차 스캔만으로는
+   * 뒤쪽에 있는 한자 문서가 아직 로드되지 않을 수 있음).
+   */
+  private static async enrichTextbookWordIncludedHanzi(
+    grade: number,
+    items: TextbookWordListItem[],
+    resolverList: Hanzi[]
+  ): Promise<{ items: TextbookWordListItem[]; extraReads: number }> {
+    const needed = new Set<string>()
+    for (const it of items) {
+      for (const ch of it.word) {
+        if (!ApiClient.charResolvedForTextbookWord(ch, resolverList, grade)) {
+          needed.add(ch)
+        }
+      }
+    }
+    let extraReads = 0
+    const IN_LIMIT = 10
+    const list = [...needed]
+    for (let i = 0; i < list.length; i += IN_LIMIT) {
+      const chunk = list.slice(i, i + IN_LIMIT)
+      const q = query(
+        collection(db, "hanzi"),
+        where("grade", "==", grade),
+        where("character", "in", chunk)
+      )
+      const snap = await getDocs(q)
+      extraReads += snap.docs.length
+      for (const d of snap.docs) {
+        const h = { ...d.data(), id: d.id } as Hanzi
+        if (!resolverList.some((x) => x.id === h.id)) {
+          resolverList.push(h)
+        }
+      }
+    }
+    const remapped = items.map((it) => ({
+      ...it,
+      includedHanzi: ApiClient.findIncludedHanziForTextbookWord(
+        it.word,
+        resolverList,
+        grade
+      ),
+    }))
+    return { items: remapped, extraReads }
+  }
+
+  /**
+   * 교과서 한자어: 한자 문서를 배치(limit)로 읽어 고유 단어를 pageSize개까지 채움.
+   * cursor·seenWordKeys로 이전 페이지와 동일 순서(급 내 gradeNumber·문서 순)를 유지합니다.
+   */
+  static async getTextbookWordsPage(args: {
+    grade: number
+    pageSize: number
+    cursor: TextbookWordsPageCursor | null
+    seenWordKeys: string[]
+  }): Promise<{
+    items: TextbookWordListItem[]
+    nextCursor: TextbookWordsPageCursor | null
+    hasMore: boolean
+    hanziDocumentReads: number
+  }> {
+    const { grade, pageSize, cursor, seenWordKeys } = args
+    const seen = new Set(seenWordKeys)
+    const items: TextbookWordListItem[] = []
+    const resolverList: Hanzi[] = []
+    let hanziDocumentReads = 0
+
+    const HANZI_BATCH = 35
+    const MAX_BATCHES = 40
+
+    const snapToHanzi = (d: QueryDocumentSnapshot<DocumentData>): Hanzi =>
+      ({ ...d.data(), id: d.id }) as Hanzi
+
+    const pushResolver = (h: Hanzi) => {
+      if (!resolverList.some((x) => x.id === h.id)) {
+        resolverList.push(h)
+      }
+    }
+
+    const finalizePageResult = async (
+      pageItems: TextbookWordListItem[],
+      nextCursor: TextbookWordsPageCursor | null,
+      hasMore: boolean
+    ): Promise<{
+      items: TextbookWordListItem[]
+      nextCursor: TextbookWordsPageCursor | null
+      hasMore: boolean
+      hanziDocumentReads: number
+    }> => {
+      let reads = hanziDocumentReads
+      let outItems = pageItems
+      if (pageItems.length > 0) {
+        const { items: enriched, extraReads } =
+          await ApiClient.enrichTextbookWordIncludedHanzi(
+            grade,
+            pageItems,
+            resolverList
+          )
+        outItems = enriched
+        reads += extraReads
+      }
+      return {
+        items: outItems,
+        nextCursor,
+        hasMore,
+        hanziDocumentReads: reads,
+      }
+    }
+
+    const probeMoreAfterDoc = async (gn: number, docId: string) => {
+      const qq = query(
+        collection(db, "hanzi"),
+        where("grade", "==", grade),
+        orderBy("gradeNumber"),
+        orderBy(documentId()),
+        startAfter(gn, docId),
+        limit(1)
+      )
+      const sn = await getDocs(qq)
+      hanziDocumentReads += sn.docs.length
+      return !sn.empty
+    }
+
+    const tryEmitFromDoc = (
+      h: Hanzi,
+      startRw: number
+    ): {
+      doneDoc: boolean
+      pageFull: boolean
+      nextCursor: TextbookWordsPageCursor | null
+    } => {
+      const rel = h.relatedWords || []
+      const gn = h.gradeNumber ?? 0
+      for (let i = startRw; i < rel.length; i++) {
+        const rw = rel[i]
+        if (!rw?.isTextBook || !rw.hanzi) continue
+        if (seen.has(rw.hanzi)) continue
+        seen.add(rw.hanzi)
+        items.push({
+          word: rw.hanzi,
+          korean: rw.korean || "",
+          hanzi: rw.hanzi,
+          meaning: rw.meaning,
+          sourceHanziId: h.id,
+          includedHanzi: ApiClient.findIncludedHanziForTextbookWord(
+            rw.hanzi,
+            resolverList,
+            grade
+          ),
+        })
+        if (items.length >= pageSize) {
+          const moreInThisDoc = i + 1 < rel.length
+          const nextCursor: TextbookWordsPageCursor = moreInThisDoc
+            ? {
+                mode: "resumeMidDoc",
+                gradeNumber: gn,
+                docId: h.id,
+                relatedWordIndex: i + 1,
+              }
+            : { mode: "afterDoc", gradeNumber: gn, docId: h.id }
+          return { doneDoc: !moreInThisDoc, pageFull: true, nextCursor }
+        }
+      }
+      return { doneDoc: true, pageFull: false, nextCursor: null }
+    }
+
+    let startAfterPair: [number, string] | null = null
+
+    if (cursor?.mode === "afterDoc") {
+      startAfterPair = [cursor.gradeNumber, cursor.docId]
+    } else if (cursor?.mode === "resumeMidDoc") {
+      const ds = await getDoc(doc(db, "hanzi", cursor.docId))
+      hanziDocumentReads += 1
+      if (!ds.exists()) {
+        return finalizePageResult(items, null, false)
+      }
+      const h = { ...ds.data(), id: ds.id } as Hanzi
+      if (h.grade !== grade) {
+        return finalizePageResult(items, null, false)
+      }
+      pushResolver(h)
+      const r = tryEmitFromDoc(h, cursor.relatedWordIndex)
+      if (r.pageFull && r.nextCursor) {
+        const nc = r.nextCursor
+        const hasMore =
+          nc.mode === "resumeMidDoc" ||
+          (await probeMoreAfterDoc(h.gradeNumber ?? 0, h.id))
+        return finalizePageResult(items, nc, hasMore)
+      }
+      startAfterPair = [h.gradeNumber ?? 0, h.id]
+    }
+
+    let batches = 0
+    while (items.length < pageSize && batches < MAX_BATCHES) {
+      const constraints: QueryConstraint[] = [
+        where("grade", "==", grade),
+        orderBy("gradeNumber"),
+        orderBy(documentId()),
+        limit(HANZI_BATCH),
+      ]
+      if (startAfterPair) {
+        constraints.push(startAfter(startAfterPair[0], startAfterPair[1]))
+      }
+
+      const q = query(collection(db, "hanzi"), ...constraints)
+      const snapshot = await getDocs(q)
+      batches += 1
+      hanziDocumentReads += snapshot.docs.length
+
+      if (snapshot.empty) {
+        return finalizePageResult(items, null, false)
+      }
+
+      for (const docSnap of snapshot.docs) {
+        const h = snapToHanzi(docSnap)
+        pushResolver(h)
+        const r = tryEmitFromDoc(h, 0)
+        if (r.pageFull && r.nextCursor) {
+          const nc = r.nextCursor
+          const hasMore =
+            nc.mode === "resumeMidDoc" ||
+            (await probeMoreAfterDoc(h.gradeNumber ?? 0, h.id))
+          return finalizePageResult(items, nc, hasMore)
+        }
+        startAfterPair = [h.gradeNumber ?? 0, h.id]
+      }
+
+      if (snapshot.docs.length < HANZI_BATCH) {
+        return finalizePageResult(items, null, false)
+      }
+    }
+
+    return finalizePageResult(items, null, false)
   }
 
   /** 필터만 적용한 급수별 한자 개수 (집계 쿼리) */

@@ -789,7 +789,7 @@ export default function AdminWritingGalleryPage() {
                       unoptimized
                     />
                     <div className='absolute top-2 left-2'>
-                      <span className='px-2 py-1 bg-black bg-opacity-50 text-white text-xs rounded'>
+                      <span className='px-2 py-1 bg-black/70 text-white text-xs rounded'>
                         {submission.grade}급
                       </span>
                     </div>
@@ -1032,7 +1032,7 @@ export default function AdminWritingGalleryPage() {
       {/* 이미지 모달 */}
       {selectedImage && (
         <div
-          className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75'
+          className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70'
           onClick={closeImageModal}
         >
           <div
@@ -1081,7 +1081,7 @@ export default function AdminWritingGalleryPage() {
 
       {/* 커스텀 모달 */}
       {showModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50'>
+        <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70'>
           <div className='bg-white rounded-lg shadow-xl max-w-md w-full mx-4'>
             <div className='p-6'>
               <div className='flex items-center mb-4'>
@@ -1126,7 +1126,7 @@ export default function AdminWritingGalleryPage() {
 
       {/* 삭제 로딩 오버레이 */}
       {deletingSubmissionId && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50'>
           <div className='bg-white rounded-lg p-6 flex items-center space-x-4'>
             <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
             <div className='text-lg font-medium text-gray-900'>

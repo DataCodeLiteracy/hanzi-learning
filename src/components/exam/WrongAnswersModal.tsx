@@ -123,8 +123,7 @@ export default function WrongAnswersModal({
     <div className='fixed inset-0 z-50 flex items-center justify-center'>
       {/* 배경 오버레이 */}
       <div
-        className='absolute inset-0'
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+        className='absolute inset-0 bg-black/70'
         onClick={onClose}
       />
 

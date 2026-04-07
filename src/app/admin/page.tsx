@@ -871,7 +871,7 @@ export default function AdminPage() {
       {showDeleteConfirmModal && deletingHanzi && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <div
-            className='absolute inset-0 bg-black bg-opacity-50'
+            className='absolute inset-0 bg-black/70'
             onClick={() => {
               setDeletingHanzi(null)
               setShowDeleteConfirmModal(false)
@@ -916,8 +916,7 @@ export default function AdminPage() {
       {showDeleteGradeModal && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <div
-            className='absolute inset-0'
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+            className='absolute inset-0 bg-black/70'
             onClick={() => setShowDeleteGradeModal(false)}
           />
           <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
@@ -964,8 +963,7 @@ export default function AdminPage() {
       {showEmptyGradeModal && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <div
-            className='absolute inset-0'
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+            className='absolute inset-0 bg-black/70'
             onClick={() => setShowEmptyGradeModal(false)}
           />
           <div className='relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6'>
@@ -1003,7 +1001,7 @@ export default function AdminPage() {
       {showEditModal && editingHanzi && (
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
           <div
-            className='absolute inset-0 bg-black bg-opacity-50'
+            className='absolute inset-0 bg-black/70'
             onClick={() => setShowEditModal(false)}
           />
           <div className='relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto'>

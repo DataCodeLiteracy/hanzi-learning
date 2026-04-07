@@ -358,7 +358,7 @@ export default function WritingUploadPage() {
     <div className='min-h-screen bg-gray-50 relative'>
       {/* 업로드 중 전체 페이지 오버레이 로딩 */}
       {isUploading && (
-        <div className='fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50'>
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50'>
           <div className='bg-white rounded-xl p-10 max-w-lg mx-4 text-center shadow-2xl border relative overflow-hidden'>
             <div className='absolute inset-0 bg-gradient-to-br from-green-50 to-blue-50 opacity-50'></div>
             <div className='absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-blue-500 animate-pulse'></div>

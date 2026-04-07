@@ -44,7 +44,7 @@ export default function BonusExperienceModal({
   const description = `연속 ${milestone}일 달성 보너스 (평균 목표의 ${pct}%)`
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center">
         <div className="mb-6">
           <div className="text-6xl mb-4">🎁</div>

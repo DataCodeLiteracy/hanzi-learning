@@ -2,11 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
-import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import { ApiClient } from "@/lib/apiClient"
-import { Hanzi } from "@/types"
-import { ArrowLeft, BookOpen, ExternalLink, Edit, Plus } from "lucide-react"
+import {
+  ApiClient,
+  type TextbookWordListItem,
+  type TextbookWordsPageCursor,
+} from "@/lib/apiClient"
+import {
+  ArrowLeft,
+  BookOpen,
+  ExternalLink,
+  Edit,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+} from "lucide-react"
 import Link from "next/link"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import {
@@ -15,8 +26,10 @@ import {
   type PageType,
 } from "@/lib/gradeQueryLimit"
 import { CustomSelect } from "@/components/ui/CustomSelect"
+import type { Hanzi } from "@/types"
 
 const PAGE_TYPE: PageType = "textbook-words"
+const TEXTBOOK_PAGE_SIZE = 20
 
 const TEXTBOOK_GRADE_OPTIONS = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3].map(
   (grade) => ({
@@ -36,7 +49,8 @@ interface TextbookWord {
   word: string
   korean: string
   hanzi: string
-  meaning?: string // 교과서 한자어의 뜻
+  meaning?: string
+  sourceHanziId: string
   includedHanzi: Array<{
     character: string
     meaning: string
@@ -54,321 +68,224 @@ interface HanziItem {
   gradeNumber: number
 }
 
+type PageEntry = {
+  items: TextbookWord[]
+  nextCursor: TextbookWordsPageCursor | null
+  seenKeys: string[]
+  hasMoreAfter: boolean
+}
+
+function mapApiItemToWord(item: TextbookWordListItem): TextbookWord {
+  return {
+    word: item.word,
+    korean: item.korean,
+    hanzi: item.hanzi,
+    meaning: item.meaning,
+    sourceHanziId: item.sourceHanziId,
+    includedHanzi: item.includedHanzi,
+  }
+}
+
 export default function TextbookWordsPage() {
   const { user, initialLoading } = useAuth()
-  const { hanziList: dataHanziList } = useData() // DataContext의 hanziList 가져오기
-  const [textbookWords, setTextbookWords] = useState<TextbookWord[]>([])
-  const [isLoading, setIsLoading] = useState(true) // 통합 로딩 상태
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
   )
+  const [listPage, setListPage] = useState(1)
+  const [currentWords, setCurrentWords] = useState<TextbookWord[]>([])
   const [selectedItem, setSelectedItem] = useState<{
     type: "word" | "hanzi"
     data: TextbookWord | HanziItem
   } | null>(null)
   const [showModal, setShowModal] = useState(false)
-  const [showLimitModal, setShowLimitModal] = useState<boolean>(false) // 조회 제한 모달
-  const gradeDataCache = useRef<Map<number, Hanzi[]>>(new Map()) // 급수별 데이터 캐시
-  const [isInitialLoad, setIsInitialLoad] = useState(true) // 초기 로드 여부
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
-  // 시간 추적 훅 (페이지 접속 시간 체크)
-  const { endSession, isActive } = useTimeTracking({
-    userId: user?.id || "",
-    type: "page",
-    activity: "textbook-words",
-    autoStart: true, // 페이지 접속 시 자동 시작
-    autoEnd: true,
-  })
+  const pageCacheRef = useRef<Map<number, PageEntry>>(new Map())
+  const nonPreferredIncrementedRef = useRef<Set<number>>(new Set())
 
-  // 페이지를 떠날 때 시간 추적 종료
-  useEffect(() => {
-    return () => {
-      if (isActive) {
-        endSession()
-      }
-    }
-  }, [isActive, endSession])
-
-  // 뜻 등록 관련 상태
   const [showMeaningModal, setShowMeaningModal] = useState(false)
   const [selectedWordForMeaning, setSelectedWordForMeaning] =
     useState<TextbookWord | null>(null)
   const [meaningInput, setMeaningInput] = useState("")
   const [isSubmittingMeaning, setIsSubmittingMeaning] = useState(false)
 
-  // 단어를 구성하는 한자들 찾기
-  const findIncludedHanzi = (
-    word: string,
-    hanziList: Hanzi[],
-    selectedGrade: number
-  ) => {
-    const includedHanzi: Array<{
-      character: string
-      meaning: string
-      sound: string
-      grade: number
-      gradeNumber: number
-    }> = []
+  const [hanziMetaModal, setHanziMetaModal] = useState<HanziItem | null>(null)
 
-    // 단어의 각 글자가 한자 목록에 있는지 확인
-    for (let i = 0; i < word.length; i++) {
-      const char = word[i]
+  const { endSession, isActive } = useTimeTracking({
+    userId: user?.id || "",
+    type: "page",
+    activity: "textbook-words",
+    autoStart: true,
+    autoEnd: true,
+  })
 
-      // 먼저 선택한 급수에서 찾기
-      let hanzi = hanziList.find(
-        (h) => h.character === char && h.grade === selectedGrade
-      )
-
-      // 선택한 급수에서 못 찾으면 다른 급수에서 찾기
-      if (!hanzi) {
-        hanzi = hanziList.find((h) => h.character === char)
-      }
-
-      if (hanzi) {
-        includedHanzi.push({
-          character: hanzi.character,
-          meaning: hanzi.meaning,
-          sound: hanzi.sound,
-          grade: hanzi.grade,
-          gradeNumber: hanzi.gradeNumber,
-        })
-      } else {
-        // 한자를 찾지 못한 경우에도 빈 객체로 추가 (UI에서 "-" 표시)
-        includedHanzi.push({
-          character: char,
-          meaning: "?",
-          sound: "?",
-          grade: 0,
-          gradeNumber: 0,
-        })
-      }
+  useEffect(() => {
+    return () => {
+      if (isActive) endSession()
     }
+  }, [isActive, endSession])
 
-    return includedHanzi
-  }
+  const clearPageCache = useCallback(() => {
+    pageCacheRef.current.clear()
+  }, [])
 
-  // 교과서 한자어 추출 함수
-  const extractTextbookWords = useCallback(
-    (
-      hanziList: Hanzi[],
-      grade: number,
-      allHanziList: Hanzi[]
-    ): TextbookWord[] => {
-      const wordMap = new Map<string, TextbookWord>()
+  const fetchPage = useCallback(
+    async (grade: number, pageNum: number): Promise<boolean> => {
+      if (!user) return false
 
-      // 선택한 급수의 한자만 필터링
-      const gradeHanzi = hanziList.filter((hanzi) => hanzi.grade === grade)
+      if (pageNum > 1) {
+        const prev = pageCacheRef.current.get(pageNum - 1)
+        if (!prev) return false
+      }
 
-      gradeHanzi.forEach((hanzi) => {
-        if (hanzi.relatedWords) {
-          hanzi.relatedWords.forEach((relatedWord) => {
-            if (relatedWord.isTextBook) {
-              // 이미 존재하는 단어인지 확인
-              if (!wordMap.has(relatedWord.hanzi)) {
-                // 해당 단어를 구성하는 한자들 찾기 (전체 한자 목록에서 찾기)
-                const includedHanzi = findIncludedHanzi(
-                  relatedWord.hanzi,
-                  allHanziList,
-                  selectedGrade
-                )
+      const { canQuery } = checkGradeQueryLimit(
+        grade,
+        user.preferredGrade,
+        PAGE_TYPE
+      )
+      if (!canQuery) {
+        setShowLimitModal(true)
+        return false
+      }
 
-                wordMap.set(relatedWord.hanzi, {
-                  word: relatedWord.hanzi,
-                  korean: relatedWord.korean,
-                  hanzi: relatedWord.hanzi,
-                  meaning: relatedWord.meaning, // 뜻 정보 추가
-                  includedHanzi,
-                })
-              }
-            }
-          })
-        }
+      const prevEntry = pageCacheRef.current.get(pageNum - 1)
+      const cursor: TextbookWordsPageCursor | null =
+        pageNum === 1 ? null : prevEntry?.nextCursor ?? null
+      const seenWordKeys: string[] =
+        pageNum === 1 ? [] : prevEntry?.seenKeys ?? []
+
+      if (
+        grade !== user.preferredGrade &&
+        !nonPreferredIncrementedRef.current.has(grade)
+      ) {
+        incrementGradeQueryCount(grade, user.preferredGrade, PAGE_TYPE)
+        nonPreferredIncrementedRef.current.add(grade)
+      }
+
+      const res = await ApiClient.getTextbookWordsPage({
+        grade,
+        pageSize: TEXTBOOK_PAGE_SIZE,
+        cursor,
+        seenWordKeys,
       })
 
-      return Array.from(wordMap.values())
+      const items = res.items.map(mapApiItemToWord)
+      const newSeen = [...seenWordKeys, ...items.map((w) => w.word)]
+
+      pageCacheRef.current.set(pageNum, {
+        items,
+        nextCursor: res.nextCursor,
+        seenKeys: newSeen,
+        hasMoreAfter: res.hasMore,
+      })
+
+      setCurrentWords(items)
+      setListPage(pageNum)
+      return true
     },
-    [selectedGrade]
+    [user]
   )
 
-  // 한자 데이터 로드 함수 수정
-  const loadData = useCallback(
-    async (grade: number = 8) => {
+  const loadPage = useCallback(
+    async (pageNum: number) => {
+      if (!user) return
       setIsLoading(true)
-
       try {
-        let hanziData: Hanzi[]
-
-        // preferredGrade일 때는 DataContext의 hanziList(IndexedDB) 사용
-        if (user?.preferredGrade === grade && dataHanziList.length > 0) {
-          // IndexedDB에서 로드 (preferredGrade)
-          const gradeHanzi = dataHanziList.filter(
-            (hanzi) => hanzi.grade === grade
-          )
-          if (gradeHanzi.length > 0) {
-            hanziData = gradeHanzi
-            console.log(
-              `📚 IndexedDB에서 ${grade}급 한자 ${hanziData.length}개 로드`
-            )
-          } else {
-            // IndexedDB에 해당 급수 데이터가 없으면 API로 폴백
-            // 조회 제한 확인
-            const { canQuery } = checkGradeQueryLimit(
-              grade,
-              user?.preferredGrade,
-              PAGE_TYPE
-            )
-
-            if (!canQuery) {
-              // 조회 제한 도달 - 모달 표시
-              setShowLimitModal(true)
-              setIsLoading(false)
-              return
-            }
-
-            hanziData = await ApiClient.getHanziByGrade(grade)
-            // 조회 횟수 증가
-            incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
-            console.log(
-              `📚 API에서 ${grade}급 한자 ${hanziData.length}개 로드 (IndexedDB에 데이터 없음)`
-            )
-          }
-        } else {
-          // 다른 급수는 API에서 로드 (selectbox에서 선택할 때마다 API 호출)
-          // 조회 제한 확인
-          const { canQuery } = checkGradeQueryLimit(
-            grade,
-            user?.preferredGrade,
-            PAGE_TYPE
-          )
-
-          if (!canQuery) {
-            // 조회 제한 도달 - 모달 표시
-            setShowLimitModal(true)
-            setIsLoading(false)
-            return
-          }
-
-          // API 호출
-          hanziData = await ApiClient.getHanziByGrade(grade)
-          // 캐시에 저장 (다른 용도로 사용 가능)
-          gradeDataCache.current.set(grade, hanziData)
-          // 조회 횟수 증가
-          incrementGradeQueryCount(grade, user?.preferredGrade, PAGE_TYPE)
-          console.log(`📚 API에서 ${grade}급 한자 ${hanziData.length}개 로드`)
+        const cached = pageCacheRef.current.get(pageNum)
+        if (cached) {
+          setCurrentWords(cached.items)
+          setListPage(pageNum)
+          return
         }
-
-        const words = extractTextbookWords(hanziData, grade, hanziData)
-        setTextbookWords(words)
-      } catch (error) {
-        console.error("데이터 로드 실패:", error)
+        await fetchPage(selectedGrade, pageNum)
+      } catch (e) {
+        console.error("교과서 한자어 페이지 로드 실패:", e)
       } finally {
         setIsLoading(false)
       }
     },
-    [extractTextbookWords, user, dataHanziList]
+    [user, selectedGrade, fetchPage]
   )
 
   useEffect(() => {
     if (user && !initialLoading && isInitialLoad) {
-      // preferredGrade가 있으면 그것부터 로드, 없으면 8급
-      const initialGrade = user?.preferredGrade || 8
-      setSelectedGrade(initialGrade)
-      loadData(initialGrade)
-      setIsInitialLoad(false) // 초기 로드 완료
+      const g = user.preferredGrade || 8
+      setSelectedGrade(g)
+      setIsInitialLoad(false)
+      void (async () => {
+        setIsLoading(true)
+        try {
+          clearPageCache()
+          await fetchPage(g, 1)
+        } finally {
+          setIsLoading(false)
+        }
+      })()
     }
-  }, [user, initialLoading, isInitialLoad, loadData])
+  }, [user, initialLoading, isInitialLoad, fetchPage, clearPageCache])
 
-  // 급수 변경 시 데이터 로드
   const handleGradeChange = useCallback(
     async (grade: number) => {
-      if (grade === selectedGrade) return // 같은 급수면 불필요한 호출 방지
-
+      if (grade === selectedGrade) return
       setSelectedGrade(grade)
-      await loadData(grade)
+      setListPage(1)
+      setCurrentWords([])
+      clearPageCache()
+      nonPreferredIncrementedRef.current.clear()
+      setIsLoading(true)
+      try {
+        await fetchPage(grade, 1)
+      } finally {
+        setIsLoading(false)
+      }
     },
-    [selectedGrade, loadData]
+    [selectedGrade, fetchPage, clearPageCache]
   )
 
-  // 급수별 한자 수 계산 (향후 사용 예정)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getGradeCounts = async () => {
-    const counts: { [grade: number]: number } = {}
+  const currentEntry = pageCacheRef.current.get(listPage)
+  const canGoNext =
+    (currentEntry?.hasMoreAfter === true) ||
+    pageCacheRef.current.has(listPage + 1)
+  const canGoPrev = listPage > 1
 
-    // 각 급수별로 교과서 한자어 단어 개수 카운트
-    const grades = [8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3]
-
-    for (const grade of grades) {
-      try {
-        // 해당 급수의 한자 데이터 로드
-        const gradeHanzi = await ApiClient.getHanziByGrade(grade)
-
-        // 교과서 한자어 단어들을 Set으로 중복 제거
-        const textbookWords = new Set<string>()
-
-        gradeHanzi.forEach((hanzi) => {
-          if (hanzi.relatedWords) {
-            hanzi.relatedWords.forEach((relatedWord) => {
-              if (relatedWord.isTextBook) {
-                textbookWords.add(relatedWord.hanzi)
-              }
-            })
-          }
-        })
-
-        const wordCount = textbookWords.size
-
-        // 데이터가 있는 경우에만 카운트 추가
-        if (wordCount > 0) {
-          counts[grade] = wordCount
-        }
-      } catch (error) {
-        console.error(`${grade}급 데이터 로드 실패:`, error)
-      }
+  const goNext = useCallback(async () => {
+    if (!canGoNext) return
+    const next = listPage + 1
+    setIsLoading(true)
+    try {
+      await loadPage(next)
+    } finally {
+      setIsLoading(false)
     }
+  }, [canGoNext, listPage, loadPage])
 
-    return counts
-  }
+  const goPrev = useCallback(() => {
+    if (!canGoPrev) return
+    const p = listPage - 1
+    const e = pageCacheRef.current.get(p)
+    if (e) {
+      setCurrentWords(e.items)
+      setListPage(p)
+    }
+  }, [canGoPrev, listPage])
 
-  // 급수별 카운트 상태 - 제거하고 하드코딩된 급수 사용
-  // const [gradeCounts, setGradeCounts] = useState<{ [grade: number]: number }>({})
-
-  // 급수별 카운트 로드 - 제거 (불필요한 모든 급수 조회 방지)
-  // useEffect(() => {
-  //   const loadGradeCounts = async () => {
-  //     const counts = await getGradeCounts()
-  //     setGradeCounts(counts)
-  //   }
-
-  //   if (!authLoading) {
-  //     loadGradeCounts()
-  //   }
-  // }, [authLoading])
-
-  // 모달 닫기
   const closeModal = () => {
     setShowModal(false)
     setSelectedItem(null)
   }
 
-  // 단어 클릭 핸들러
   const handleWordClick = (word: TextbookWord) => {
-    setSelectedItem({
-      type: "word",
-      data: word,
-    })
+    setSelectedItem({ type: "word", data: word })
     setShowModal(true)
   }
 
-  // 한자 클릭 핸들러
   const handleHanziClick = (hanzi: HanziItem) => {
-    setSelectedItem({
-      type: "hanzi",
-      data: hanzi,
-    })
+    setSelectedItem({ type: "hanzi", data: hanzi })
     setShowModal(true)
   }
 
-  // 네이버 국어사전 검색 함수
   const handleNaverKoreanSearch = (word: string) => {
     const searchUrl = `https://ko.dict.naver.com/#/search?query=${encodeURIComponent(
       word
@@ -376,73 +293,61 @@ export default function TextbookWordsPage() {
     window.open(searchUrl, "_blank")
   }
 
-  // 뜻 등록 모달 열기
   const openMeaningModal = (word: TextbookWord) => {
     setSelectedWordForMeaning(word)
     setMeaningInput(word.meaning || "")
     setShowMeaningModal(true)
   }
 
-  // 뜻 등록 모달 닫기
   const closeMeaningModal = () => {
     setShowMeaningModal(false)
     setSelectedWordForMeaning(null)
     setMeaningInput("")
   }
 
-  // 뜻 등록/수정 제출
   const submitMeaning = async () => {
     if (!selectedWordForMeaning || !meaningInput.trim() || !user) return
 
     setIsSubmittingMeaning(true)
     try {
-      // 해당 한자를 찾아서 relatedWords의 meaning 업데이트
-      let hanziData: Hanzi[]
+      let targetHanzi: Hanzi | null = null
 
-      // preferredGrade일 때는 DataContext의 hanziList(IndexedDB) 사용
-      if (user?.preferredGrade === selectedGrade && dataHanziList.length > 0) {
-        const gradeHanzi = dataHanziList.filter(
-          (hanzi) => hanzi.grade === selectedGrade
+      if (selectedWordForMeaning.sourceHanziId) {
+        targetHanzi = await ApiClient.getDocument<Hanzi>(
+          "hanzi",
+          selectedWordForMeaning.sourceHanziId
         )
-        if (gradeHanzi.length > 0) {
-          hanziData = gradeHanzi
-        } else {
-          // IndexedDB에 데이터가 없으면 API 호출
-          hanziData = await ApiClient.getHanziByGrade(selectedGrade)
-        }
-      } else {
-        // 다른 급수는 API에서 로드
-        hanziData = await ApiClient.getHanziByGrade(selectedGrade)
       }
-      const targetHanzi = hanziData.find((hanzi) =>
-        hanzi.relatedWords?.some(
-          (word) =>
-            word.hanzi === selectedWordForMeaning.hanzi && word.isTextBook
-        )
-      )
+
+      if (!targetHanzi) {
+        const all = await ApiClient.getHanziByGrade(selectedGrade)
+        targetHanzi =
+          all.find((hanzi) =>
+            hanzi.relatedWords?.some(
+              (w) =>
+                w.hanzi === selectedWordForMeaning.hanzi && w.isTextBook
+            )
+          ) ?? null
+      }
 
       if (targetHanzi) {
-        // relatedWords에서 해당 단어 찾기
         const relatedWordIndex = targetHanzi.relatedWords?.findIndex(
           (word) =>
             word.hanzi === selectedWordForMeaning.hanzi && word.isTextBook
         )
 
         if (relatedWordIndex !== undefined && relatedWordIndex >= 0) {
-          // 새로운 relatedWords 배열 생성
           const updatedRelatedWords = [...(targetHanzi.relatedWords || [])]
           updatedRelatedWords[relatedWordIndex] = {
             ...updatedRelatedWords[relatedWordIndex],
             meaning: meaningInput.trim(),
           }
 
-          // 한자 문서 업데이트
           await ApiClient.updateDocument("hanzi", targetHanzi.id, {
             relatedWords: updatedRelatedWords,
           })
           await ApiClient.clearHanziDataIssue(targetHanzi.id)
 
-          // 경험치 10 추가 (새로 등록하는 경우에만)
           if (!selectedWordForMeaning.meaning) {
             await ApiClient.addUserExperience(user.id, 10)
             await ApiClient.updateTodayExperience(user.id, 10)
@@ -451,8 +356,13 @@ export default function TextbookWordsPage() {
             alert("뜻이 성공적으로 수정되었습니다!")
           }
 
-          // 데이터 다시 로드하여 UI 업데이트
-          await loadData(selectedGrade)
+          clearPageCache()
+          setIsLoading(true)
+          try {
+            await fetchPage(selectedGrade, 1)
+          } finally {
+            setIsLoading(false)
+          }
         }
       }
 
@@ -465,7 +375,64 @@ export default function TextbookWordsPage() {
     }
   }
 
-  // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
+  const renderIncludedGrid = (word: TextbookWord) => (
+    <div className='grid grid-cols-4 gap-2'>
+      {word.includedHanzi.map((hanzi, i) => (
+        <div
+          key={`${word.word}-${i}`}
+          role={hanzi ? "button" : undefined}
+          tabIndex={hanzi ? 0 : undefined}
+          onClick={hanzi ? () => handleHanziClick(hanzi) : undefined}
+          onKeyDown={
+            hanzi
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    handleHanziClick(hanzi)
+                  }
+                }
+              : undefined
+          }
+          className={`relative rounded-lg border px-1.5 py-2 text-center min-h-[4.25rem] flex flex-col justify-center ${
+            hanzi
+              ? "border-gray-100 bg-slate-50 cursor-pointer hover:bg-slate-100"
+              : "border-dashed border-gray-100 bg-gray-50/40 text-gray-300"
+          }`}
+        >
+          {hanzi && hanzi.grade > 0 && (
+            <button
+              type='button'
+              onClick={(e) => {
+                e.stopPropagation()
+                setHanziMetaModal(hanzi)
+              }}
+              className='absolute top-0.5 right-0.5 p-0.5 rounded-md text-gray-400 hover:text-orange-600 hover:bg-orange-50 z-[1]'
+              title='급수·번호 보기'
+              aria-label='급수·번호 보기'
+            >
+              <Info className='h-3.5 w-3.5' />
+            </button>
+          )}
+          {hanzi ? (
+            <>
+              <span className='text-base sm:text-lg font-bold text-gray-900 leading-tight pr-4'>
+                {hanzi.character}
+              </span>
+              <span className='text-[10px] sm:text-[11px] text-gray-600 mt-0.5 line-clamp-2'>
+                {hanzi.meaning}
+              </span>
+              <span className='text-xs font-medium text-gray-800'>
+                {hanzi.sound}
+              </span>
+            </>
+          ) : (
+            <span className='text-sm'>—</span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
   if (initialLoading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
@@ -498,9 +465,14 @@ export default function TextbookWordsPage() {
     )
   }
 
+  const pageStart =
+    currentWords.length === 0
+      ? 0
+      : (listPage - 1) * TEXTBOOK_PAGE_SIZE + 1
+  const pageEnd = pageStart + currentWords.length - 1
+
   return (
     <div className='min-h-screen bg-gray-50'>
-      {/* 로딩 오버레이 - 페이지 중간에 표시 */}
       {isLoading && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <div
@@ -513,7 +485,6 @@ export default function TextbookWordsPage() {
         </div>
       )}
 
-      {/* 헤더 */}
       <div className='fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex items-center justify-between h-16'>
@@ -532,274 +503,317 @@ export default function TextbookWordsPage() {
         </div>
       </div>
 
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
-        {/* 검색 및 필터 */}
-        <div className='bg-white rounded-lg shadow-sm p-6 mb-6'>
-          <div className='flex justify-between items-center mb-4'>
-            {/* 급수 필터 */}
-            <div className='flex items-center space-x-4'>
-              <label className='text-lg font-bold text-gray-900'>
-                급수 선택:
-              </label>
+      <main className='max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8 pt-20 pb-10'>
+        <div className='bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6'>
+          <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
+            <div className='flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0'>
+              <span className='text-sm font-semibold text-gray-500 shrink-0'>
+                급수
+              </span>
               <CustomSelect
                 value={String(selectedGrade)}
-                onChange={(v) => handleGradeChange(Number(v))}
+                onChange={(v) => void handleGradeChange(Number(v))}
                 options={TEXTBOOK_GRADE_OPTIONS}
                 disabled={isLoading}
-                className='min-w-[8rem]'
-                buttonClassName='px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-bold text-lg disabled:opacity-50 text-gray-900'
+                className='w-full sm:w-auto sm:min-w-[10rem]'
+                buttonClassName='w-full sm:w-auto px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-300 font-semibold text-base text-gray-900 bg-gray-50/80'
                 aria-label='급수 선택'
               />
             </div>
-
-            {/* 결과 수 */}
-            <div className='flex items-center text-lg font-bold text-gray-600'>
-              총 {textbookWords.length}개의 단어
-            </div>
-          </div>
-
-          {/* 통계 정보 */}
-          <div className='flex justify-around items-center py-4 border-t border-gray-200'>
-            <div className='text-center'>
-              <div className='text-2xl font-bold text-blue-600'>
-                {textbookWords.length}
-              </div>
-              <div className='text-sm text-gray-600'>총 단어</div>
-            </div>
-            <div className='text-center'>
-              <div className='text-2xl font-bold text-green-600'>
-                {textbookWords.reduce(
-                  (total, word) => total + word.includedHanzi.length,
-                  0
+            <div className='text-sm text-gray-600 lg:text-right space-y-1'>
+              <div>
+                <span className='font-semibold text-gray-900'>{gradeName}</span>
+                {currentWords.length > 0 && (
+                  <span>
+                    {" "}
+                    · 이번 페이지 {pageStart}–{pageEnd}번째 (
+                    {currentWords.length}개)
+                  </span>
                 )}
               </div>
-              <div className='text-sm text-gray-600'>총 등장</div>
-            </div>
-            <div className='text-center'>
-              <div className='text-2xl font-bold text-purple-600'>
-                {
-                  new Set(
-                    textbookWords.flatMap((word) =>
-                      word.includedHanzi.map((hanzi) => hanzi.character)
-                    )
-                  ).size
-                }
-              </div>
-              <div className='text-sm text-gray-600'>설명된 단어</div>
-            </div>
-            <div className='text-center'>
-              <div className='text-2xl font-bold text-orange-600'>
-                {
-                  textbookWords.filter((word) => word.includedHanzi.length > 0)
-                    .length
-                }
-              </div>
-              <div className='text-sm text-gray-600'>이 개수</div>
             </div>
           </div>
         </div>
 
-        {/* 단어 목록 테이블 */}
-        <div className='bg-white rounded-lg shadow-sm overflow-hidden'>
-          <div className='overflow-x-auto'>
-            <table className='w-full'>
-              <thead className='bg-gray-50'>
-                <tr>
-                  <th className='px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16'></th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]'>
-                    단어
-                  </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
-                    한자1
-                  </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
-                    한자2
-                  </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
-                    한자3
-                  </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]'>
-                    한자4
-                  </th>
-                  <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]'>
-                    뜻
-                  </th>
-                </tr>
-              </thead>
-              <tbody className='bg-white divide-y divide-gray-200'>
-                {textbookWords.map((word, index) => (
-                  <tr key={word.word} className='hover:bg-gray-50'>
-                    <td className='px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center w-16'>
-                      {index + 1}
-                    </td>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center min-w-[200px]'>
-                      <div className='flex items-center justify-center space-x-2'>
-                        <div
-                          className='cursor-pointer hover:bg-blue-50 px-2 py-1 rounded'
-                          onClick={() => handleWordClick(word)}
-                        >
-                          <span className='font-semibold'>{word.korean}</span>
-                          <span className='text-gray-500'>({word.hanzi})</span>
-                        </div>
+        {currentWords.length > 0 && (
+          <div className='xl:hidden mb-4'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4'>
+              {currentWords.map((word, index) => {
+                const globalIndex =
+                  (listPage - 1) * TEXTBOOK_PAGE_SIZE + index + 1
+                return (
+                  <article
+                    key={word.word + String(listPage)}
+                    className='rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-orange-200/80 transition-colors'
+                  >
+                    <div className='flex items-start justify-between gap-2 mb-3'>
+                      <span className='text-xs font-mono text-gray-400 tabular-nums shrink-0 pt-1'>
+                        {globalIndex}
+                      </span>
+                      <div className='flex-1 min-w-0 text-center'>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleNaverKoreanSearch(word.korean)
-                          }}
-                          className='text-blue-600 hover:text-blue-800 transition-colors p-1'
-                          title='네이버 국어사전에서 검색'
+                          type='button'
+                          onClick={() => handleWordClick(word)}
+                          className='w-full group'
                         >
-                          <ExternalLink className='h-3 w-3' />
+                          <div className='text-2xl sm:text-3xl font-bold text-gray-900 leading-tight'>
+                            {word.hanzi}
+                          </div>
+                          <div className='text-base sm:text-lg font-semibold text-orange-700 mt-0.5'>
+                            {word.korean}
+                          </div>
                         </button>
                       </div>
-                    </td>
-                    {[0, 1, 2, 3].map((i) => {
-                      const hanzi: HanziItem | undefined = word.includedHanzi[i]
-                      return (
-                        <td
-                          key={i}
-                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center min-w-[120px] ${
-                            hanzi ? "cursor-pointer hover:bg-blue-50" : ""
-                          }`}
-                          onClick={
-                            hanzi ? () => handleHanziClick(hanzi) : undefined
+                      <div className='flex shrink-0 items-start gap-0.5'>
+                        <button
+                          type='button'
+                          onClick={() => handleNaverKoreanSearch(word.korean)}
+                          className='p-2 rounded-lg text-blue-600 hover:bg-blue-50'
+                          title='네이버 국어사전'
+                          aria-label='네이버 국어사전'
+                        >
+                          <ExternalLink className='h-4 w-4' />
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => openMeaningModal(word)}
+                          className='p-2 rounded-lg text-orange-600 hover:bg-orange-50'
+                          title={word.meaning ? "단어 뜻 수정" : "단어 뜻 등록"}
+                          aria-label={
+                            word.meaning ? "단어 뜻 수정" : "단어 뜻 등록"
                           }
                         >
-                          {hanzi ? (
-                            <div className='text-center'>
-                              <div className='flex items-center justify-center space-x-1 mb-1'>
-                                <div className='font-semibold text-gray-600'>
-                                  {hanzi.meaning}
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleNaverKoreanSearch(hanzi.meaning)
-                                  }}
-                                  className='text-blue-600 hover:text-blue-800 transition-colors p-1'
-                                  title='네이버 국어사전에서 검색'
-                                >
-                                  <ExternalLink className='h-3 w-3' />
-                                </button>
-                              </div>
-                              <div className='text-gray-900 font-bold'>
-                                {hanzi.sound}({hanzi.character})
-                              </div>
-                              <div className='text-xs text-gray-400'>
-                                {hanzi.grade}급 {hanzi.gradeNumber}번
-                              </div>
-                            </div>
+                          {word.meaning ? (
+                            <Edit className='h-4 w-4' />
                           ) : (
-                            <div className='text-gray-300'>-</div>
-                          )}
-                        </td>
-                      )
-                    })}
-                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center min-w-[150px]'>
-                      {word.meaning ? (
-                        <div className='flex items-center justify-center space-x-2'>
-                          <span className='text-gray-700'>{word.meaning}</span>
-                          <button
-                            onClick={() => openMeaningModal(word)}
-                            className='text-blue-600 hover:text-blue-800 transition-colors p-1'
-                            title='뜻 수정'
-                          >
-                            <Edit className='h-3 w-3' />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className='flex items-center justify-center h-full'>
-                          <button
-                            onClick={() => openMeaningModal(word)}
-                            className='flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors px-3 py-2 rounded border border-blue-300 hover:border-blue-400 hover:bg-blue-50'
-                            title='뜻 등록 (+10 경험치)'
-                          >
                             <Plus className='h-4 w-4' />
-                            <span className='text-sm'>등록</span>
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-          {/* 테이블 밑 정보 */}
-          <div className='px-6 py-3 bg-gray-50 border-t border-gray-200'>
-            <div className='flex justify-between items-center'>
-              <div className='text-sm text-gray-600'>
-                총 {textbookWords.length}개의 교과서 한자어
-              </div>
-              <div className='text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200'>
-                💡 뜻 등록 시 <span className='font-semibold'>+10 경험치</span>
-                를 획득합니다!
-              </div>
+                    <div className='mb-3'>
+                      <p className='text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2'>
+                        구성 한자
+                      </p>
+                      {renderIncludedGrid(word)}
+                    </div>
+
+                    <div className='pt-3 border-t border-gray-100'>
+                      {word.meaning ? (
+                        <p className='text-sm text-gray-800'>
+                          <span className='text-gray-500 font-medium'>
+                            단어 뜻{" "}
+                          </span>
+                          {word.meaning}
+                        </p>
+                      ) : (
+                        <p className='text-sm text-amber-800 bg-amber-50/80 rounded-lg px-2 py-1.5 border border-amber-100'>
+                          아직 등록된 뜻이 없습니다.
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 결과가 없을 때 */}
-        {textbookWords.length === 0 && (
+        {currentWords.length > 0 && (
+          <div className='hidden xl:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4'>
+            <div className='overflow-x-auto'>
+              <table className='w-full min-w-[720px]'>
+                <thead className='bg-slate-50 border-b border-gray-200'>
+                  <tr>
+                    <th className='px-3 py-3 text-center text-xs font-semibold text-gray-600 w-12'>
+                      #
+                    </th>
+                    <th className='px-4 py-3 text-center text-xs font-semibold text-gray-600 min-w-[10rem]'>
+                      단어
+                    </th>
+                    <th className='px-4 py-3 text-center text-xs font-semibold text-gray-600 min-w-[14rem]'>
+                      구성 한자
+                    </th>
+                    <th className='px-4 py-3 text-center text-xs font-semibold text-gray-600 min-w-[9rem]'>
+                      단어 뜻
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className='divide-y divide-gray-100'>
+                  {currentWords.map((word, index) => {
+                    const globalIndex =
+                      (listPage - 1) * TEXTBOOK_PAGE_SIZE + index + 1
+                    return (
+                      <tr
+                        key={word.word + String(listPage)}
+                        className='hover:bg-orange-50/30'
+                      >
+                        <td className='px-3 py-3 text-center text-sm text-gray-500 tabular-nums'>
+                          {globalIndex}
+                        </td>
+                        <td className='px-4 py-3 text-center'>
+                          <button
+                            type='button'
+                            onClick={() => handleWordClick(word)}
+                            className='font-bold text-lg text-gray-900 hover:text-orange-700'
+                          >
+                            {word.hanzi}
+                          </button>
+                          <div className='flex items-center justify-center gap-0.5 mt-1'>
+                            <span className='text-sm text-gray-700'>
+                              {word.korean}
+                            </span>
+                            <button
+                              type='button'
+                              onClick={() =>
+                                handleNaverKoreanSearch(word.korean)
+                              }
+                              className='p-1 text-blue-600 hover:bg-blue-50 rounded'
+                              title='네이버 국어사전'
+                              aria-label='네이버 국어사전'
+                            >
+                              <ExternalLink className='h-3.5 w-3.5' />
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => openMeaningModal(word)}
+                              className='p-1 text-orange-600 hover:bg-orange-50 rounded'
+                              title={
+                                word.meaning ? "단어 뜻 수정" : "단어 뜻 등록"
+                              }
+                              aria-label={
+                                word.meaning ? "단어 뜻 수정" : "단어 뜻 등록"
+                              }
+                            >
+                              {word.meaning ? (
+                                <Edit className='h-3.5 w-3.5' />
+                              ) : (
+                                <Plus className='h-3.5 w-3.5' />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                        <td className='px-4 py-3'>
+                          {renderIncludedGrid(word)}
+                        </td>
+                        <td className='px-4 py-3 text-center text-sm'>
+                          {word.meaning ? (
+                            <span className='text-gray-800'>{word.meaning}</span>
+                          ) : (
+                            <span className='text-amber-800/90'>
+                              아직 등록된 뜻이 없습니다.
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {(canGoPrev || canGoNext) && (
+          <div className='flex flex-col sm:flex-row items-center justify-center gap-3 py-4 px-2'>
+            <button
+              type='button'
+              disabled={!canGoPrev || isLoading}
+              onClick={goPrev}
+              className='inline-flex items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto justify-center'
+            >
+              <ChevronLeft className='h-4 w-4' />
+              이전
+            </button>
+            <span className='text-sm text-gray-600 tabular-nums font-medium'>
+              {listPage} 페이지
+            </span>
+            <button
+              type='button'
+              disabled={!canGoNext || isLoading}
+              onClick={() => void goNext()}
+              className='inline-flex items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto justify-center'
+            >
+              다음
+              <ChevronRight className='h-4 w-4' />
+            </button>
+          </div>
+        )}
+
+        {currentWords.length > 0 && (
+          <div className='rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-900 text-center sm:text-left'>
+            뜻을 처음 등록하면{" "}
+            <span className='font-semibold'>+10 경험치</span>를 받습니다.
+          </div>
+        )}
+
+        {currentWords.length === 0 && !isLoading && (
           <div className='text-center py-12'>
             <BookOpen className='h-12 w-12 text-gray-400 mx-auto mb-4' />
             <h3 className='text-lg font-medium text-gray-900 mb-2'>
-              검색 결과가 없습니다
+              교과서 한자어가 없습니다
             </h3>
-            <p className='text-gray-600'>다른 검색어나 필터를 시도해보세요.</p>
+            <p className='text-gray-600'>
+              이 급수 한자의 관련 단어에 교과서 표시가 없거나, 아직 데이터가 없을
+              수 있습니다.
+            </p>
           </div>
         )}
       </main>
 
-      {/* 모달 */}
       {showModal && selectedItem && (
         <div
-          className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+          className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'
           onClick={closeModal}
         >
           <div
-            className='bg-white rounded-lg p-8 max-w-2xl w-full mx-4 relative'
+            className='bg-white rounded-xl p-4 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative shadow-xl'
             onClick={(e) => e.stopPropagation()}
           >
-            {/* X 버튼 */}
             <button
               onClick={closeModal}
               className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold'
             >
               ×
             </button>
-
-            {/* 모달 내용 */}
             <div className='text-center'>
               {selectedItem.type === "word" ? (
                 <div>
-                  <div className='text-6xl font-bold text-gray-900 mb-4'>
+                  <div className='text-5xl sm:text-6xl font-bold text-gray-900 mb-4'>
                     {(selectedItem.data as TextbookWord).hanzi}
                   </div>
-                  <div className='text-2xl font-semibold text-gray-700 mb-2'>
+                  <div className='text-xl sm:text-2xl font-semibold text-gray-700 mb-2'>
                     {(selectedItem.data as TextbookWord).korean}
                   </div>
                   <div className='text-lg text-gray-600 mb-6'>
                     교과서 한자어
                   </div>
-
-                  {/* 구성 한자들 */}
-                  <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mt-6'>
+                  <div className='grid grid-cols-4 gap-3 mt-6 text-left max-w-lg mx-auto'>
                     {(selectedItem.data as TextbookWord).includedHanzi.map(
                       (hanzi: HanziItem, index: number) => (
-                        <div key={index} className='bg-gray-50 rounded-lg p-4'>
-                          <div className='text-3xl font-bold text-gray-900 mb-2'>
+                        <div
+                          key={index}
+                          className='bg-gray-50 rounded-lg p-3 relative'
+                        >
+                          {hanzi.grade > 0 && (
+                            <button
+                              type='button'
+                              onClick={() => setHanziMetaModal(hanzi)}
+                              className='absolute top-1 right-1 p-0.5 text-gray-400 hover:text-orange-600'
+                              aria-label='급수·번호'
+                            >
+                              <Info className='h-3.5 w-3.5' />
+                            </button>
+                          )}
+                          <div className='text-2xl font-bold text-gray-900'>
                             {hanzi.character}
                           </div>
-                          <div className='text-sm font-semibold text-gray-700'>
+                          <div className='text-xs font-semibold text-gray-700'>
                             {hanzi.meaning}
                           </div>
                           <div className='text-xs text-gray-500'>
                             {hanzi.sound}
-                          </div>
-                          <div className='text-xs text-gray-400'>
-                            {hanzi.grade}급 {hanzi.gradeNumber}번
                           </div>
                         </div>
                       )
@@ -808,19 +822,24 @@ export default function TextbookWordsPage() {
                 </div>
               ) : (
                 <div>
-                  <div className='text-8xl font-bold text-gray-900 mb-6'>
+                  <div className='text-7xl sm:text-8xl font-bold text-gray-900 mb-6'>
                     {(selectedItem.data as HanziItem).character}
                   </div>
-                  <div className='text-3xl font-semibold text-gray-700 mb-4'>
+                  <div className='text-2xl font-semibold text-gray-700 mb-4'>
                     {(selectedItem.data as HanziItem).meaning}
                   </div>
                   <div className='text-xl text-gray-600 mb-2'>
                     {(selectedItem.data as HanziItem).sound}
                   </div>
-                  <div className='text-lg text-gray-500'>
-                    {(selectedItem.data as HanziItem).grade}급{" "}
-                    {(selectedItem.data as HanziItem).gradeNumber}번
-                  </div>
+                  <button
+                    type='button'
+                    onClick={() =>
+                      setHanziMetaModal(selectedItem.data as HanziItem)
+                    }
+                    className='text-sm text-orange-600 hover:underline'
+                  >
+                    급수·번호 보기
+                  </button>
                 </div>
               )}
             </div>
@@ -828,30 +847,59 @@ export default function TextbookWordsPage() {
         </div>
       )}
 
-      {/* 뜻 등록/수정 모달 */}
+      {hanziMetaModal && (
+        <div
+          className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70'
+          onClick={() => setHanziMetaModal(null)}
+        >
+          <div
+            className='bg-white rounded-xl shadow-xl px-6 py-5 max-w-xs w-full text-center border border-gray-100'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className='text-4xl font-bold text-gray-900 mb-2'>
+              {hanziMetaModal.character}
+            </p>
+            <p className='text-sm text-gray-600 mb-1'>
+              {hanziMetaModal.meaning} · {hanziMetaModal.sound}
+            </p>
+            {hanziMetaModal.grade > 0 ? (
+              <p className='text-base font-semibold text-orange-700'>
+                {hanziMetaModal.grade}급 {hanziMetaModal.gradeNumber}번 한자
+              </p>
+            ) : (
+              <p className='text-sm text-gray-500'>급수 정보 없음</p>
+            )}
+            <button
+              type='button'
+              onClick={() => setHanziMetaModal(null)}
+              className='mt-4 w-full py-2 rounded-lg bg-gray-100 text-gray-800 text-sm font-medium hover:bg-gray-200'
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
       {showMeaningModal && selectedWordForMeaning && (
         <div
-          className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+          className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'
           onClick={closeMeaningModal}
         >
           <div
-            className='bg-white rounded-lg p-8 max-w-md w-full mx-4 relative'
+            className='bg-white rounded-xl p-4 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto relative shadow-xl'
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={closeMeaningModal}
-              className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold'
+              className='absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl font-bold'
             >
               ×
             </button>
-            <h2 className='text-2xl font-bold text-gray-900 mb-4'>
+            <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-4 pr-8'>
               {selectedWordForMeaning.meaning ? "뜻 수정" : "뜻 등록"}
             </h2>
             <p className='text-gray-700 mb-4'>
               {selectedWordForMeaning.korean} ({selectedWordForMeaning.hanzi})
-              {selectedWordForMeaning.meaning
-                ? "의 뜻을 수정해주세요."
-                : "의 뜻을 등록해주세요."}
             </p>
             <textarea
               value={meaningInput}
@@ -872,14 +920,12 @@ export default function TextbookWordsPage() {
                 취소
               </button>
               <button
-                onClick={submitMeaning}
+                onClick={() => void submitMeaning()}
                 className='px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50'
                 disabled={isSubmittingMeaning}
               >
                 {isSubmittingMeaning
-                  ? selectedWordForMeaning.meaning
-                    ? "수정 중..."
-                    : "등록 중..."
+                  ? "처리 중..."
                   : selectedWordForMeaning.meaning
                   ? "수정"
                   : "등록"}
@@ -889,10 +935,9 @@ export default function TextbookWordsPage() {
         </div>
       )}
 
-      {/* 조회 제한 모달 */}
       {showLimitModal && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-          <div className='bg-white rounded-lg p-6 max-w-md w-full mx-4'>
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'>
+          <div className='bg-white rounded-lg p-6 max-w-md w-full'>
             <div className='text-center'>
               <div className='text-4xl mb-4'>⚠️</div>
               <h3 className='text-lg font-medium text-gray-900 mb-2'>
@@ -906,7 +951,7 @@ export default function TextbookWordsPage() {
               </p>
               <button
                 onClick={() => setShowLimitModal(false)}
-                className='w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500'
+                className='w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700'
               >
                 확인
               </button>

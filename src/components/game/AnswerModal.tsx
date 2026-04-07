@@ -38,7 +38,7 @@ export default function AnswerModal({
   // 문제당 점수/보너스는 이 모달에서 노출하지 않음 (콤보 상태만 표시)
 
   return (
-    <div className='fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4'>
+    <div className='fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4'>
       <div className='bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto text-center'>
         <div className='p-6 sm:p-7'>
         <div className='mb-4'>

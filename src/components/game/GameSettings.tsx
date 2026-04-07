@@ -163,7 +163,7 @@ export default function GameSettings({
 
         {/* 데이터 없음 모달 */}
         {showNoDataModal && (
-          <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50'>
             <div className='bg-white rounded-lg p-6 max-w-md mx-4'>
               <div className='text-center'>
                 <div className='text-red-500 text-4xl mb-4'>⚠️</div>
