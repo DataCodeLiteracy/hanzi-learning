@@ -21,7 +21,7 @@ interface HanziStatistics {
 }
 
 export default function HanziStatisticsPage() {
-  const { user, loading: authLoading, initialLoading: _initialLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziStats, setHanziStats] = useState<HanziStatistics[]>([])
   // isLoading은 사용되지 않지만 setIsLoading으로 리렌더링 트리거

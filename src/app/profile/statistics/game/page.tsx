@@ -20,12 +20,7 @@ import {
 } from "@/lib/services/gameStatisticsService"
 
 export default function GameStatisticsPage() {
-  const {
-    user,
-    loading: _authLoading,
-    initialLoading,
-    isAuthenticated,
-  } = useAuth()
+  const { user, initialLoading, isAuthenticated } = useAuth()
   const [gameStatistics, setGameStatistics] = useState<{
     quiz?: GameStatistics
     writing?: GameStatistics

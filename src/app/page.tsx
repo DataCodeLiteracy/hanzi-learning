@@ -29,7 +29,7 @@ import {
   type MainStreakModalMilestone,
 } from "@/lib/streakMainModalStorage"
 import { useState, useEffect, useCallback, useRef } from "react"
-import { ApiClient, getKSTDateISO, getKSTDate } from "@/lib/apiClient"
+import { ApiClient, getKSTDateISO } from "@/lib/apiClient"
 import { getNextGrade } from "@/lib/gradeUtils"
 import { HanziStorage } from "@/lib/hanziStorage"
 import GradePromotionModal from "@/components/exam/GradePromotionModal"
@@ -813,7 +813,7 @@ export default function Home() {
     }
 
     // 사용자가 로그인한 후에만 실행
-    if (user) {
+    if (user?.id) {
       checkAndUpdateIndexedDB()
     }
   }, [user?.id, user?.preferredGrade, refreshHanziData])

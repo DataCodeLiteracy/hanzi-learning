@@ -52,7 +52,7 @@ const formatStudyTime = (seconds: number): string => {
     return `${minutes}분`
   }
 }
-import { ApiClient, getKSTDate } from "@/lib/apiClient"
+import { ApiClient } from "@/lib/apiClient"
 import {
   GameStatisticsService,
   GameStatistics,
@@ -60,18 +60,8 @@ import {
 import { HanziStorage } from "@/lib/hanziStorage"
 
 export default function ProfilePage() {
-  const {
-    user,
-    loading: _authLoading,
-    initialLoading,
-    isAuthenticated,
-    signOutUser,
-  } = useAuth()
-  const {
-    userStatistics: _userStatistics,
-    learningSessions,
-    clearIndexedDB,
-  } = useData()
+  const { user, initialLoading, isAuthenticated, signOutUser } = useAuth()
+  const { learningSessions, clearIndexedDB } = useData()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showGoalErrorModal, setShowGoalErrorModal] = useState(false)

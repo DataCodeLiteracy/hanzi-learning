@@ -111,7 +111,7 @@ export class HanziStorage {
     console.debug("Checking current storage state...")
     await this.ensureDBReady()
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       if (!this.db) {
         console.debug("DB not initialized")
         return resolve(null)

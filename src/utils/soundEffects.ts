@@ -32,8 +32,12 @@ function getAudioContext(): AudioContext | null {
 
   if (!audioContext) {
     try {
+      type WindowWithWebkit = Window & {
+        webkitAudioContext?: typeof AudioContext
+      }
+      const w = window as WindowWithWebkit
       const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext
+        window.AudioContext ?? w.webkitAudioContext
       audioContext = new AudioContextClass()
     } catch (error) {
       console.warn("AudioContext를 생성할 수 없습니다:", error)
@@ -80,7 +84,6 @@ function playTone(
     const attackTime = 0.05
     const decayTime = 0.1
     const sustainLevel = finalVolume * 0.7
-    const releaseTime = duration - attackTime - decayTime - 0.1
 
     gainNode.gain.setValueAtTime(0, now)
     gainNode.gain.linearRampToValueAtTime(finalVolume, now + attackTime) // Attack

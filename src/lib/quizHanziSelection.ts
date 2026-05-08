@@ -2,7 +2,6 @@ import { Hanzi } from "@/types"
 import { HanziStorage, HanziWithKnownStatus } from "@/lib/hanziStorage"
 
 const UNKNOWN_RATIO = 0.9
-const KNOWN_RATIO = 0.1
 
 /**
  * 아는 한자 / 모르는 한자 분리 저장 기준 퀴즈 선택

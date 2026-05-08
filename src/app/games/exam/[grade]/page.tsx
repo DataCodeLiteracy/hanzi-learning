@@ -85,11 +85,7 @@ export default function ExamGradePage({
   }, [grade, getSelected])
 
   // 시간 추적 훅
-  const {
-    startSession,
-    endSession,
-    currentDuration: _currentDuration,
-  } = useTimeTracking({
+  const { startSession, endSession } = useTimeTracking({
     userId: user?.id || "",
     type: "game",
     activity: "exam",
@@ -106,7 +102,6 @@ export default function ExamGradePage({
     answers,
     setAnswers,
     handleAnswer,
-    handleNextPattern: _handleNextPattern,
     handlePreviousPattern,
   } = useExamEngine({
     totalPatterns: getGradePatterns(grade).length,
@@ -117,13 +112,7 @@ export default function ExamGradePage({
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState(EXAM_MSG.loadingAnalyze)
   const [error, setError] = useState<string | null>(null)
-  const {
-    isSubmitting,
-    setIsSubmitting: _setIsSubmitting,
-    computeScore: _computeScore,
-    submitWithState,
-    submitExam,
-  } = useExamActions()
+  const { isSubmitting, submitWithState, submitExam } = useExamActions()
   const [showDailyLimitModal, setShowDailyLimitModal] = useState(false)
   const [autoEndTimer, setAutoEndTimer] = useState<NodeJS.Timeout | null>(null)
   const [isExamStarted, setIsExamStarted] = useState(false)

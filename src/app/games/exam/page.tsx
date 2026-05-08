@@ -31,11 +31,7 @@ const gradeExtra: Record<number, { description: string; level: string }> = {
 
 export default function ExamPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
-  const {
-    userStatistics: _userStatistics,
-    hanziList,
-    isLoading: dataLoading,
-  } = useData()
+  const { hanziList, isLoading: dataLoading } = useData()
   const [currentGrade, setCurrentGrade] = useState<number | null>(null)
   const { setSelected, getSelected } = useSelectedHanzi()
   const [isLoading, setIsLoading] = useState(true)

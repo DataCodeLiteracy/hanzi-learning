@@ -39,7 +39,7 @@ const DIFFICULTY_OPTIONS = [
 ]
 
 export default function AdminPage() {
-  const { user, loading: _authLoading, initialLoading } = useAuth()
+  const { user, initialLoading } = useAuth()
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziData, setHanziData] = useState<Hanzi[]>([])

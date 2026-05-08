@@ -31,9 +31,10 @@ export default function WrongAnswersModal({
   wrongAnswers,
   grade,
   score,
-  passed: _passed,
+  passed,
   date,
 }: WrongAnswersModalProps) {
+  void passed
   if (!isOpen) return null
 
   const getPatternName = (pattern: string) => {

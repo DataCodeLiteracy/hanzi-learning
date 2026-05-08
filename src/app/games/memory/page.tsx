@@ -593,6 +593,7 @@ export default function MemoryGame() {
     difficulty,
     hasUpdatedStats,
     endSession,
+    bonusModal?.showBonus,
   ])
 
   // 게임 시작 처리

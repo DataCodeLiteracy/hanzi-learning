@@ -263,6 +263,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
+    // hanziList는 갱신 결과로 변하므로 의존성에 넣지 않음(로그용 참조만)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user 객체 전체보다 id/grade로 한정
   }, [user?.id, user?.preferredGrade, storage])
 
   const refreshUserStatistics = useCallback(async () => {
@@ -325,14 +327,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // 실시간 통계 업데이트 (새로고침 없이)
   const updateStatisticsRealTime = useCallback(
     async (
-      _gameType: string,
-      _stats: {
+      gameType: string,
+      stats: {
         experience?: number
         totalPlayed?: number
         correctAnswers?: number
         wrongAnswers?: number
       }
     ) => {
+      void gameType
+      void stats
       if (!user) return
 
       try {

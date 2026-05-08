@@ -266,6 +266,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => unsubscribe()
+    // onAuthStateChanged 단일 구독 유지(의존성 추가 시 중복 구독)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const signIn = async () => {

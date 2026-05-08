@@ -52,7 +52,7 @@ export default function ExamResultPage({
   params: Promise<{ grade: string }>
 }) {
   const { user, loading: authLoading, initialLoading } = useAuth()
-  const { refreshUserStatistics, userStatistics: _userStatistics } = useData()
+  const { refreshUserStatistics } = useData()
   const searchParams = useSearchParams()
 
   const resolvedParams = use(params)
