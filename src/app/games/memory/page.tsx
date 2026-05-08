@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useBonusModal } from "@/contexts/BonusModalContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -22,6 +23,7 @@ interface Card {
 
 export default function MemoryGame() {
   const { user, loading, isAuthenticated, updateUserExperience } = useAuth()
+  const bonusModal = useBonusModal()
   const { hanziList, isLoading: isDataLoading } = useData()
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
@@ -549,7 +551,11 @@ export default function MemoryGame() {
             await updateUserExperience(experience)
 
             // 오늘 경험치 업데이트
-            await ApiClient.updateTodayExperience(user.id, experience)
+            await ApiClient.updateTodayExperience(
+              user.id,
+              experience,
+              bonusModal?.showBonus
+            )
             console.log(`📅 오늘 경험치 업데이트: +${experience}EXP`)
 
             // 게임 통계 업데이트

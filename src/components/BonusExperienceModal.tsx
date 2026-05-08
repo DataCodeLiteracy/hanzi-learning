@@ -1,4 +1,5 @@
 import React from "react"
+import { getStreakMilestonePercentage } from "@/lib/streakMilestoneBonus"
 
 interface BonusExperienceModalProps {
   isOpen: boolean
@@ -19,15 +20,6 @@ const MILESTONE_LABELS: Record<number, string> = {
   365: "1년 연속 목표 달성! 🏆",
 }
 
-const MILESTONE_PCT: Record<number, number> = {
-  10: 50,
-  20: 55,
-  30: 60,
-  100: 60,
-  200: 70,
-  365: 90,
-}
-
 export default function BonusExperienceModal({
   isOpen,
   onClose,
@@ -40,7 +32,7 @@ export default function BonusExperienceModal({
   if (!isOpen) return null
 
   const title = MILESTONE_LABELS[milestone] ?? `${milestone}일 연속 목표 달성!`
-  const pct = MILESTONE_PCT[milestone] ?? 50
+  const pct = Math.round(getStreakMilestonePercentage(milestone) * 100)
   const description = `연속 ${milestone}일 달성 보너스 (평균 목표의 ${pct}%)`
 
   return (

@@ -44,6 +44,8 @@ export interface GameConfig {
 export const useGameLogic = (config: GameConfig) => {
   const { user, updateUserExperience } = useAuth()
   const bonusModal = useBonusModal()
+  const streakBonusModalRef = useRef(bonusModal?.showBonus)
+  streakBonusModalRef.current = bonusModal?.showBonus
 
   // 게임 상태
   const [questions, setQuestions] = useState<GameQuestion[]>([])
@@ -174,7 +176,7 @@ export const useGameLogic = (config: GameConfig) => {
             await ApiClient.updateTodayExperience(
               user.id,
               experienceToAdd,
-              bonusModal?.showBonus
+              streakBonusModalRef.current
             )
           }
         } catch (error) {
@@ -323,7 +325,11 @@ export const useGameLogic = (config: GameConfig) => {
 
         try {
           await updateUserExperienceRef.current(comboBonus)
-          await ApiClient.updateTodayExperience(u.id, comboBonus)
+          await ApiClient.updateTodayExperience(
+            u.id,
+            comboBonus,
+            streakBonusModalRef.current
+          )
         } catch (error) {
           console.error("콤보 보너스 경험치 업데이트 실패:", error)
         }

@@ -23,6 +23,10 @@ import {
 import { db } from "./firebase"
 import { Hanzi, RelatedWord, UserStatistics } from "@/types"
 import { calculateLevel } from "./experienceSystem"
+import {
+  STREAK_MILESTONE_THRESHOLDS,
+  calculateStreakMilestoneBonus,
+} from "./streakMilestoneBonus"
 
 /** 한자 목록 서버 페이지네이션 (Firestore limit)용 */
 export type HanziListServerSort = "soundAsc" | "gradeNumber" | "reportedFirst"
@@ -1226,18 +1230,9 @@ export class ApiClient {
       const consecutiveDays =
         ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
 
-      // 연속 달성 마일스톤 보너스 (10일 단위 1회만 지급)
-      const MILESTONES = [10, 20, 30, 100, 200, 365] as const
-      const PERCENTAGES: Record<number, number> = {
-        10: 0.5,
-        20: 0.55,
-        30: 0.6,
-        100: 0.6,
-        200: 0.7,
-        365: 0.9,
-      }
+      // 연속 달성 마일스톤 보너스 (각 마일스톤당 1회만 지급: lastConsecutiveDaysBonusGiven으로 소거)
       const lastGiven = userStats.lastConsecutiveDaysBonusGiven ?? 0
-      const milestoneToGive = [...MILESTONES]
+      const milestoneToGive = [...STREAK_MILESTONE_THRESHOLDS]
         .sort((a, b) => b - a)
         .find((M) => consecutiveDays >= M && lastGiven < M)
 
@@ -1261,8 +1256,10 @@ export class ApiClient {
         }
         const averageGoal = count > 0 ? sumGoal / count : todayGoal
 
-        const pct = PERCENTAGES[milestoneToGive] ?? 0.5
-        bonusExperience = Math.round(averageGoal * pct)
+        bonusExperience = calculateStreakMilestoneBonus(
+          averageGoal,
+          milestoneToGive
+        )
         bonusMilestone = milestoneToGive
         if (milestoneToGive === 365) {
           isOneYearReset = true

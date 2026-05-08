@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useBonusModal } from "@/contexts/BonusModalContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import {
   ApiClient,
@@ -88,6 +89,7 @@ function mapApiItemToWord(item: TextbookWordListItem): TextbookWord {
 
 export default function TextbookWordsPage() {
   const { user, initialLoading } = useAuth()
+  const bonusModal = useBonusModal()
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
@@ -350,7 +352,11 @@ export default function TextbookWordsPage() {
 
           if (!selectedWordForMeaning.meaning) {
             await ApiClient.addUserExperience(user.id, 10)
-            await ApiClient.updateTodayExperience(user.id, 10)
+            await ApiClient.updateTodayExperience(
+              user.id,
+              10,
+              bonusModal?.showBonus
+            )
             alert("뜻이 성공적으로 등록되었습니다! +10 경험치를 획득했습니다.")
           } else {
             alert("뜻이 성공적으로 수정되었습니다!")

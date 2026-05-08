@@ -19,11 +19,21 @@ import {
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
-import { useState, useEffect, useCallback } from "react"
+import {
+  calculateStreakMilestoneBonus,
+  getStreakMilestonePercentage,
+} from "@/lib/streakMilestoneBonus"
+import {
+  readMainStreakModalPermanentDismissed,
+  writeMainStreakModalPermanentDismissed,
+  type MainStreakModalMilestone,
+} from "@/lib/streakMainModalStorage"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { ApiClient, getKSTDateISO, getKSTDate } from "@/lib/apiClient"
 import { getNextGrade } from "@/lib/gradeUtils"
 import { HanziStorage } from "@/lib/hanziStorage"
 import GradePromotionModal from "@/components/exam/GradePromotionModal"
+import StreakMainCelebrationModal from "@/components/StreakMainCelebrationModal"
 import type { User, Hanzi } from "@/types/index"
 
 export default function Home() {
@@ -816,6 +826,14 @@ export default function Home() {
   }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
   const [totalStudyTime, setTotalStudyTime] = useState<number>(0) // 총 학습시간 (초 단위)
 
+  /** 메인 연속 달성 축하 모달 — 확인만 누른 경우 같은 방문에서 재표시 안 함; 페이지 재진입 시 다시 표시 */
+  const mainStreakModalSessionDismissRef = useRef<
+    Partial<Record<MainStreakModalMilestone, boolean>>
+  >({})
+  const [mainStreakModalMilestone, setMainStreakModalMilestone] = useState<
+    MainStreakModalMilestone | null
+  >(null)
+
   // 유저 순위 상태
   const [userRankings, setUserRankings] = useState<
     Array<{
@@ -937,8 +955,35 @@ export default function Home() {
         }
       }
       loadTodayExperience()
+    } else {
+      setTodayExperience(0)
+      setTodayGoal(100)
+      setConsecutiveGoalDays(0)
+      setTotalStudyTime(0)
+      setWeeklyGoalAchievement({ achievedDays: 0, totalDays: 7 })
     }
   }, [user])
+
+  useEffect(() => {
+    mainStreakModalSessionDismissRef.current = {}
+    setMainStreakModalMilestone(null)
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!user?.id) return
+    if (consecutiveGoalDays < 10) return
+
+    const permanent = readMainStreakModalPermanentDismissed(user.id)
+    let m: MainStreakModalMilestone | null = null
+    if (consecutiveGoalDays >= 20) {
+      if (!permanent[20]) m = 20
+    } else if (consecutiveGoalDays >= 10) {
+      if (!permanent[10]) m = 10
+    }
+    if (m === null) return
+    if (mainStreakModalSessionDismissRef.current[m]) return
+    setMainStreakModalMilestone(m)
+  }, [user?.id, consecutiveGoalDays])
 
   // 진급 체크 (메인 페이지)
   useEffect(() => {
@@ -1005,6 +1050,28 @@ export default function Home() {
       alert("진급 처리 중 오류가 발생했습니다.")
     }
   }
+
+  const handleMainStreakModalConfirm = useCallback(() => {
+    const m = mainStreakModalMilestone
+    if (m == null) return
+    mainStreakModalSessionDismissRef.current = {
+      ...mainStreakModalSessionDismissRef.current,
+      [m]: true,
+    }
+    setMainStreakModalMilestone(null)
+  }, [mainStreakModalMilestone])
+
+  const handleMainStreakModalDismissForever = useCallback(() => {
+    if (!user?.id) return
+    const m = mainStreakModalMilestone
+    if (m == null) return
+    writeMainStreakModalPermanentDismissed(user.id, m)
+    mainStreakModalSessionDismissRef.current = {
+      ...mainStreakModalSessionDismissRef.current,
+      [m]: true,
+    }
+    setMainStreakModalMilestone(null)
+  }, [user?.id, mainStreakModalMilestone])
 
   // 보너스 경험치 획득 시 모달 표시 (현재 사용하지 않음)
   // const handleBonusEarned = (
@@ -1274,7 +1341,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* 보너스 경험치 정보 */}
+                    {/* 보너스 경험치 정보 (실제 지급과 동일: 평균 목표 × 마일스톤 비율; 매일 목표가 같으면 오늘 목표와 일치) */}
                     {consecutiveGoalDays >= 10 && (
                       <div className='mt-3 pt-3 border-t border-blue-100'>
                         <div className='text-center'>
@@ -1284,49 +1351,35 @@ export default function Home() {
                           <div className='text-xs text-gray-600 space-y-1'>
                             {consecutiveGoalDays >= 30 ? (
                               <div>
-                                30일 연속: +
+                                30일 마일스톤 (평균 목표의{" "}
                                 {Math.round(
-                                  500 *
-                                    Math.min(
-                                      Math.max(todayGoal / 100, 1.0),
-                                      3.0
-                                    )
-                                )}{" "}
+                                  getStreakMilestonePercentage(30) * 100
+                                )}
+                                %): +
+                                {calculateStreakMilestoneBonus(todayGoal, 30)}{" "}
                                 EXP
                               </div>
                             ) : consecutiveGoalDays >= 20 ? (
                               <div>
-                                20일 연속: +
+                                20일 마일스톤 (평균 목표의{" "}
                                 {Math.round(
-                                  200 *
-                                    Math.min(
-                                      Math.max(todayGoal / 100, 1.0),
-                                      3.0
-                                    )
-                                )}{" "}
+                                  getStreakMilestonePercentage(20) * 100
+                                )}
+                                %): +
+                                {calculateStreakMilestoneBonus(todayGoal, 20)}{" "}
                                 EXP
                               </div>
                             ) : (
                               <div>
-                                10일 연속: +
+                                10일 마일스톤 (평균 목표의{" "}
                                 {Math.round(
-                                  50 *
-                                    Math.min(
-                                      Math.max(todayGoal / 100, 1.0),
-                                      3.0
-                                    )
-                                )}{" "}
+                                  getStreakMilestonePercentage(10) * 100
+                                )}
+                                %): +
+                                {calculateStreakMilestoneBonus(todayGoal, 10)}{" "}
                                 EXP
                               </div>
                             )}
-                            <div className='text-blue-500'>
-                              목표 {todayGoal} EXP ×{" "}
-                              {Math.min(
-                                Math.max(todayGoal / 100, 1.0),
-                                3.0
-                              ).toFixed(1)}
-                              배
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -1732,6 +1785,16 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {user?.id && mainStreakModalMilestone !== null && (
+        <StreakMainCelebrationModal
+          isOpen
+          milestone={mainStreakModalMilestone}
+          averageGoalApprox={todayGoal}
+          onConfirm={handleMainStreakModalConfirm}
+          onDismissForever={handleMainStreakModalDismissForever}
+        />
       )}
 
       {/* 진급 권장 모달 */}
