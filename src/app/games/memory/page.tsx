@@ -297,6 +297,12 @@ export default function MemoryGame() {
   const initializeGame = useCallback(async () => {
     setIsGeneratingCards(true)
     setGradeError("")
+    // 재초기화 직전에 이전 판의 matchedPairs·카드가 남아 있으면,
+    // gridSize만 바뀐 채로 matchedPairs === 새 totalPairs 가 되어 조기 종료될 수 있음 → 즉시 비움
+    setCards([])
+    setFlippedCards([])
+    setMatchedPairs(0)
+    setGameEnded(false)
 
     // 선택된 등급의 한자들 중에서 필요한 개수만큼 랜덤하게 선택
     const gradeHanzi = hanziList
@@ -329,7 +335,7 @@ export default function MemoryGame() {
       return
     }
 
-    const totalPairs = (gridSize.cols * gridSize.rows) / 2
+    const totalPairs = Math.floor((gridSize.cols * gridSize.rows) / 2)
 
     // 필요한 개수보다 적은 경우 경고
     if (gradeHanzi.length < totalPairs) {
@@ -511,22 +517,27 @@ export default function MemoryGame() {
 
   // 게임 종료 처리
   useEffect(() => {
-    const totalPairs = (gridSize.cols * gridSize.rows) / 2
+    const pairTarget =
+      cards.length > 0
+        ? Math.floor(cards.length / 2)
+        : Math.floor((gridSize.cols * gridSize.rows) / 2)
 
     console.log(`🔍 게임 상태 체크:`, {
       gameStarted,
       gameEnded,
+      isGeneratingCards,
       cardsLength: cards.length,
       matchedPairs,
-      totalPairs,
-      condition: matchedPairs === totalPairs,
+      pairTarget,
+      condition: matchedPairs === pairTarget,
     })
 
     if (
-      gameStarted && // 게임이 시작되었고
-      !gameEnded && // 아직 끝나지 않았고
-      cards.length > 0 && // 카드가 존재하고
-      matchedPairs === totalPairs // 모든 쌍을 완성했을 때
+      gameStarted &&
+      !gameEnded &&
+      !isGeneratingCards &&
+      cards.length > 0 &&
+      matchedPairs === pairTarget
     ) {
       console.log(`🎯 게임 완료 조건 충족! 게임 종료 처리 시작`)
       setGameEnded(true)
@@ -534,10 +545,10 @@ export default function MemoryGame() {
       // 난이도와 카드 수에 따른 경험치 계산
       const experience = calculateMemoryGameExperience(
         difficulty,
-        Math.floor(totalPairs)
+        pairTarget
       )
       console.log(
-        `💰 경험치 계산: 난이도=${difficulty}, 쌍수=${totalPairs}, 경험치=${experience}`
+        `💰 경험치 계산: 난이도=${difficulty}, 쌍수=${pairTarget}, 경험치=${experience}`
       )
       setEarnedExperience(experience) // 획득한 경험치 상태 업데이트
 
@@ -586,6 +597,7 @@ export default function MemoryGame() {
     matchedPairs,
     gameEnded,
     gameStarted,
+    isGeneratingCards,
     cards.length,
     gridSize,
     user,
@@ -999,7 +1011,10 @@ export default function MemoryGame() {
               <div className='text-center'>
                 <div className='text-sm text-gray-600'>매칭</div>
                 <div className='text-lg font-bold text-green-600'>
-                  {matchedPairs}/{(gridSize.cols * gridSize.rows) / 2}
+                  {matchedPairs}/
+                  {cards.length > 0
+                    ? Math.floor(cards.length / 2)
+                    : Math.floor((gridSize.cols * gridSize.rows) / 2)}
                 </div>
               </div>
             </div>
@@ -1131,7 +1146,9 @@ export default function MemoryGame() {
                 </h2>
                 <p className='text-gray-600'>
                   매칭된 쌍: {matchedPairs}/
-                  {(gridSize.cols * gridSize.rows) / 2}
+                  {cards.length > 0
+                    ? Math.floor(cards.length / 2)
+                    : Math.floor((gridSize.cols * gridSize.rows) / 2)}
                 </p>
                 {isActive && (
                   <p className='text-sm text-blue-600 mt-2'>
@@ -1234,7 +1251,11 @@ export default function MemoryGame() {
                 </div>
                 <div className='text-sm text-gray-600'>매칭 완료</div>
                 <div className='text-xs text-gray-500 mt-1'>
-                  /{(gridSize.cols * gridSize.rows) / 2}쌍
+                  /
+                  {cards.length > 0
+                    ? Math.floor(cards.length / 2)
+                    : Math.floor((gridSize.cols * gridSize.rows) / 2)}
+                  쌍
                 </div>
               </div>
               <div className='bg-purple-50 rounded-lg p-4 text-center'>
@@ -1295,7 +1316,8 @@ export default function MemoryGame() {
                 <div>
                   <span className='text-gray-600'>타일:</span>{" "}
                   <span className='font-medium text-gray-900'>
-                    {gridSize.cols} x {gridSize.rows} ({(gridSize.cols * gridSize.rows) / 2}쌍)
+                    {gridSize.cols} x {gridSize.rows} (
+                    {Math.floor((gridSize.cols * gridSize.rows) / 2)}쌍)
                   </span>
                 </div>
                 <div>
