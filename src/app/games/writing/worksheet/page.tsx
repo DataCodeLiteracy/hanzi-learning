@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -18,6 +19,7 @@ import { Hanzi } from "@/types"
 
 export default function WorksheetPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
+  const { alert: showAlert } = useModal()
   const { hanziList: contextHanziList, isLoading: isDataLoading } = useData()
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziList, setHanziList] = useState<Hanzi[]>([])
@@ -102,7 +104,7 @@ export default function WorksheetPage() {
   // 미리보기/출력 모드로 전환
   const handlePreview = () => {
     if (selectedHanziIds.size === 0) {
-      alert("한자를 선택해주세요")
+      showAlert("한자를 선택해주세요", { type: "warning" })
       return
     }
     setShowPreview(true)

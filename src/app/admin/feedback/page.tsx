@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import { ApiClient } from "@/lib/apiClient"
 import {
   ArrowLeft,
@@ -36,6 +37,7 @@ interface Feedback {
 
 export default function AdminFeedbackPage() {
   const { user } = useAuth()
+  const { alert: showAlert, confirm: showConfirm } = useModal()
   const router = useRouter()
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,7 +62,7 @@ export default function AdminFeedbackPage() {
       setFeedbacks(feedbackList)
     } catch (error) {
       console.error("피드백 목록 로드 실패:", error)
-      alert("피드백 목록을 불러오는데 실패했습니다.")
+      showAlert("피드백 목록을 불러오는데 실패했습니다.", { type: "error" })
     } finally {
       setLoading(false)
     }
@@ -83,15 +85,16 @@ export default function AdminFeedbackPage() {
             : feedback
         )
       )
-      alert("상태가 업데이트되었습니다.")
+      showAlert("상태가 업데이트되었습니다.", { type: "success" })
     } catch (error) {
       console.error("상태 업데이트 실패:", error)
-      alert("상태 업데이트에 실패했습니다.")
+      showAlert("상태 업데이트에 실패했습니다.", { type: "error" })
     }
   }
 
   const handleDelete = async (feedbackId: string) => {
-    if (!confirm("정말로 이 피드백을 삭제하시겠습니까?")) return
+    const ok = await showConfirm("정말로 이 피드백을 삭제하시겠습니까?")
+    if (!ok) return
 
     try {
       setDeletingId(feedbackId)
@@ -99,10 +102,10 @@ export default function AdminFeedbackPage() {
       setFeedbacks((prev) =>
         prev.filter((feedback) => feedback.id !== feedbackId)
       )
-      alert("피드백이 삭제되었습니다.")
+      showAlert("피드백이 삭제되었습니다.", { type: "success" })
     } catch (error) {
       console.error("피드백 삭제 실패:", error)
-      alert("피드백 삭제에 실패했습니다.")
+      showAlert("피드백 삭제에 실패했습니다.", { type: "error" })
     } finally {
       setDeletingId(null)
     }

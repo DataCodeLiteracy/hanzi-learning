@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -75,6 +76,7 @@ interface User {
 
 export default function AdminWritingGalleryPage() {
   const { user, loading: authLoading } = useAuth()
+  const { alert: showAlert, confirm: showConfirm } = useModal()
   const router = useRouter()
 
   const [submissions, setSubmissions] = useState<WritingSubmission[]>([])
@@ -101,13 +103,6 @@ export default function AdminWritingGalleryPage() {
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<
     string | null
   >(null)
-
-  // 커스텀 모달 상태
-  const [showModal, setShowModal] = useState(false)
-  const [modalMessage, setModalMessage] = useState("")
-  const [modalType, setModalType] = useState<"success" | "error" | "info">(
-    "info"
-  )
 
   // 이미지 모달 상태
   const [selectedImage, setSelectedImage] = useState<{
@@ -218,12 +213,12 @@ export default function AdminWritingGalleryPage() {
             data.experienceChange < 0
               ? `${Math.abs(data.experienceChange)} 경험치 차감`
               : `+${data.experienceChange} 경험치 추가`
-          showCustomModal(
+          showAlert(
             `상태 업데이트 완료!\n\n이전 경험치: ${data.baseExperience}\n새 경험치: ${data.adjustedExperience}\n${changeText}`,
-            "success"
+            { type: "success" }
           )
         } else {
-          showCustomModal("상태 업데이트 완료!", "success")
+          showAlert("상태 업데이트 완료!", { type: "success" })
         }
 
         // 로컬 상태 업데이트
@@ -249,11 +244,11 @@ export default function AdminWritingGalleryPage() {
         })
         setEditingSubmission(null)
       } else {
-        showCustomModal(data.error || "상태 업데이트에 실패했습니다", "error")
+        showAlert(data.error || "상태 업데이트에 실패했습니다", { type: "error" })
       }
     } catch (err) {
       console.error("Status update error:", err)
-      showCustomModal("상태 업데이트 중 오류가 발생했습니다", "error")
+      showAlert("상태 업데이트 중 오류가 발생했습니다", { type: "error" })
     }
   }
 
@@ -321,29 +316,12 @@ export default function AdminWritingGalleryPage() {
     setSelectedImage(null)
   }
 
-  // 커스텀 모달 표시
-  const showCustomModal = (
-    message: string,
-    type: "success" | "error" | "info" = "info"
-  ) => {
-    setModalMessage(message)
-    setModalType(type)
-    setShowModal(true)
-  }
-
-  // 커스텀 모달 닫기
-  const closeCustomModal = () => {
-    setShowModal(false)
-    setModalMessage("")
-  }
-
   // 제출물 삭제
   const deleteSubmission = async (submissionId: string, character: string) => {
-    if (
-      !confirm(
-        `'${character}' 제출물을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`
-      )
-    ) {
+    const ok = await showConfirm(
+      `'${character}' 제출물을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`
+    )
+    if (!ok) {
       return
     }
 
@@ -365,16 +343,16 @@ export default function AdminWritingGalleryPage() {
         // 로컬 상태에서 제출물 제거
         setSubmissions((prev) => prev.filter((sub) => sub.id !== submissionId))
 
-        showCustomModal(
+        showAlert(
           `제출물이 성공적으로 삭제되었습니다!\n\n한자: ${data.deletedSubmission.character}\n차감된 경험치: ${data.deletedSubmission.experienceDeducted}`,
-          "success"
+          { type: "success" }
         )
       } else {
-        showCustomModal(data.error || "제출물 삭제에 실패했습니다", "error")
+        showAlert(data.error || "제출물 삭제에 실패했습니다", { type: "error" })
       }
     } catch (err) {
       console.error("Delete submission error:", err)
-      showCustomModal("제출물 삭제 중 오류가 발생했습니다", "error")
+      showAlert("제출물 삭제 중 오류가 발생했습니다", { type: "error" })
     } finally {
       // 삭제 로딩 종료
       setDeletingSubmissionId(null)
@@ -1074,51 +1052,6 @@ export default function AdminWritingGalleryPage() {
               <p className='text-sm text-gray-600'>
                 이미지를 클릭하여 전체 크기로 보세요
               </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 커스텀 모달 */}
-      {showModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70'>
-          <div className='bg-white rounded-lg shadow-xl max-w-md w-full mx-4'>
-            <div className='p-6'>
-              <div className='flex items-center mb-4'>
-                {modalType === "success" && (
-                  <CheckCircle className='w-6 h-6 text-green-600 mr-3' />
-                )}
-                {modalType === "error" && (
-                  <X className='w-6 h-6 text-red-600 mr-3' />
-                )}
-                {modalType === "info" && (
-                  <div className='w-6 h-6 bg-blue-600 rounded-full mr-3 flex items-center justify-center'>
-                    <span className='text-white text-sm font-bold'>i</span>
-                  </div>
-                )}
-                <h3 className='text-lg font-semibold text-gray-900'>
-                  {modalType === "success" && "성공"}
-                  {modalType === "error" && "오류"}
-                  {modalType === "info" && "알림"}
-                </h3>
-              </div>
-              <div className='text-gray-700 whitespace-pre-line mb-6'>
-                {modalMessage}
-              </div>
-              <div className='flex justify-end'>
-                <button
-                  onClick={closeCustomModal}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    modalType === "success"
-                      ? "bg-green-600 text-white hover:bg-green-700"
-                      : modalType === "error"
-                      ? "bg-red-600 text-white hover:bg-red-700"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  확인
-                </button>
-              </div>
             </div>
           </div>
         </div>

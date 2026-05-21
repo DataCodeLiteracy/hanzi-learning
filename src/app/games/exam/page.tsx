@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import DailyLimitModal from "@/components/exam/DailyLimitModal"
@@ -31,6 +32,7 @@ const gradeExtra: Record<number, { description: string; level: string }> = {
 
 export default function ExamPage() {
   const { user, loading: authLoading, initialLoading } = useAuth()
+  const { alert: showAlert } = useModal()
   const { hanziList, isLoading: dataLoading } = useData()
   const [currentGrade, setCurrentGrade] = useState<number | null>(null)
   const { setSelected, getSelected } = useSelectedHanzi()
@@ -271,7 +273,7 @@ export default function ExamPage() {
       window.location.href = "/"
     } catch (error) {
       console.error("진급 처리 실패:", error)
-      alert("진급 처리 중 오류가 발생했습니다.")
+      showAlert("진급 처리 중 오류가 발생했습니다.", { type: "error" })
     }
   }
 

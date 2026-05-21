@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import { useData } from "@/contexts/DataContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import {
@@ -38,6 +39,7 @@ import type { User, Hanzi } from "@/types/index"
 
 export default function Home() {
   const { user, initialLoading, signIn } = useAuth()
+  const { alert: showAlert } = useModal()
   const { hanziList, isLoading: dataLoading, refreshHanziData } = useData()
   const [showPromotionModal, setShowPromotionModal] = useState(false)
   const [promotionPassCount, setPromotionPassCount] = useState(0)
@@ -1047,7 +1049,7 @@ export default function Home() {
       window.location.href = "/"
     } catch (error) {
       console.error("진급 처리 실패:", error)
-      alert("진급 처리 중 오류가 발생했습니다.")
+      showAlert("진급 처리 중 오류가 발생했습니다.", { type: "error" })
     }
   }
 

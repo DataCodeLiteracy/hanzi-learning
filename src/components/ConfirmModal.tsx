@@ -1,6 +1,8 @@
 "use client"
 
-import { X, AlertTriangle, Info, CheckCircle } from "lucide-react"
+import { X, AlertTriangle, Info, CheckCircle, XCircle } from "lucide-react"
+
+export type ModalType = "warning" | "info" | "success" | "error"
 
 interface ConfirmModalProps {
   isOpen: boolean
@@ -10,7 +12,7 @@ interface ConfirmModalProps {
   message: string
   confirmText?: string
   cancelText?: string
-  type?: "warning" | "info" | "success"
+  type?: ModalType
   showCancel?: boolean
   showCloseButton?: boolean
 }
@@ -37,6 +39,8 @@ export default function ConfirmModal({
         return <Info className='h-6 w-6 text-blue-600' />
       case "success":
         return <CheckCircle className='h-6 w-6 text-green-600' />
+      case "error":
+        return <XCircle className='h-6 w-6 text-red-600' />
       default:
         return <AlertTriangle className='h-6 w-6 text-red-600' />
     }
@@ -50,6 +54,8 @@ export default function ConfirmModal({
         return "bg-blue-600 hover:bg-blue-700"
       case "success":
         return "bg-green-600 hover:bg-green-700"
+      case "error":
+        return "bg-red-600 hover:bg-red-700"
       default:
         return "bg-red-600 hover:bg-red-700"
     }
@@ -82,7 +88,7 @@ export default function ConfirmModal({
         </div>
 
         {/* 메시지 */}
-        <p className='text-gray-600 mb-6'>{message}</p>
+        <p className='text-gray-600 mb-6 whitespace-pre-line'>{message}</p>
 
         {/* 버튼 */}
         <div className={`flex ${showCancel ? 'justify-end space-x-3' : 'justify-center'}`}>
@@ -95,10 +101,7 @@ export default function ConfirmModal({
             </button>
           )}
           <button
-            onClick={() => {
-              onConfirm()
-              onClose()
-            }}
+            onClick={onConfirm}
             className={`px-4 py-2 text-white rounded-md transition-colors ${getConfirmButtonClass()} ${
               !showCancel ? 'w-full' : ''
             }`}

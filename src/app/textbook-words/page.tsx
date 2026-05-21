@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBonusModal } from "@/contexts/BonusModalContext"
+import { useModal } from "@/contexts/ModalContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import {
   ApiClient,
@@ -90,6 +91,7 @@ function mapApiItemToWord(item: TextbookWordListItem): TextbookWord {
 export default function TextbookWordsPage() {
   const { user, initialLoading } = useAuth()
   const bonusModal = useBonusModal()
+  const { alert: showAlert } = useModal()
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
@@ -357,9 +359,11 @@ export default function TextbookWordsPage() {
               10,
               bonusModal?.showBonus
             )
-            alert("뜻이 성공적으로 등록되었습니다! +10 경험치를 획득했습니다.")
+            showAlert("뜻이 성공적으로 등록되었습니다! +10 경험치를 획득했습니다.", {
+              type: "success",
+            })
           } else {
-            alert("뜻이 성공적으로 수정되었습니다!")
+            showAlert("뜻이 성공적으로 수정되었습니다!", { type: "success" })
           }
 
           clearPageCache()
@@ -375,7 +379,7 @@ export default function TextbookWordsPage() {
       closeMeaningModal()
     } catch (error) {
       console.error("뜻 등록/수정 실패:", error)
-      alert("뜻 등록/수정에 실패했습니다. 다시 시도해주세요.")
+      showAlert("뜻 등록/수정에 실패했습니다. 다시 시도해주세요.", { type: "error" })
     } finally {
       setIsSubmittingMeaning(false)
     }

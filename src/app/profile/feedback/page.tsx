@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import { addDoc, collection } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import {
@@ -17,6 +18,7 @@ import { useRouter } from "next/navigation"
 
 export default function FeedbackPage() {
   const { user } = useAuth()
+  const { alert: showAlert } = useModal()
   const router = useRouter()
   const [feedbackType, setFeedbackType] = useState<
     "bug" | "feature" | "improvement" | "other"
@@ -31,7 +33,7 @@ export default function FeedbackPage() {
     if (!user) return
 
     if (!title.trim() || !content.trim()) {
-      alert("제목과 내용을 모두 입력해주세요.")
+      showAlert("제목과 내용을 모두 입력해주세요.", { type: "warning" })
       return
     }
 
@@ -55,7 +57,7 @@ export default function FeedbackPage() {
       }, 2000)
     } catch (error) {
       console.error("피드백 제출 실패:", error)
-      alert("피드백 제출에 실패했습니다. 다시 시도해주세요.")
+      showAlert("피드백 제출에 실패했습니다. 다시 시도해주세요.", { type: "error" })
     } finally {
       setIsSubmitting(false)
     }

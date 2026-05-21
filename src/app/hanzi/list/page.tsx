@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import {
   ArrowLeft,
@@ -50,6 +51,7 @@ type LearningFilterMode = "all" | "completed" | "incomplete"
 export default function HanziListPage() {
   const { user, loading: authLoading, initialLoading: authInitialLoading } =
     useAuth()
+  const { alert: showAlert } = useModal()
   const [selectedGrade, setSelectedGrade] = useState<number>(
     user?.preferredGrade || 8
   )
@@ -665,7 +667,7 @@ export default function HanziListPage() {
     const meaningTrim = reportMeaningDraft.trim()
     const soundTrim = reportSoundDraft.trim()
     if (!meaningTrim || !soundTrim) {
-      alert("뜻과 음을 모두 입력해주세요.")
+      showAlert("뜻과 음을 모두 입력해주세요.", { type: "warning" })
       return false
     }
     if (!user) return false
@@ -737,7 +739,7 @@ export default function HanziListPage() {
       return true
     } catch (error) {
       console.error("한자 데이터 저장 실패:", error)
-      alert("저장에 실패했습니다. 다시 시도해주세요.")
+      showAlert("저장에 실패했습니다. 다시 시도해주세요.", { type: "error" })
       return false
     } finally {
       setIsSavingRelatedWords(false)
@@ -763,7 +765,7 @@ export default function HanziListPage() {
     const hanziTrim = newWordHanzi.trim()
     const koreanTrim = newWordKorean.trim()
     if (!hanziTrim || !koreanTrim) {
-      alert("한자와 독음(한글)을 모두 입력해주세요.")
+      showAlert("한자와 독음(한글)을 모두 입력해주세요.", { type: "warning" })
       return
     }
     const current = reportedHanziModal.relatedWords || []
@@ -795,7 +797,7 @@ export default function HanziListPage() {
     const hanziTrim = editDraftHanzi.trim()
     const koreanTrim = editDraftKorean.trim()
     if (!hanziTrim || !koreanTrim) {
-      alert("한자와 독음(한글)을 모두 입력해주세요.")
+      showAlert("한자와 독음(한글)을 모두 입력해주세요.", { type: "warning" })
       return
     }
     const current = reportedHanziModal.relatedWords || []

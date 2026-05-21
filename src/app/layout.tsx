@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext"
 import { DataProvider } from "@/contexts/DataContext"
 import { SelectedHanziProvider } from "@/contexts/SelectedHanziContext"
 import { BonusModalProvider } from "@/contexts/BonusModalContext"
+import { ModalProvider } from "@/contexts/ModalContext"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,9 +38,11 @@ export default function RootLayout({
       >
         <AuthProvider>
           <DataProvider>
-            <BonusModalProvider>
-              <SelectedHanziProvider>{children}</SelectedHanziProvider>
-            </BonusModalProvider>
+            <ModalProvider>
+              <BonusModalProvider>
+                <SelectedHanziProvider>{children}</SelectedHanziProvider>
+              </BonusModalProvider>
+            </ModalProvider>
           </DataProvider>
         </AuthProvider>
       </body>

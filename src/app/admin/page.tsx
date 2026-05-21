@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
+import { useModal } from "@/contexts/ModalContext"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -40,6 +41,7 @@ const DIFFICULTY_OPTIONS = [
 
 export default function AdminPage() {
   const { user, initialLoading } = useAuth()
+  const { alert: showAlert, confirm: showConfirm } = useModal()
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<number>(8)
   const [hanziData, setHanziData] = useState<Hanzi[]>([])
@@ -117,7 +119,7 @@ export default function AdminPage() {
     if (file && file.type === "application/json") {
       setUploadedFile(file)
     } else {
-      alert("JSON 파일만 업로드 가능합니다.")
+      showAlert("JSON 파일만 업로드 가능합니다.")
     }
   }
 
@@ -151,7 +153,7 @@ export default function AdminPage() {
         // JSON 파일의 첫 번째 항목에서 grade 확인
         const jsonGrade = data[0]?.grade
         if (!jsonGrade) {
-          alert("JSON 파일에 grade 정보가 없습니다.")
+          showAlert("JSON 파일에 grade 정보가 없습니다.")
           return
         }
 
@@ -220,7 +222,7 @@ export default function AdminPage() {
           }
         }
 
-        alert(
+        showAlert(
           `업로드 완료!\n성공: ${successCount}개\n중복: ${duplicateCount}개\n오류: ${errorCount}개\n업로드된 급수: ${jsonGrade}급`
         )
 
@@ -229,21 +231,20 @@ export default function AdminPage() {
         loadHanziData()
         setUploadedFile(null)
       } else {
-        alert("올바른 JSON 형식이 아닙니다.")
+        showAlert("올바른 JSON 형식이 아닙니다.")
       }
     } catch (error) {
       console.error("파일 처리 에러:", error)
-      alert("파일 처리 중 오류가 발생했습니다.")
+      showAlert("파일 처리 중 오류가 발생했습니다.")
     }
   }
 
   // 전체 사용자 마이그레이션
   const handleMigrateAllUsers = async () => {
-    if (
-      !confirm(
-        "모든 사용자의 데이터를 새로운 구조로 마이그레이션하시겠습니까? 이 작업은 되돌릴 수 없습니다."
-      )
-    ) {
+    const ok = await showConfirm(
+      "모든 사용자의 데이터를 새로운 구조로 마이그레이션하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+    )
+    if (!ok) {
       return
     }
 
@@ -255,14 +256,14 @@ export default function AdminPage() {
       setMigrationStatus(result.message)
 
       if (result.success) {
-        alert("마이그레이션이 성공적으로 완료되었습니다!")
+        showAlert("마이그레이션이 성공적으로 완료되었습니다!")
       } else {
-        alert("마이그레이션 중 오류가 발생했습니다.")
+        showAlert("마이그레이션 중 오류가 발생했습니다.")
       }
     } catch (error) {
       console.error("마이그레이션 실패:", error)
       setMigrationStatus("마이그레이션 중 오류가 발생했습니다.")
-      alert("마이그레이션 중 오류가 발생했습니다.")
+      showAlert("마이그레이션 중 오류가 발생했습니다.")
     } finally {
       setIsMigrating(false)
     }
@@ -279,14 +280,14 @@ export default function AdminPage() {
       setMigrationStatus(result.message)
 
       if (result.success) {
-        alert("사용자 마이그레이션이 완료되었습니다!")
+        showAlert("사용자 마이그레이션이 완료되었습니다!")
       } else {
-        alert("사용자 마이그레이션 중 오류가 발생했습니다.")
+        showAlert("사용자 마이그레이션 중 오류가 발생했습니다.")
       }
     } catch (error) {
       console.error("사용자 마이그레이션 실패:", error)
       setMigrationStatus("사용자 마이그레이션 중 오류가 발생했습니다.")
-      alert("사용자 마이그레이션 중 오류가 발생했습니다.")
+      showAlert("사용자 마이그레이션 중 오류가 발생했습니다.")
     } finally {
       setIsMigrating(false)
     }
@@ -305,13 +306,13 @@ export default function AdminPage() {
       await ApiClient.updateDocument("hanzi", editingHanzi.id, updatedHanzi)
       await ApiClient.clearHanziDataIssue(editingHanzi.id)
 
-      alert("한자가 성공적으로 수정되었습니다!")
+      showAlert("한자가 성공적으로 수정되었습니다!")
       setShowEditModal(false)
       setEditingHanzi(null)
       loadHanziData()
     } catch (error) {
       console.error("한자 수정 실패:", error)
-      alert("한자 수정 중 오류가 발생했습니다.")
+      showAlert("한자 수정 중 오류가 발생했습니다.")
     }
   }
 
@@ -327,13 +328,13 @@ export default function AdminPage() {
 
     try {
       await ApiClient.deleteDocument("hanzi", deletingHanzi.id)
-      alert("한자가 성공적으로 삭제되었습니다!")
+      showAlert("한자가 성공적으로 삭제되었습니다!")
       setShowDeleteConfirmModal(false)
       setDeletingHanzi(null)
       loadHanziData()
     } catch (error) {
       console.error("한자 삭제 실패:", error)
-      alert("한자 삭제 중 오류가 발생했습니다.")
+      showAlert("한자 삭제 중 오류가 발생했습니다.")
     }
   }
 
@@ -393,11 +394,10 @@ export default function AdminPage() {
 
   // 특정 급수 삭제
   const deleteGradeHanzi = async () => {
-    if (
-      !confirm(
-        `정말로 ${deleteGrade}급 한자들을 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
-      )
-    ) {
+    const ok = await showConfirm(
+      `정말로 ${deleteGrade}급 한자들을 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
+    )
+    if (!ok) {
       return
     }
 
@@ -407,14 +407,14 @@ export default function AdminPage() {
       const gradeHanzi = await ApiClient.getHanziByGrade(deleteGrade)
 
       if (gradeHanzi.length === 0) {
-        alert(`${deleteGrade}급 한자가 없습니다.`)
+        showAlert(`${deleteGrade}급 한자가 없습니다.`)
         return
       }
 
       // 배치 삭제
       await ApiClient.deleteGradeHanzi(deleteGrade)
 
-      alert(`${deleteGrade}급 한자 ${gradeHanzi.length}개가 삭제되었습니다.`)
+      showAlert(`${deleteGrade}급 한자 ${gradeHanzi.length}개가 삭제되었습니다.`)
       setShowDeleteGradeModal(false)
 
       // 현재 선택된 급수가 삭제된 급수라면 데이터 새로고침
@@ -423,7 +423,7 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error("급수 삭제 에러:", error)
-      alert("급수 삭제에 실패했습니다.")
+      showAlert("급수 삭제에 실패했습니다.")
     } finally {
       setIsDeletingGrade(false)
     }
@@ -438,7 +438,7 @@ export default function AdminPage() {
   // 현재 등급의 모든 한자에 stroke order 생성
   const generateStrokeOrdersForGrade = async () => {
     if (!hanziData.length) {
-      alert("생성할 한자가 없습니다.")
+      showAlert("생성할 한자가 없습니다.")
       return
     }
 
@@ -462,11 +462,11 @@ export default function AdminPage() {
         message += `\n${errorCount}개의 한자 생성에 실패했습니다.`
       }
 
-      alert(message)
+      showAlert(message)
       loadHanziData() // 목록 새로고침
     } catch (error) {
       console.error("Stroke order 일괄 생성 실패:", error)
-      alert("Stroke order 생성 중 오류가 발생했습니다.")
+      showAlert("Stroke order 생성 중 오류가 발생했습니다.")
     } finally {
       setIsLoading(false)
     }
