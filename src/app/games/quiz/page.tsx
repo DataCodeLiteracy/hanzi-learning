@@ -511,12 +511,15 @@ export default function QuizGame() {
         questionCount={questionCount}
         currentDuration={currentDuration}
         backDisabled={
-          gameLogic.gameEnded && !gameLogic.sessionFinalizeComplete
+          gameLogic.gameEnded &&
+          (!gameLogic.sessionFinalizeComplete ||
+            gameLogic.isComboBonusUiPending)
         }
         onBackClick={() => {
           if (
             gameLogic.gameEnded &&
-            !gameLogic.sessionFinalizeComplete
+            (!gameLogic.sessionFinalizeComplete ||
+              gameLogic.isComboBonusUiPending)
           ) {
             return
           }
@@ -541,12 +544,19 @@ export default function QuizGame() {
             questionCount={questionCount}
             gameStats={gameLogic.gameStats}
             userExperience={user?.experience || 0}
-            actionsDisabled={!gameLogic.sessionFinalizeComplete}
-            onRestart={() => {
+            actionsDisabled={
+              !gameLogic.sessionFinalizeComplete ||
+              gameLogic.isComboBonusUiPending
+            }
+            onRestart={async () => {
+              await gameLogic.waitForSessionSettlement()
               setShowSettings(true)
-              gameLogic.initializeGame()
+              await gameLogic.initializeGame()
             }}
-            onGoHome={() => (window.location.href = "/")}
+            onGoHome={async () => {
+              await gameLogic.waitForSessionSettlement()
+              window.location.href = "/"
+            }}
           />
           </div>
         ) : (

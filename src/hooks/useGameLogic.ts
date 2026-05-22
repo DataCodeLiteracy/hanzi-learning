@@ -71,8 +71,8 @@ export const useGameLogic = (config: GameConfig) => {
 
   // 문제 풀기 카운팅
   const questionsAnsweredRef = useRef<number>(0)
-  // 콤보 보너스 1회 적용 여부
-  const comboBonusAppliedRef = useRef<boolean>(false)
+  // 콤보 보너스 정산 중복 방지·진행 중 effect 재실행 시 대기용
+  const comboBonusFinalizePromiseRef = useRef<Promise<void> | null>(null)
   /** 세션 정산(통계·콤보 보너스 API) 완료 전에는 홈/재시작 등으로 나가면 보너스가 누락될 수 있어 버튼을 막음 */
   const [sessionFinalizeComplete, setSessionFinalizeComplete] =
     useState(true)
@@ -243,7 +243,16 @@ export const useGameLogic = (config: GameConfig) => {
   )
 
   // 게임 초기화
-  const initializeGame = useCallback(() => {
+  const initializeGame = useCallback(async () => {
+    const pendingFinalize = comboBonusFinalizePromiseRef.current
+    if (pendingFinalize) {
+      try {
+        await pendingFinalize
+      } catch {
+        // 정산 실패해도 새 게임은 시작 가능
+      }
+    }
+
     // setQuestions([]) 제거 - 이미 setQuestions로 문제가 설정됨
     setCurrentQuestionIndex(0)
     setSelectedAnswer(null)
@@ -252,7 +261,7 @@ export const useGameLogic = (config: GameConfig) => {
     setHasUpdatedStats(false)
     setUserConfirmedExit(false)
     questionsAnsweredRef.current = 0
-    comboBonusAppliedRef.current = false
+    comboBonusFinalizePromiseRef.current = null
     setSessionFinalizeComplete(true)
     setGameStats({
       correctAnswers: 0,
@@ -307,38 +316,42 @@ export const useGameLogic = (config: GameConfig) => {
       // 콤보 보너스는 한 번만 적용 (세션 중 최고 콤보 기준)
       const maxCombo = stats.maxComboStreak ?? stats.comboStreak ?? 0
       if (u && maxCombo > 0 && stats.bonusExperience === 0) {
-        if (comboBonusAppliedRef.current) return
-        comboBonusAppliedRef.current = true
+        if (!comboBonusFinalizePromiseRef.current) {
+          comboBonusFinalizePromiseRef.current = (async () => {
+            const questionCount = questions.length
+            const finalCombo = maxCombo
 
-        const questionCount = questions.length
-        const finalCombo = maxCombo
+            let rawComboBonus = finalCombo
 
-        let rawComboBonus = finalCombo
+            // 5/10/15/20문제 세트에서는 콤보 보너스를 콤보/2 (올림)으로 조정
+            if ([5, 10, 15, 20].includes(questionCount)) {
+              rawComboBonus = Math.ceil(finalCombo / 2)
+            }
 
-        // 5/10/15/20문제 세트에서는 콤보 보너스를 콤보/2 (올림)으로 조정
-        if ([5, 10, 15, 20].includes(questionCount)) {
-          rawComboBonus = Math.ceil(finalCombo / 2)
+            // 한 세션에서 받을 수 있는 콤보 보너스는 문제 수를 넘지 않도록 제한
+            const comboBonus = Math.min(rawComboBonus, questionCount)
+
+            try {
+              await updateUserExperienceRef.current(comboBonus)
+              await ApiClient.updateTodayExperience(
+                u.id,
+                comboBonus,
+                streakBonusModalRef.current
+              )
+            } catch (error) {
+              console.error("콤보 보너스 경험치 업데이트 실패:", error)
+            }
+
+            setGameStats((prev) => ({
+              ...prev,
+              bonusExperience: comboBonus,
+              earnedExperience: prev.earnedExperience + comboBonus,
+            }))
+          })()
         }
 
-        // 한 세션에서 받을 수 있는 콤보 보너스는 문제 수를 넘지 않도록 제한
-        const comboBonus = Math.min(rawComboBonus, questionCount)
-
-        try {
-          await updateUserExperienceRef.current(comboBonus)
-          await ApiClient.updateTodayExperience(
-            u.id,
-            comboBonus,
-            streakBonusModalRef.current
-          )
-        } catch (error) {
-          console.error("콤보 보너스 경험치 업데이트 실패:", error)
-        }
-
-        setGameStats((prev) => ({
-          ...prev,
-          bonusExperience: comboBonus,
-          earnedExperience: prev.earnedExperience + comboBonus,
-        }))
+        // effect 재실행(Strict Mode 등) 시 ref만 true인 채 API를 건너뛰지 않도록 진행 중 작업을 기다림
+        await comboBonusFinalizePromiseRef.current
       }
     }
 
@@ -357,6 +370,22 @@ export const useGameLogic = (config: GameConfig) => {
       cancelled = true
     }
   }, [gameEnded, questions.length, config.gameType])
+
+  const waitForSessionSettlement = useCallback(async () => {
+    const pending = comboBonusFinalizePromiseRef.current
+    if (pending) {
+      try {
+        await pending
+      } catch {
+        // 정산 실패 시에도 나가기/재시작은 허용
+      }
+    }
+  }, [])
+
+  const isComboBonusUiPending =
+    gameEnded &&
+    (gameStats.maxComboStreak ?? gameStats.comboStreak ?? 0) > 0 &&
+    gameStats.bonusExperience === 0
 
   return {
     // 상태
@@ -378,9 +407,11 @@ export const useGameLogic = (config: GameConfig) => {
     setGameStats,
     questionsAnsweredRef,
     sessionFinalizeComplete,
+    isComboBonusUiPending,
 
     // 함수
     handleAnswerSelect,
     initializeGame,
+    waitForSessionSettlement,
   }
 }
