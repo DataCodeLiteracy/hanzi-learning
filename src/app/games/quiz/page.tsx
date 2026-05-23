@@ -629,39 +629,6 @@ export default function QuizGame() {
                   </button>
                 ))}
               </div>
-
-              {/* 정답 표시 */}
-              {gameLogic.selectedAnswer !== null && (
-                <div className='mt-5 p-3.5 rounded-lg bg-blue-50 border border-blue-200'>
-                  <div className='flex items-center justify-center space-x-2'>
-                    {gameLogic.isCorrect === true ? (
-                      <>
-                        <CheckCircle className='h-5 w-5 sm:h-6 sm:w-6 text-green-600' />
-                        <span className='text-green-600 font-semibold text-base'>
-                          정답입니다!
-                        </span>
-                      </>
-                    ) : gameLogic.isCorrect === null ? (
-                      <>
-                        <CheckCircle className='h-5 w-5 sm:h-6 sm:w-6 text-blue-600' />
-                        <span className='text-blue-600 font-semibold text-base'>
-                          정답을 확인해보세요
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className='h-5 w-5 sm:h-6 sm:w-6 text-red-600' />
-                        <span className='text-red-600 font-semibold text-base'>
-                          틀렸습니다.
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <div className='text-base text-gray-900 mt-2 font-semibold'>
-                    정답: {currentQuestion.correctAnswer}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}

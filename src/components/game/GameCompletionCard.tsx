@@ -25,16 +25,18 @@ export default function GameCompletionCard({
     correctAnswers,
     dontKnowCount,
     maxComboStreak,
-    bonusExperience,
+    comboBonusExperience: comboBonusFromStats,
+    perfectGameBonusExperience,
   } = gameStats
   const bestCombo = maxComboStreak ?? 0
   const wrongAnswers = questionCount - correctAnswers - dontKnowCount
   const isPerfectGame = dontKnowCount === 0 && correctAnswers === questionCount
 
-  // 기본 경험치(정답 개수)와 콤보 보너스 분리
   const baseExperience = correctAnswers
-  const comboBonusExperience = Math.max(0, bonusExperience)
-  const totalExperience = baseExperience + comboBonusExperience
+  const comboBonusExperience = Math.max(0, comboBonusFromStats ?? 0)
+  const perfectBonusExperience = Math.max(0, perfectGameBonusExperience ?? 0)
+  const totalExperience =
+    baseExperience + comboBonusExperience + perfectBonusExperience
   const accuracyRate =
     questionCount > 0 ? Math.round((correctAnswers / questionCount) * 100) : 0
 
@@ -143,6 +145,19 @@ export default function GameCompletionCard({
               </span>
             </div>
           )}
+          {perfectBonusExperience > 0 && (
+            <div className='flex items-center justify-between pt-2 border-t border-amber-200'>
+              <span className='text-amber-700 font-medium'>
+                완벽한 게임 보너스{" "}
+                <span className='text-xs text-amber-500'>
+                  (전 문제 정답)
+                </span>
+              </span>
+              <span className='font-semibold text-amber-600'>
+                +{perfectBonusExperience} EXP
+              </span>
+            </div>
+          )}
           <div className='mt-3 pt-3 border-t border-gray-200 space-y-1'>
             <div className='flex items-center justify-between text-xs sm:text-sm'>
               <span className='text-gray-600'>이전 경험치</span>
@@ -167,7 +182,7 @@ export default function GameCompletionCard({
             className='h-4 w-4 shrink-0 animate-spin text-blue-600'
             aria-hidden
           />
-          콤보 보너스 계산 중입니다…
+          보너스 경험치 계산 중입니다…
         </p>
       )}
       <div className='flex flex-row gap-3 mt-3'>

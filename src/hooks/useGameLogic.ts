@@ -17,8 +17,8 @@ export interface GameStats {
   comboStreak: number // 현재 연속 정답 수 (모르겠음 허용 범위 내)
   maxComboStreak: number // 세션 중 달성한 최고 콤보
   dontKnowComboUsed: number // 콤보를 깨지 않고 사용한 '모르겠음' 횟수
-  bonusExperience: number
-  bonusType?: "perfect" | "no_wrong" // 기존 보너스 타입 (현재는 사용하지 않음)
+  comboBonusExperience: number
+  perfectGameBonusExperience: number
 }
 
 export interface GameQuestion {
@@ -40,6 +40,12 @@ export interface GameConfig {
   questionCount: number
   gameType: "partial" | "quiz"
 }
+
+/** 콤보 보너스를 최고 콤보÷2(올림)로 줄이는 문제 수 (비완벽 게임) */
+export const COMBO_HALF_QUESTION_COUNTS = [5, 10, 15, 20] as const
+
+/** 완벽한 게임 보너스(콤보÷2 올림)를 주는 최소 문제 수 */
+export const PERFECT_GAME_BONUS_MIN_QUESTIONS = 25
 
 export const useGameLogic = (config: GameConfig) => {
   const { user, updateUserExperience } = useAuth()
@@ -65,8 +71,8 @@ export const useGameLogic = (config: GameConfig) => {
     comboStreak: 0,
     maxComboStreak: 0,
     dontKnowComboUsed: 0,
-    bonusExperience: 0,
-    bonusType: undefined,
+    comboBonusExperience: 0,
+    perfectGameBonusExperience: 0,
   })
 
   // 문제 풀기 카운팅
@@ -271,8 +277,8 @@ export const useGameLogic = (config: GameConfig) => {
       comboStreak: 0,
       maxComboStreak: 0,
       dontKnowComboUsed: 0,
-      bonusExperience: 0,
-      bonusType: undefined,
+      comboBonusExperience: 0,
+      perfectGameBonusExperience: 0,
     })
   }, [])
 
@@ -315,37 +321,56 @@ export const useGameLogic = (config: GameConfig) => {
 
       // 콤보 보너스는 한 번만 적용 (세션 중 최고 콤보 기준)
       const maxCombo = stats.maxComboStreak ?? stats.comboStreak ?? 0
-      if (u && maxCombo > 0 && stats.bonusExperience === 0) {
+      const bonusesNotApplied =
+        stats.comboBonusExperience === 0 &&
+        stats.perfectGameBonusExperience === 0
+      if (u && maxCombo > 0 && bonusesNotApplied) {
         if (!comboBonusFinalizePromiseRef.current) {
           comboBonusFinalizePromiseRef.current = (async () => {
             const questionCount = questions.length
             const finalCombo = maxCombo
+            const isPerfectGame =
+              stats.dontKnowCount === 0 &&
+              stats.correctAnswers === questionCount
 
-            let rawComboBonus = finalCombo
+            let comboBonus: number
+            let perfectGameBonus = 0
 
-            // 5/10/15/20문제 세트에서는 콤보 보너스를 콤보/2 (올림)으로 조정
-            if ([5, 10, 15, 20].includes(questionCount)) {
-              rawComboBonus = Math.ceil(finalCombo / 2)
+            if (isPerfectGame) {
+              comboBonus = finalCombo
+              if (questionCount >= PERFECT_GAME_BONUS_MIN_QUESTIONS) {
+                perfectGameBonus = Math.ceil(finalCombo / 2)
+              }
+            } else {
+              let rawComboBonus = finalCombo
+              if (
+                (COMBO_HALF_QUESTION_COUNTS as readonly number[]).includes(
+                  questionCount
+                )
+              ) {
+                rawComboBonus = Math.ceil(finalCombo / 2)
+              }
+              comboBonus = Math.min(rawComboBonus, questionCount)
             }
 
-            // 한 세션에서 받을 수 있는 콤보 보너스는 문제 수를 넘지 않도록 제한
-            const comboBonus = Math.min(rawComboBonus, questionCount)
+            const totalBonus = comboBonus + perfectGameBonus
 
             try {
-              await updateUserExperienceRef.current(comboBonus)
+              await updateUserExperienceRef.current(totalBonus)
               await ApiClient.updateTodayExperience(
                 u.id,
-                comboBonus,
+                totalBonus,
                 streakBonusModalRef.current
               )
             } catch (error) {
-              console.error("콤보 보너스 경험치 업데이트 실패:", error)
+              console.error("세션 보너스 경험치 업데이트 실패:", error)
             }
 
             setGameStats((prev) => ({
               ...prev,
-              bonusExperience: comboBonus,
-              earnedExperience: prev.earnedExperience + comboBonus,
+              comboBonusExperience: comboBonus,
+              perfectGameBonusExperience: perfectGameBonus,
+              earnedExperience: prev.earnedExperience + totalBonus,
             }))
           })()
         }
@@ -385,7 +410,8 @@ export const useGameLogic = (config: GameConfig) => {
   const isComboBonusUiPending =
     gameEnded &&
     (gameStats.maxComboStreak ?? gameStats.comboStreak ?? 0) > 0 &&
-    gameStats.bonusExperience === 0
+    gameStats.comboBonusExperience === 0 &&
+    gameStats.perfectGameBonusExperience === 0
 
   return {
     // 상태
