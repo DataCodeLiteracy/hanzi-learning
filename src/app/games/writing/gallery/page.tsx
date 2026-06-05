@@ -13,6 +13,10 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import {
+  GalleryPageSkeleton,
+  GalleryGridSkeleton,
+} from "@/components/Skeleton"
 import { CustomSelect } from "@/components/ui/CustomSelect"
 
 const GALLERY_GRADE_FILTER_OPTIONS = [
@@ -212,14 +216,7 @@ export default function WritingGalleryPage() {
 
   // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
   if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
-          <p className='text-gray-600'>로딩 중...</p>
-        </div>
-      </div>
-    )
+    return <GalleryPageSkeleton />
   }
 
   if (!user) {
@@ -413,14 +410,7 @@ export default function WritingGalleryPage() {
         )}
 
         {/* 로딩 */}
-        {loading && (
-          <div className='flex justify-center py-12'>
-            <div className='text-center'>
-              <div className='w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4'></div>
-              <p className='text-gray-600'>갤러리를 불러오는 중...</p>
-            </div>
-          </div>
-        )}
+        {loading && <GalleryGridSkeleton />}
 
         {/* 갤러리 그리드 */}
         {!loading && (

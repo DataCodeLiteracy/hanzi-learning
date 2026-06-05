@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { ExamResultSkeleton } from "@/components/Skeleton"
 import { XCircle, ArrowLeft, BookOpen } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -246,7 +246,7 @@ export default function WrongAnswersPage({
     }, {} as Record<string, WrongAnswer[]>) || {}
 
   if (authLoading || initialLoading) {
-    return <LoadingSpinner />
+    return <ExamResultSkeleton />
   }
 
   if (!user) {
@@ -268,7 +268,7 @@ export default function WrongAnswersPage({
   }
 
   if (isLoading) {
-    return <LoadingSpinner />
+    return <ExamResultSkeleton />
   }
 
   if (error) {

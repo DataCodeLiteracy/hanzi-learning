@@ -3,13 +3,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import {
+  GameSetupSkeleton,
+  GamePlaySkeleton,
+} from "@/components/Skeleton"
 import Link from "next/link"
 import { ApiClient } from "@/lib/apiClient"
 import { useTimeTracking } from "@/hooks/useTimeTracking"
 import NextGradeModal from "@/components/NextGradeModal"
 import { useGameLogic, GameQuestion } from "@/hooks/useGameLogic"
 import { getSelectedHanziForGame } from "@/lib/quizHanziSelection"
+import { getDontKnowComboLimit } from "@/lib/comboDontKnowLimit"
 import GameHeader from "@/components/game/GameHeader"
 import GameCompletionCard from "@/components/game/GameCompletionCard"
 import AnswerModal from "@/components/game/AnswerModal"
@@ -40,6 +44,11 @@ export default function PartialGame() {
   // 현재 선택된 급수는 user.preferredGrade를 사용
   const selectedGrade = user?.preferredGrade || 8
 
+  const dontKnowComboLimit = useMemo(
+    () => getDontKnowComboLimit(user?.preferredGrade, user?.birthYear),
+    [user?.preferredGrade, user?.birthYear]
+  )
+
   const questionCountOptions = useMemo(() => {
     const counts =
       selectedGrade === 8
@@ -53,6 +62,7 @@ export default function PartialGame() {
     selectedGrade,
     questionCount,
     gameType: "partial",
+    dontKnowComboLimit,
   })
 
   // 게임 생성 완료 후 상태 강제 업데이트
@@ -332,11 +342,7 @@ export default function PartialGame() {
 
   // 로딩 상태 처리
   if (isLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='데이터를 불러오는 중...' />
-      </div>
-    )
+    return <GameSetupSkeleton />
   }
 
   if (isAuthenticated && !user) {
@@ -356,11 +362,7 @@ export default function PartialGame() {
 
   // 게임 생성 중
   if (isGenerating) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='게임을 생성하는 중...' />
-      </div>
-    )
+    return <GameSetupSkeleton />
   }
 
   // 설정 화면
@@ -403,7 +405,7 @@ export default function PartialGame() {
                 학습 중인 급수
               </label>
               <Link
-                href='/profile#study-goal'
+                href='/my/profile'
                 className='text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors'
               >
                 급수 변경 →
@@ -498,7 +500,7 @@ export default function PartialGame() {
   }
 
   if (gameLogic.questions.length === 0) {
-    return <LoadingSpinner message='게임을 준비하는 중...' />
+    return <GamePlaySkeleton />
   }
 
   const currentQuestion = gameLogic.questions[
@@ -679,7 +681,8 @@ export default function PartialGame() {
         comboStreak={gameLogic.gameStats.comboStreak}
         dontKnowRemainingForCombo={Math.max(
           0,
-          3 - (gameLogic.gameStats.dontKnowComboUsed ?? 0)
+            dontKnowComboLimit -
+              (gameLogic.gameStats.dontKnowComboUsed ?? 0)
         )}
         onReportDataIssue={handleReportDataIssue}
         reportLoadingHanziId={reportLoadingHanziId}
@@ -696,7 +699,8 @@ export default function PartialGame() {
         comboStreak={gameLogic.gameStats.comboStreak}
         dontKnowRemainingForCombo={Math.max(
           0,
-          3 - (gameLogic.gameStats.dontKnowComboUsed ?? 0)
+            dontKnowComboLimit -
+              (gameLogic.gameStats.dontKnowComboUsed ?? 0)
         )}
         onReportDataIssue={handleReportDataIssue}
         reportLoadingHanziId={reportLoadingHanziId}
@@ -713,7 +717,8 @@ export default function PartialGame() {
         comboStreak={gameLogic.gameStats.comboStreak}
         dontKnowRemainingForCombo={Math.max(
           0,
-          3 - (gameLogic.gameStats.dontKnowComboUsed ?? 0)
+            dontKnowComboLimit -
+              (gameLogic.gameStats.dontKnowComboUsed ?? 0)
         )}
         onReportDataIssue={handleReportDataIssue}
         reportLoadingHanziId={reportLoadingHanziId}
@@ -729,7 +734,7 @@ export default function PartialGame() {
         onProceedToNext={() => {
           // 다음 급수로 이동은 마이페이지에서만 가능하도록 변경
           setShowNextGradeModal(false)
-          window.location.href = "/profile"
+          window.location.href = "/my"
         }}
       />
     </div>

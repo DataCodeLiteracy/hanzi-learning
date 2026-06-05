@@ -8,6 +8,7 @@ export interface User {
   experience: number // 경험치 필드 추가
   level: number // 레벨 필드 추가
   preferredGrade?: number // 선호하는 급수 (기본값: 8)
+  birthYear?: number // 출생년도 (콤보 '모르겠음' 허용 횟수 등에 사용)
   createdAt: string
   updatedAt: string
 }

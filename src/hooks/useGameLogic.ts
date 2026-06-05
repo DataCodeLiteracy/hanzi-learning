@@ -39,6 +39,8 @@ export interface GameConfig {
   selectedGrade: number
   questionCount: number
   gameType: "partial" | "quiz"
+  /** 콤보 유지 중 허용 '모르겠음' 횟수 (기본 3) */
+  dontKnowComboLimit?: number
 }
 
 /** 콤보 보너스를 최고 콤보÷2(올림)로 줄이는 문제 수 (비완벽 게임) */
@@ -119,16 +121,16 @@ export const useGameLogic = (config: GameConfig) => {
       let nextComboStreak = gameStats.comboStreak ?? 0
       let nextDontKnowComboUsed = gameStats.dontKnowComboUsed ?? 0
 
+      const dontKnowComboLimit = config.dontKnowComboLimit ?? 3
+
       if (isDontKnow) {
-        // 모르겠음: 경험치 없음, 콤보는 3번까지 유지 (콤보 시작 후에만 기회 차감)
+        // 모르겠음: 경험치 없음, 급수·나이 기준 N번까지 콤보 유지 (콤보 시작 후에만 기회 차감)
         experienceToAdd = 0
 
         if (nextComboStreak > 0) {
-          // 콤보가 이미 시작된 상태에서만 보호 기회 차감
           nextDontKnowComboUsed = nextDontKnowComboUsed + 1
 
-          // 3번까지는 콤보 유지, 4번째부터는 콤보 끊김 + 모르겠음 누적 초기화(다시 3번부터)
-          if (nextDontKnowComboUsed > 3) {
+          if (nextDontKnowComboUsed > dontKnowComboLimit) {
             nextComboStreak = 0
             nextDontKnowComboUsed = 0
           }
@@ -148,7 +150,7 @@ export const useGameLogic = (config: GameConfig) => {
           correctAnswers: prev.correctAnswers + 1,
         }))
       } else {
-        // 오답: 경험치 차감 없음, 콤보 초기화 + 모르겠음 누적도 초기화(다시 3번부터)
+        // 오답: 경험치 차감 없음, 콤보 초기화 + 모르겠음 누적도 초기화
         experienceToAdd = 0
         nextComboStreak = 0
         nextDontKnowComboUsed = 0
@@ -244,6 +246,7 @@ export const useGameLogic = (config: GameConfig) => {
       updateUserExperience,
       user,
       config.gameType,
+      config.dontKnowComboLimit,
       gameStats,
     ]
   )

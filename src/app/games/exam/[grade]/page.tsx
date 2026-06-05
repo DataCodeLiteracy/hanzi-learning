@@ -1,6 +1,5 @@
 "use client"
 
-import LoadingSpinner from "@/components/LoadingSpinner"
 import BlankHanziQuestion from "@/components/exam/BlankHanziQuestion"
 import DailyLimitModal from "@/components/exam/DailyLimitModal"
 import ExamError from "@/components/exam/ExamError"
@@ -1005,9 +1004,7 @@ export default function ExamGradePage({
   // isLoading이 true인 경우에는 위의 ExamLoading이 표시되므로 여기서는 표시하지 않음
   if (!examSession && !isLoading) {
     return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='시험을 준비하는 중...' />
-      </div>
+      <ExamLoading message='시험을 준비하는 중...' progress={loadingProgress} />
     )
   }
 

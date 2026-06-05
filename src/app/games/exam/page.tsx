@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useModal } from "@/contexts/ModalContext"
 import { useData } from "@/contexts/DataContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { ExamHubSkeleton } from "@/components/Skeleton"
 import DailyLimitModal from "@/components/exam/DailyLimitModal"
 import { Trophy, Clock, Target, ArrowLeft, Settings } from "lucide-react"
 import Link from "next/link"
@@ -315,11 +315,7 @@ export default function ExamPage() {
     isLoading ||
     checkingDailyLimit
   ) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='시험 정보를 불러오는 중...' />
-      </div>
-    )
+    return <ExamHubSkeleton />
   }
 
   // 인증 체크
@@ -366,7 +362,7 @@ export default function ExamPage() {
 
             <div className='flex items-center space-x-2 sm:space-x-4'>
               <Link
-                href='/profile#study-goal'
+                href='/my/profile'
                 className='flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors'
               >
                 <Settings className='w-3 h-3 sm:w-4 sm:h-4' />
@@ -529,7 +525,7 @@ export default function ExamPage() {
               사용자 정보를 불러올 수 없습니다.
             </div>
             <Link
-              href='/profile'
+              href='/my'
               className='text-purple-600 hover:text-purple-700'
             >
               프로필 설정하기

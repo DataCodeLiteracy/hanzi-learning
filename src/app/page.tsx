@@ -3,7 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext"
 import { useModal } from "@/contexts/ModalContext"
 import { useData } from "@/contexts/DataContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { HomePageSkeleton, RankingListSkeleton } from "@/components/Skeleton"
 import {
   BookOpen,
   PenTool,
@@ -1104,54 +1104,9 @@ export default function Home() {
     loadUserRankings()
   }, [])
 
-  // 로딩 중일 때는 로딩 스피너만 표시 (진짜 초기 로딩만)
+  // 인증 확인 중에만 전체 스켈레톤 (한자 데이터는 백그라운드 로드)
   if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
-      </div>
-    )
-  }
-
-  // 데이터 로딩 중일 때는 기본 레이아웃을 유지하면서 로딩 표시
-  if (dataLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
-        <header className='bg-white shadow-sm'>
-          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-            <div className='flex justify-between items-center py-4'>
-              <h1 className='text-xl sm:text-2xl font-bold text-gray-900'>
-                한자 학습 앱
-              </h1>
-              <div className='flex items-center space-x-2 sm:space-x-4'>
-                {user ? (
-                  <Link
-                    href='/profile'
-                    className='flex items-center space-x-2 px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors'
-                  >
-                    <UserIcon className='h-4 w-4 sm:h-5 sm:w-5' />
-                    <span>마이페이지</span>
-                  </Link>
-                ) : (
-                  <button
-                    onClick={signIn}
-                    className='flex items-center space-x-1 px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors'
-                  >
-                    <LogIn className='h-3 w-3 sm:h-4 sm:w-4' />
-                    <span className='hidden sm:inline'>로그인</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
-        <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8'>
-          <div className='flex items-center justify-center py-12'>
-            <LoadingSpinner message='데이터를 불러오는 중...' />
-          </div>
-        </main>
-      </div>
-    )
+    return <HomePageSkeleton />
   }
 
   const games = [
@@ -1226,7 +1181,7 @@ export default function Home() {
             <div className='flex items-center space-x-2 sm:space-x-4'>
               {user ? (
                 <Link
-                  href='/profile'
+                  href='/my'
                   className='flex items-center space-x-2 px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors'
                 >
                   <UserIcon className='h-4 w-4 sm:h-5 sm:w-5' />
@@ -1445,12 +1400,7 @@ export default function Home() {
               </h2>
               <div className='bg-white rounded-lg shadow-sm p-4 sm:p-6'>
                 {isLoadingRankings ? (
-                  <div className='flex items-center justify-center py-8'>
-                    <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500'></div>
-                    <span className='ml-2 text-gray-600'>
-                      순위를 불러오는 중...
-                    </span>
-                  </div>
+                  <RankingListSkeleton rows={5} />
                 ) : userRankings.length > 0 ? (
                   <div className='space-y-3'>
                     {userRankings.slice(0, 5).map((user) => (
@@ -1711,12 +1661,7 @@ export default function Home() {
             {/* 모달 내용 */}
             <div className='flex-1 overflow-y-auto p-6'>
               {isLoadingRankings ? (
-                <div className='flex items-center justify-center py-8'>
-                  <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500'></div>
-                  <span className='ml-2 text-gray-600'>
-                    순위를 불러오는 중...
-                  </span>
-                </div>
+                <RankingListSkeleton rows={10} />
               ) : userRankings.length > 0 ? (
                 <div className='space-y-3'>
                   {userRankings.map((user) => (

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { MyStatsSkeleton } from "@/components/Skeleton"
 import {
   ArrowLeft,
   Trophy,
@@ -143,11 +143,7 @@ export default function ExamStatisticsPage() {
   }
 
   if (authLoading || initialLoading || dataLoading || isLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='시험 통계를 불러오는 중...' />
-      </div>
-    )
+    return <MyStatsSkeleton />
   }
 
   if (!user) {
@@ -173,7 +169,7 @@ export default function ExamStatisticsPage() {
           <div className='flex items-center justify-between'>
             <div className='flex items-center space-x-4'>
               <Link
-                href='/profile'
+                href='/my'
                 className='p-2 hover:bg-gray-100 rounded-lg transition-colors'
               >
                 <ArrowLeft className='w-5 h-5 text-gray-600' />

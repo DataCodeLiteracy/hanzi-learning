@@ -1,6 +1,7 @@
 "use client"
 
 import { X, AlertTriangle, Info, CheckCircle, XCircle } from "lucide-react"
+import { CustomButton, type ButtonVariant } from "@/components/ui/CustomButton"
 
 export type ModalType = "warning" | "info" | "success" | "error"
 
@@ -46,18 +47,15 @@ export default function ConfirmModal({
     }
   }
 
-  const getConfirmButtonClass = () => {
+  const getConfirmVariant = (): ButtonVariant => {
     switch (type) {
       case "warning":
-        return "bg-red-600 hover:bg-red-700"
-      case "info":
-        return "bg-blue-600 hover:bg-blue-700"
-      case "success":
-        return "bg-green-600 hover:bg-green-700"
       case "error":
-        return "bg-red-600 hover:bg-red-700"
+        return "dangerSolid"
+      case "success":
+        return "success"
       default:
-        return "bg-red-600 hover:bg-red-700"
+        return "primary"
     }
   }
 
@@ -70,7 +68,7 @@ export default function ConfirmModal({
       />
 
       {/* 모달 */}
-      <div className='relative bg-white rounded-lg shadow-xl w-full mx-4 p-6' style={{ maxWidth: '500px' }}>
+      <div className='relative bg-white rounded-2xl shadow-xl w-full mx-4 p-6 border border-slate-100' style={{ maxWidth: '500px' }}>
         {/* 헤더 */}
         <div className='flex items-center justify-between mb-4'>
           <div className='flex items-center space-x-3'>
@@ -78,12 +76,15 @@ export default function ConfirmModal({
             <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
           </div>
           {showCloseButton && (
-            <button
+            <CustomButton
+              variant='ghost'
+              size='md'
               onClick={onClose}
-              className='text-gray-400 hover:text-gray-600 transition-colors'
+              className='!p-2 !min-w-0 text-gray-400 hover:text-gray-600 !bg-transparent hover:!bg-slate-100'
+              aria-label='닫기'
             >
               <X className='h-5 w-5' />
-            </button>
+            </CustomButton>
           )}
         </div>
 
@@ -91,23 +92,20 @@ export default function ConfirmModal({
         <p className='text-gray-600 mb-6 whitespace-pre-line'>{message}</p>
 
         {/* 버튼 */}
-        <div className={`flex ${showCancel ? 'justify-end space-x-3' : 'justify-center'}`}>
+        <div className={`flex gap-3 ${showCancel ? "justify-end" : "justify-center"}`}>
           {showCancel && (
-            <button
-              onClick={onClose}
-              className='px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors'
-            >
+            <CustomButton variant='ghost' size='md' onClick={onClose}>
               {cancelText}
-            </button>
+            </CustomButton>
           )}
-          <button
+          <CustomButton
+            variant={getConfirmVariant()}
+            size='md'
             onClick={onConfirm}
-            className={`px-4 py-2 text-white rounded-md transition-colors ${getConfirmButtonClass()} ${
-              !showCancel ? 'w-full' : ''
-            }`}
+            className={!showCancel ? "w-full" : ""}
           >
             {confirmText}
-          </button>
+          </CustomButton>
         </div>
       </div>
     </div>

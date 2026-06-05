@@ -19,6 +19,7 @@ import {
   XCircle,
 } from "lucide-react"
 import Link from "next/link"
+import { GalleryPageSkeleton, Skeleton } from "@/components/Skeleton"
 import Image from "next/image"
 import { CustomSelect } from "@/components/ui/CustomSelect"
 
@@ -453,14 +454,7 @@ export default function AdminWritingGalleryPage() {
 
   // 로딩 중
   if (authLoading || loading) {
-    return (
-      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4'></div>
-          <p className='text-gray-600'>관리자 페이지를 불러오는 중...</p>
-        </div>
-      </div>
-    )
+    return <GalleryPageSkeleton />
   }
 
   // 권한 없음
@@ -978,7 +972,7 @@ export default function AdminWritingGalleryPage() {
                           >
                             {deletingSubmissionId === submission.id ? (
                               <>
-                                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1'></div>
+                                <Skeleton className='h-4 w-4 rounded-full shrink-0 bg-white/40' />
                                 삭제 중...
                               </>
                             ) : (
@@ -1061,10 +1055,8 @@ export default function AdminWritingGalleryPage() {
       {deletingSubmissionId && (
         <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50'>
           <div className='bg-white rounded-lg p-6 flex items-center space-x-4'>
-            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
-            <div className='text-lg font-medium text-gray-900'>
-              제출물을 삭제하는 중...
-            </div>
+            <Skeleton className='h-8 w-8 rounded-full shrink-0' />
+            <Skeleton className='h-5 w-40' />
           </div>
         </div>
       )}

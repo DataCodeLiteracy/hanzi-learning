@@ -8,6 +8,7 @@ import Link from "next/link"
 import { ArrowLeft, Upload, Camera, X, CheckCircle, Search } from "lucide-react"
 import Image from "next/image"
 import { CustomSelect } from "@/components/ui/CustomSelect"
+import { WritingFormSkeleton, Skeleton } from "@/components/Skeleton"
 
 const WRITING_UPLOAD_GRADE_OPTIONS = [
   { value: "", label: "급수를 선택하세요" },
@@ -326,14 +327,7 @@ export default function WritingUploadPage() {
 
   // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
   if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
-          <p className='text-gray-600'>로딩 중...</p>
-        </div>
-      </div>
-    )
+    return <WritingFormSkeleton />
   }
 
   if (!user) {
@@ -365,14 +359,7 @@ export default function WritingUploadPage() {
 
             <div className='relative z-10'>
               <div className='mb-6'>
-                <div className='w-20 h-20 mx-auto mb-6 relative'>
-                  <div className='absolute inset-0 flex items-center justify-center'>
-                    <div className='w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin'></div>
-                  </div>
-                  <div className='absolute inset-0 flex items-center justify-center'>
-                    <div className='w-8 h-8 bg-green-600 rounded-full animate-ping opacity-75'></div>
-                  </div>
-                </div>
+                <Skeleton className='h-20 w-20 rounded-full mx-auto' />
               </div>
 
               <h3 className='text-2xl font-bold text-gray-900 mb-3 animate-pulse'>
@@ -516,11 +503,8 @@ export default function WritingUploadPage() {
 
                   {/* 로딩 상태 */}
                   {isLoadingHanzi && (
-                    <div className='mt-2 p-4 text-center'>
-                      <div className='w-6 h-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2'></div>
-                      <p className='text-sm text-gray-600'>
-                        한자 목록을 불러오는 중...
-                      </p>
+                    <div className='mt-2 p-4'>
+                      <Skeleton className='h-24 w-full rounded-xl' />
                     </div>
                   )}
 

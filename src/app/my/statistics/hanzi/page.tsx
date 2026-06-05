@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { MyStatsSkeleton, Skeleton } from "@/components/Skeleton"
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
 import Link from "next/link"
 import { CustomSelect } from "@/components/ui/CustomSelect"
@@ -116,11 +116,7 @@ export default function HanziStatisticsPage() {
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
-      </div>
-    )
+    return <MyStatsSkeleton />
   }
 
   // 인증이 완료되었지만 사용자가 없을 때
@@ -159,7 +155,7 @@ export default function HanziStatisticsPage() {
           <div className='flex justify-between items-center py-4'>
             <div className='flex items-center space-x-4'>
               <Link
-                href='/profile'
+                href='/my'
                 className='text-blue-600 hover:text-blue-700'
               >
                 <ArrowLeft className='h-5 w-5' />
@@ -189,11 +185,9 @@ export default function HanziStatisticsPage() {
             />
 
             {isLoadingGrade && (
-              <div className='mt-2 flex items-center space-x-2'>
-                <LoadingSpinner message='' />
-                <span className='text-sm text-gray-600'>
-                  급수 데이터를 불러오는 중...
-                </span>
+              <div className='mt-2 space-y-2'>
+                <Skeleton className='h-3 w-40' />
+                <Skeleton className='h-2 w-full rounded-full' />
               </div>
             )}
           </div>
@@ -239,8 +233,17 @@ export default function HanziStatisticsPage() {
               <span>한자별 상세 통계</span>
             </h3>
             {isLoadingGrade ? (
-              <div className='flex justify-center py-8'>
-                <LoadingSpinner message='통계를 불러오는 중...' />
+              <div className='space-y-3'>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className='rounded-lg border border-gray-200 p-4 space-y-2'
+                  >
+                    <Skeleton className='h-4 w-16 mx-auto' />
+                    <Skeleton className='h-8 w-12 mx-auto' />
+                    <Skeleton className='h-3 w-24 mx-auto' />
+                  </div>
+                ))}
               </div>
             ) : (
               <div className='space-y-4'>

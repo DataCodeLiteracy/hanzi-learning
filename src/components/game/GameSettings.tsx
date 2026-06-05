@@ -1,6 +1,7 @@
 import React, { useMemo } from "react"
 import { ArrowLeft, Play } from "lucide-react"
 import { CustomSelect } from "@/components/ui/CustomSelect"
+import { Skeleton } from "@/components/Skeleton"
 
 interface GameSettingsProps {
   gameType: "partial" | "quiz"
@@ -108,10 +109,8 @@ export default function GameSettings({
 
             {isLoadingGrade && (
               <div className='mt-2 flex items-center space-x-2'>
-                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500'></div>
-                <span className='text-base text-gray-600'>
-                  급수 데이터를 불러오는 중...
-                </span>
+                <Skeleton className='h-4 w-4 rounded-full shrink-0' />
+                <Skeleton className='h-4 w-40' />
               </div>
             )}
 

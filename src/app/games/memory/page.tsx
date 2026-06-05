@@ -5,7 +5,10 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useBonusModal } from "@/contexts/BonusModalContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import {
+  GameSetupSkeleton,
+  MemoryCardGridSkeleton,
+} from "@/components/Skeleton"
 import { ArrowLeft, Timer } from "lucide-react"
 import Link from "next/link"
 import { calculateMemoryGameExperience } from "@/lib/experienceSystem"
@@ -707,11 +710,7 @@ export default function MemoryGame() {
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (isLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='데이터를 불러오는 중...' />
-      </div>
-    )
+    return <GameSetupSkeleton />
   }
 
   // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
@@ -843,7 +842,7 @@ export default function MemoryGame() {
                 학습 중인 급수
               </label>
               <Link
-                href='/profile#study-goal'
+                href='/my/profile'
                 className='text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors'
               >
                 급수 변경 →
@@ -1026,8 +1025,8 @@ export default function MemoryGame() {
       <main className='max-w-4xl mx-auto px-0 sm:px-6 lg:px-8 py-8 pt-16'>
         {/* 카드 생성 중 로딩 */}
         {isGeneratingCards && (
-          <div className='text-center py-8'>
-            <LoadingSpinner message='카드를 생성하는 중...' />
+          <div className='py-8 flex justify-center'>
+            <MemoryCardGridSkeleton cols={gridSize.cols} rows={gridSize.rows} />
           </div>
         )}
 

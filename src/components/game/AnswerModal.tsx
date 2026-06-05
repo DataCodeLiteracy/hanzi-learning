@@ -8,7 +8,7 @@ interface AnswerModalProps {
   isCorrect: boolean | null
   /** 현재 콤보 수 (정답 연속 횟수) */
   comboStreak?: number
-  /** 콤보를 유지하면서 남은 '모르겠음' 기회 (0~3) */
+  /** 콤보를 유지하면서 남은 '모르겠음' 기회 */
   dontKnowRemainingForCombo?: number
   /** 이 한자 데이터에 문제가 있다고 신고 (한자 목록에서 뜻·음·관련 단어 수정 후 신고 해제) */
   onReportDataIssue?: (hanziId: string) => void

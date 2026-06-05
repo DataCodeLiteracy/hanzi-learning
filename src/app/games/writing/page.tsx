@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { WritingHubSkeleton } from "@/components/Skeleton"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
@@ -12,24 +12,8 @@ export default function WritingGame() {
   const isLoading = authLoading
 
   // 로딩 중일 때는 로딩 스피너 표시
-  if (isLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='게임을 준비하는 중...' />
-      </div>
-    )
-  }
-
-  // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
-  if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
-          <p className='text-gray-600'>로딩 중...</p>
-        </div>
-      </div>
-    )
+  if (isLoading || initialLoading) {
+    return <WritingHubSkeleton />
   }
 
   // 인증이 완료되었지만 사용자가 없을 때

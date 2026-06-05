@@ -2,7 +2,11 @@
 
 import { useAuth } from "@/contexts/AuthContext"
 import { useModal } from "@/contexts/ModalContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import {
+  HanziListPageSkeleton,
+  HanziListOverlaySkeleton,
+  Skeleton,
+} from "@/components/Skeleton"
 import {
   ArrowLeft,
   BookOpen,
@@ -1191,11 +1195,7 @@ export default function HanziListPage() {
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (authInitialLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
-      </div>
-    )
+    return <HanziListPageSkeleton />
   }
 
   // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
@@ -1249,17 +1249,7 @@ export default function HanziListPage() {
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       {/* 로딩 오버레이 - 페이지 중간에 표시 */}
-      {isLoading && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center'>
-          <div
-            className='absolute inset-0 bg-white'
-            style={{ opacity: 0.95 }}
-          />
-          <div className='relative z-10'>
-            <LoadingSpinner message='한자 데이터를 불러오는 중...' />
-          </div>
-        </div>
-      )}
+      {isLoading && <HanziListOverlaySkeleton />}
 
       {/* 헤더 */}
       <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
@@ -1316,7 +1306,7 @@ export default function HanziListPage() {
               >
                 {isSyncing ? (
                   <>
-                    <LoadingSpinner message='' />
+                    <Skeleton className='h-4 w-4 rounded-full shrink-0' />
                     <span>동기화 중...</span>
                   </>
                 ) : (

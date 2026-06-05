@@ -53,7 +53,7 @@ export default function FeedbackPage() {
 
       setIsSubmitted(true)
       setTimeout(() => {
-        router.push("/profile")
+        router.push("/my")
       }, 2000)
     } catch (error) {
       console.error("피드백 제출 실패:", error)
@@ -131,7 +131,7 @@ export default function FeedbackPage() {
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center py-4'>
             <Link
-              href='/profile'
+              href='/my'
               className='text-gray-600 hover:text-gray-900 transition-colors'
             >
               <ArrowLeft className='h-5 w-5' />

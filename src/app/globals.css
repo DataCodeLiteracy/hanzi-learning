@@ -48,6 +48,12 @@ select option {
   transform-style: preserve-3d;
 }
 
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .rotate-y-180 {
   transform: rotateY(180deg);
 }

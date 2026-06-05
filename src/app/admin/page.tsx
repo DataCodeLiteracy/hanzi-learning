@@ -6,7 +6,11 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useModal } from "@/contexts/ModalContext"
 import { ApiClient } from "@/lib/apiClient"
 import { Hanzi } from "@/types"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import {
+  AdminPageSkeleton,
+  TableRowsSkeleton,
+  Skeleton,
+} from "@/components/Skeleton"
 import { ensureStrokeOrder } from "@/lib/hanziWriter"
 import {
   Edit,
@@ -90,11 +94,7 @@ export default function AdminPage() {
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
-      </div>
-    )
+    return <AdminPageSkeleton />
   }
 
   // 인증이 완료되었지만 관리자가 아닐 때 (즉시 표시, 로딩 없음)
@@ -743,10 +743,8 @@ export default function AdminPage() {
 
               {isMigrating && (
                 <div className='flex items-center space-x-2'>
-                  <LoadingSpinner message='' />
-                  <span className='text-sm text-gray-600'>
-                    마이그레이션 중...
-                  </span>
+                  <Skeleton className='h-4 w-4 rounded-full shrink-0' />
+                  <Skeleton className='h-4 w-28' />
                 </div>
               )}
             </div>
@@ -761,8 +759,8 @@ export default function AdminPage() {
             </div>
 
             {isLoading ? (
-              <div className='p-8'>
-                <LoadingSpinner message='한자 데이터를 불러오는 중...' />
+              <div className='p-6'>
+                <TableRowsSkeleton rows={8} cols={5} />
               </div>
             ) : (
               <div className='overflow-x-auto'>

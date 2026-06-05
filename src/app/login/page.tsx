@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/AuthContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { LoginPageSkeleton } from "@/components/Skeleton"
 import { LogIn, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useEffect } from "react"
@@ -19,21 +19,8 @@ export default function LoginPage() {
   }, [user, authLoading, router])
 
   // 로딩 중일 때는 로딩 스피너 표시
-  if (authLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
-      </div>
-    )
-  }
-
-  // 이미 로그인된 경우 로딩 표시
-  if (user) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='메인 페이지로 이동하는 중...' />
-      </div>
-    )
+  if (authLoading || user) {
+    return <LoginPageSkeleton />
   }
 
   return (

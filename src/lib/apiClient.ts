@@ -991,6 +991,31 @@ export class ApiClient {
     }
   }
 
+  // 프로필 정보 업데이트 (이름, 출생년도 등)
+  static async updateUserProfile(
+    userId: string,
+    data: { displayName?: string; birthYear?: number | null }
+  ): Promise<void> {
+    try {
+      const userRef = doc(db, "users", userId)
+      const payload: Record<string, unknown> = {
+        updatedAt: new Date().toISOString(),
+      }
+      if (data.displayName !== undefined) {
+        payload.displayName = data.displayName
+      }
+      if (data.birthYear === null) {
+        payload.birthYear = null
+      } else if (data.birthYear !== undefined) {
+        payload.birthYear = data.birthYear
+      }
+      await updateDoc(userRef, payload)
+    } catch (error) {
+      console.error("프로필 업데이트 실패:", error)
+      throw new Error("프로필 업데이트에 실패했습니다.")
+    }
+  }
+
   // 한자 쓰기 통계 업데이트
   static async updateHanziWritingStatistics(
     userId: string,

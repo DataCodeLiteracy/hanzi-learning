@@ -5,7 +5,10 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useModal } from "@/contexts/ModalContext"
 import { useData } from "@/contexts/DataContext"
 import { ApiClient } from "@/lib/apiClient"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import {
+  WritingFormSkeleton,
+  HanziGridSkeleton,
+} from "@/components/Skeleton"
 import {
   ArrowLeft,
   Printer,
@@ -117,24 +120,8 @@ export default function WorksheetPage() {
   }
 
   // 로딩 중
-  if (authLoading || isDataLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='로딩 중...' />
-      </div>
-    )
-  }
-
-  // 로딩 중이거나 초기 로딩 중일 때는 로그인 체크하지 않음
-  if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
-          <p className='text-gray-600'>로딩 중...</p>
-        </div>
-      </div>
-    )
+  if (authLoading || isDataLoading || initialLoading) {
+    return <WritingFormSkeleton />
   }
 
   // 인증 체크
@@ -382,8 +369,8 @@ export default function WorksheetPage() {
 
           {/* 한자 목록 */}
           {isLoadingHanzi ? (
-            <div className='py-12 text-center'>
-              <LoadingSpinner message='한자 목록을 불러오는 중...' />
+            <div className='py-6'>
+              <HanziGridSkeleton count={40} />
             </div>
           ) : filteredHanziList.length === 0 && searchTerm ? (
             <div className='py-12 text-center text-gray-500'>

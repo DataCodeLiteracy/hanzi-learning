@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/contexts/AuthContext"
 // useData는 현재 사용되지 않음 (향후 사용 예정)
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { MyStatsSkeleton } from "@/components/Skeleton"
 import {
   ArrowLeft,
   Trophy,
@@ -45,11 +45,7 @@ export default function GameStatisticsPage() {
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (initialLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='인증 상태를 확인하는 중...' />
-      </div>
-    )
+    return <MyStatsSkeleton />
   }
 
   // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
@@ -82,7 +78,7 @@ export default function GameStatisticsPage() {
           <div className='flex justify-between items-center py-4'>
             <div className='flex items-center space-x-4'>
               <Link
-                href='/profile'
+                href='/my'
                 className='text-blue-600 hover:text-blue-700'
               >
                 <ArrowLeft className='h-5 w-5' />

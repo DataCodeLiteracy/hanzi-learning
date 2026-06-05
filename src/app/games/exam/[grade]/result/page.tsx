@@ -3,7 +3,7 @@
 import { useState, useEffect, use, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import { ExamResultSkeleton } from "@/components/Skeleton"
 import WrongAnswersModal from "@/components/exam/WrongAnswersModal"
 import {
   Trophy,
@@ -301,11 +301,7 @@ export default function ExamResultPage({
 
   // 로딩 중
   if (authLoading || initialLoading || isLoading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-        <LoadingSpinner message='시험 결과를 불러오는 중...' />
-      </div>
-    )
+    return <ExamResultSkeleton />
   }
 
   // 인증 체크
