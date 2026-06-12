@@ -38,7 +38,7 @@ import StreakMainCelebrationModal from "@/components/StreakMainCelebrationModal"
 import type { User, Hanzi } from "@/types/index"
 
 export default function Home() {
-  const { user, initialLoading, signIn } = useAuth()
+  const { user, initialLoading } = useAuth()
   const { alert: showAlert } = useModal()
   const { hanziList, isLoading: dataLoading, refreshHanziData } = useData()
   const [showPromotionModal, setShowPromotionModal] = useState(false)

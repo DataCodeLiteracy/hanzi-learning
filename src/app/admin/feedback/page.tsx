@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useModal } from "@/contexts/ModalContext"
 import { ApiClient } from "@/lib/apiClient"
@@ -48,15 +48,7 @@ export default function AdminFeedbackPage() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!user || !user.isAdmin) {
-      router.push("/")
-      return
-    }
-    loadFeedbacks()
-  }, [user, router])
-
-  const loadFeedbacks = async () => {
+  const loadFeedbacks = useCallback(async () => {
     try {
       setLoading(true)
       const feedbackList = await ApiClient.getFeedbackList()
@@ -67,7 +59,15 @@ export default function AdminFeedbackPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [showAlert])
+
+  useEffect(() => {
+    if (!user || !user.isAdmin) {
+      router.push("/")
+      return
+    }
+    loadFeedbacks()
+  }, [user, router, loadFeedbacks])
 
   const handleStatusUpdate = async (
     feedbackId: string,
