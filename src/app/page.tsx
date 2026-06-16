@@ -886,17 +886,51 @@ export default function Home() {
     }
   }, [user])
 
-  // 페이지 포커스 시 사용자 정보 새로고침
+  const refreshTodayStats = useCallback(async () => {
+    if (!user) return
+
+    try {
+      await ApiClient.checkAndResetTodayExperience(user.id)
+
+      const todayExp = await ApiClient.getTodayExperience(user.id)
+      setTodayExperience(todayExp)
+
+      const userStats = await ApiClient.getUserStatistics(user.id)
+      if (userStats) {
+        setTodayGoal(userStats.todayGoal || 100)
+        setTotalStudyTime(userStats.totalStudyTime || 0)
+
+        const history = userStats.goalAchievementHistory || []
+        const effectiveHistory = userStats.consecutiveDaysResetAt
+          ? history.filter((r) => r.date > userStats.consecutiveDaysResetAt!)
+          : history
+        setConsecutiveGoalDays(
+          ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
+        )
+
+        const weeklyStats = ApiClient.calculateWeeklyGoalAchievement(history)
+        setWeeklyGoalAchievement({
+          achievedDays: weeklyStats.achievedDays,
+          totalDays: weeklyStats.totalDays,
+        })
+      }
+    } catch (error) {
+      console.error("오늘 경험치 로드 실패:", error)
+    }
+  }, [user])
+
+  // 페이지 포커스 시 사용자·오늘 경험치 새로고침
   useEffect(() => {
     const handleFocus = () => {
       if (user) {
         refreshUserInfo()
+        refreshTodayStats()
       }
     }
 
     window.addEventListener("focus", handleFocus)
     return () => window.removeEventListener("focus", handleFocus)
-  }, [user, refreshUserInfo])
+  }, [user, refreshUserInfo, refreshTodayStats])
 
   // 컴포넌트 마운트 시 사용자 정보 새로고침
   useEffect(() => {
@@ -905,58 +939,24 @@ export default function Home() {
     }
   }, [user, refreshUserInfo])
 
-  // 페이지 가시성 변경 시 사용자 정보 새로고침 (다른 탭에서 돌아올 때)
+  // 페이지 가시성 변경 시 사용자·오늘 경험치 새로고침 (다른 탭에서 돌아올 때)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && user) {
         refreshUserInfo()
+        refreshTodayStats()
       }
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [user, refreshUserInfo])
+  }, [user, refreshUserInfo, refreshTodayStats])
 
   // 오늘 경험치 로드
   useEffect(() => {
     if (user) {
-      const loadTodayExperience = async () => {
-        try {
-          // 자정 리셋 확인 및 처리
-          await ApiClient.checkAndResetTodayExperience(user.id)
-
-          const todayExp = await ApiClient.getTodayExperience(user.id)
-          setTodayExperience(todayExp)
-
-          // 오늘의 학습 목표와 목표 달성 통계 로드
-          const userStats = await ApiClient.getUserStatistics(user.id)
-          if (userStats) {
-            setTodayGoal(userStats.todayGoal || 100)
-            setTotalStudyTime(userStats.totalStudyTime || 0)
-            
-            // 연속 달성일 실시간 계산 (리셋일 이후 기록만 사용)
-            const history = userStats.goalAchievementHistory || []
-            const effectiveHistory = userStats.consecutiveDaysResetAt
-              ? history.filter((r) => r.date > userStats.consecutiveDaysResetAt!)
-              : history
-            const calculatedConsecutiveDays =
-              ApiClient.calculateConsecutiveGoalDays(effectiveHistory)
-            setConsecutiveGoalDays(calculatedConsecutiveDays)
-            
-            // 이번주 달성 현황 실시간 계산 (goalAchievementHistory 기반)
-            const weeklyStats = ApiClient.calculateWeeklyGoalAchievement(history)
-            setWeeklyGoalAchievement({
-              achievedDays: weeklyStats.achievedDays,
-              totalDays: weeklyStats.totalDays,
-            })
-
-          }
-        } catch (error) {
-          console.error("오늘 경험치 로드 실패:", error)
-        }
-      }
-      loadTodayExperience()
+      refreshTodayStats()
     } else {
       setTodayExperience(0)
       setTodayGoal(100)
@@ -964,7 +964,7 @@ export default function Home() {
       setTotalStudyTime(0)
       setWeeklyGoalAchievement({ achievedDays: 0, totalDays: 7 })
     }
-  }, [user])
+  }, [user, refreshTodayStats])
 
   useEffect(() => {
     mainStreakModalSessionDismissRef.current = {}

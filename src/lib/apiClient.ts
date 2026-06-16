@@ -1116,7 +1116,9 @@ export class ApiClient {
     ) => void
   ): Promise<void> {
     try {
-      // 기존 userStatistics 조회
+      // 자정 경과 후 홈 새로고침 없이 게임만 한 경우 어제 EXP와 합산되지 않도록 먼저 리셋
+      await this.checkAndResetTodayExperience(userId)
+
       const userStats = await this.getUserStatistics(userId)
 
       if (userStats) {
