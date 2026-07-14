@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiClient } from "@/lib/apiClient"
-import { MyStatsSkeleton, Skeleton } from "@/components/Skeleton"
-import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
+import { StatsContentSkeleton } from "../StatsContentSkeleton"
+import { Skeleton } from "@/components/Skeleton"
+import { TrendingUp, TrendingDown } from "lucide-react"
 import Link from "next/link"
 import { CustomSelect } from "@/components/ui/CustomSelect"
 
@@ -116,7 +117,7 @@ export default function HanziStatisticsPage() {
 
   // 로딩 중일 때는 로딩 스피너 표시
   if (authLoading) {
-    return <MyStatsSkeleton />
+    return <StatsContentSkeleton />
   }
 
   // 인증이 완료되었지만 사용자가 없을 때
@@ -148,29 +149,9 @@ export default function HanziStatisticsPage() {
       : 0
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
-      {/* 헤더 */}
-      <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center py-4'>
-            <div className='flex items-center space-x-4'>
-              <Link
-                href='/my'
-                className='text-blue-600 hover:text-blue-700'
-              >
-                <ArrowLeft className='h-5 w-5' />
-              </Link>
-              <h1 className='text-2xl font-bold text-gray-900'>한자별 통계</h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* 메인 컨텐츠 */}
-      <main className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
-        <div className='space-y-6'>
+    <div className='space-y-6'>
           {/* 급수 선택 */}
-          <div className='bg-white rounded-lg shadow-lg p-6'>
+          <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
             <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
               <TrendingUp className='h-5 w-5' />
               <span>급수 선택</span>
@@ -193,7 +174,7 @@ export default function HanziStatisticsPage() {
           </div>
 
           {/* 요약 통계 */}
-          <div className='bg-white rounded-lg shadow-lg p-6'>
+          <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
             <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
               <TrendingUp className='h-5 w-5' />
               <span>요약 통계</span>
@@ -227,7 +208,7 @@ export default function HanziStatisticsPage() {
           </div>
 
           {/* 한자별 상세 통계 */}
-          <div className='bg-white rounded-lg shadow-lg p-6'>
+          <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
             <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
               <TrendingUp className='h-5 w-5' />
               <span>한자별 상세 통계</span>
@@ -351,8 +332,6 @@ export default function HanziStatisticsPage() {
               </div>
             )}
           </div>
-        </div>
-      </main>
     </div>
   )
 }

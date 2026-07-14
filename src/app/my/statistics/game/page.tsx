@@ -2,9 +2,8 @@
 
 import { useAuth } from "@/contexts/AuthContext"
 // useData는 현재 사용되지 않음 (향후 사용 예정)
-import { MyStatsSkeleton } from "@/components/Skeleton"
+import { StatsContentSkeleton } from "../StatsContentSkeleton"
 import {
-  ArrowLeft,
   Trophy,
   BarChart3,
   Brain,
@@ -45,7 +44,7 @@ export default function GameStatisticsPage() {
 
   // 로딩 중일 때는 로딩 스피너 표시 (진짜 초기 로딩만)
   if (initialLoading) {
-    return <MyStatsSkeleton />
+    return <StatsContentSkeleton />
   }
 
   // 인증이 완료되었지만 사용자가 없을 때 (즉시 표시, 로딩 없음)
@@ -71,29 +70,9 @@ export default function GameStatisticsPage() {
     (gameStatistics.memory?.totalPlayed || 0)
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
-      {/* 헤더 */}
-      <header className='fixed top-0 left-0 right-0 bg-white shadow-sm z-50'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center py-4'>
-            <div className='flex items-center space-x-4'>
-              <Link
-                href='/my'
-                className='text-blue-600 hover:text-blue-700'
-              >
-                <ArrowLeft className='h-5 w-5' />
-              </Link>
-              <h1 className='text-2xl font-bold text-gray-900'>게임별 통계</h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* 메인 컨텐츠 */}
-      <main className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20'>
-        <div className='space-y-6'>
+    <div className='space-y-6'>
           {/* 게임별 통계 */}
-          <div className='bg-white rounded-lg shadow-lg p-6'>
+          <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
             <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
               <Trophy className='h-5 w-5' />
               <span>게임별 통계</span>
@@ -138,7 +117,7 @@ export default function GameStatisticsPage() {
           </div>
 
           {/* 게임별 상세 통계 */}
-          <div className='bg-white rounded-lg shadow-lg p-6'>
+          <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
             <h3 className='text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2'>
               <BarChart3 className='h-5 w-5' />
               <span>상세 통계</span>
@@ -298,8 +277,6 @@ export default function GameStatisticsPage() {
               )}
             </div>
           </div>
-        </div>
-      </main>
     </div>
   )
 }

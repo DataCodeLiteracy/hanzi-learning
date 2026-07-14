@@ -285,10 +285,10 @@ export default function ProfilePage() {
             accent='bg-blue-50'
           />
           <MenuRow
-            href='/my/statistics/game'
+            href='/my/statistics'
             icon={<BarChart3 className='h-5 w-5 text-indigo-600' />}
             title='학습 통계'
-            subtitle='게임·한자·시험 성과 확인'
+            subtitle='기간별 목표·학습 현황'
             accent='bg-indigo-50'
           />
           <MenuRow
@@ -336,7 +336,7 @@ export default function ProfilePage() {
             <div className='flex items-center justify-between mb-4'>
               <h3 className='font-bold text-gray-900'>최근 학습</h3>
               <Link
-                href='/my/statistics/detail'
+                href='/my/statistics'
                 className='text-xs font-medium text-blue-600 hover:text-blue-700'
               >
                 전체 →

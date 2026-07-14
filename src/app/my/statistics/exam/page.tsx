@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useData } from "@/contexts/DataContext"
-import { MyStatsSkeleton } from "@/components/Skeleton"
+import { StatsContentSkeleton } from "../StatsContentSkeleton"
 import {
-  ArrowLeft,
   Trophy,
   Target,
   TrendingUp,
@@ -143,7 +142,7 @@ export default function ExamStatisticsPage() {
   }
 
   if (authLoading || initialLoading || dataLoading || isLoading) {
-    return <MyStatsSkeleton />
+    return <StatsContentSkeleton />
   }
 
   if (!user) {
@@ -162,27 +161,9 @@ export default function ExamStatisticsPage() {
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
-      {/* 헤더 */}
-      <div className='bg-white shadow-sm border-b'>
-        <div className='max-w-4xl mx-auto px-4 py-4'>
-          <div className='flex items-center justify-between'>
-            <div className='flex items-center space-x-4'>
-              <Link
-                href='/my'
-                className='p-2 hover:bg-gray-100 rounded-lg transition-colors'
-              >
-                <ArrowLeft className='w-5 h-5 text-gray-600' />
-              </Link>
-              <h1 className='text-2xl font-bold text-gray-900'>시험 통계</h1>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className='max-w-4xl mx-auto px-4 py-6'>
+    <div className='space-y-6'>
         {!examStats ? (
-          <div className='bg-white rounded-lg shadow-lg p-8 text-center'>
+          <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-8 text-center'>
             <Trophy className='w-16 h-16 text-gray-400 mx-auto mb-4' />
             <h2 className='text-xl font-semibold text-gray-900 mb-2'>
               아직 시험 기록이 없습니다
@@ -202,7 +183,7 @@ export default function ExamStatisticsPage() {
           <>
             {/* 전체 통계 요약 */}
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6'>
-              <div className='bg-white rounded-lg shadow-lg p-6'>
+              <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-gray-600'>
@@ -216,7 +197,7 @@ export default function ExamStatisticsPage() {
                 </div>
               </div>
 
-              <div className='bg-white rounded-lg shadow-lg p-6'>
+              <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-gray-600'>합격률</p>
@@ -233,7 +214,7 @@ export default function ExamStatisticsPage() {
                 </div>
               </div>
 
-              <div className='bg-white rounded-lg shadow-lg p-6'>
+              <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-gray-600'>
@@ -247,7 +228,7 @@ export default function ExamStatisticsPage() {
                 </div>
               </div>
 
-              <div className='bg-white rounded-lg shadow-lg p-6'>
+              <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-gray-600'>
@@ -264,7 +245,7 @@ export default function ExamStatisticsPage() {
 
             {/* 연속 합격 기록 */}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-6'>
-              <div className='bg-white rounded-lg shadow-lg p-6'>
+              <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
                 <h3 className='text-lg font-semibold text-gray-900 mb-4'>
                   연속 합격 기록
                 </h3>
@@ -284,7 +265,7 @@ export default function ExamStatisticsPage() {
                 </div>
               </div>
 
-              <div className='bg-white rounded-lg shadow-lg p-6'>
+              <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
                 <h3 className='text-lg font-semibold text-gray-900 mb-4'>
                   마지막 시험
                 </h3>
@@ -299,7 +280,7 @@ export default function ExamStatisticsPage() {
             </div>
 
             {/* 급수별 통계 */}
-            <div className='bg-white rounded-lg shadow-lg p-6 mb-6'>
+            <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5 mb-6'>
               <h3 className='text-lg font-semibold text-gray-900 mb-4'>
                 급수별 시험 현황
               </h3>
@@ -356,7 +337,7 @@ export default function ExamStatisticsPage() {
 
             {/* 최근 시험 결과 */}
             {recentExams.length > 0 && (
-              <div className='bg-white rounded-lg shadow-lg p-6'>
+              <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] p-5'>
                 <h3 className='text-lg font-semibold text-gray-900 mb-4'>
                   최근 시험 결과
                 </h3>
@@ -401,7 +382,6 @@ export default function ExamStatisticsPage() {
             )}
           </>
         )}
-      </div>
     </div>
   )
 }
