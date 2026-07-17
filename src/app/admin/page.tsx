@@ -19,6 +19,7 @@ import {
   Download,
   MessageSquare,
   ImageIcon,
+  Flame,
 } from "lucide-react"
 import { migrateAllUsers, migrateUserData } from "@/lib/migration"
 import { CustomSelect } from "@/components/ui/CustomSelect"
@@ -527,6 +528,24 @@ export default function AdminPage() {
             >
               <ImageIcon className='h-4 w-4' />
               <span>쓰기 갤러리 관리</span>
+            </Link>
+          </div>
+
+          {/* 연속 달성일 조정 */}
+          <div className='bg-white rounded-lg shadow-sm p-6'>
+            <h2 className='text-lg font-semibold text-gray-900 mb-4'>
+              연속 달성일 조정
+            </h2>
+            <p className='text-sm text-gray-600 mb-4'>
+              이름으로 사용자를 선택해 연속 목표 달성일을 수기로 수정할 수
+              있습니다.
+            </p>
+            <Link
+              href='/admin/streak'
+              className='inline-flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors'
+            >
+              <Flame className='h-4 w-4' />
+              <span>연속 달성일 조정</span>
             </Link>
           </div>
 
