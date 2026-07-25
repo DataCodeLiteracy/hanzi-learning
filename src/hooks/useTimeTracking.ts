@@ -108,14 +108,40 @@ export function useTimeTracking({
               type: ended.type,
             }),
           })
-          if (!res.ok) {
-            const data = (await res.json().catch(() => ({}))) as { error?: string }
-            console.warn("[focus-level sync]", data.error ?? res.status)
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string
+            ok?: boolean
+            skipped?: boolean
+            reason?: string
           }
+          if (!res.ok) {
+            console.warn("[focus-level sync] fail", data.error ?? res.status)
+            return
+          }
+          if (data.skipped) {
+            console.warn("[focus-level sync] skipped", {
+              reason: data.reason,
+              activity: ended.activity,
+              durationSeconds: ended.duration,
+              sessionId: ended.id,
+            })
+            return
+          }
+          console.log("[focus-level sync] ok", {
+            activity: ended.activity,
+            durationSeconds: ended.duration,
+            sessionId: ended.id,
+          })
         } catch (e) {
-          console.warn("[focus-level sync]", e)
+          console.warn("[focus-level sync] error", e)
         }
       })()
+    } else if (ended) {
+      console.log("[focus-level sync] skipped locally", {
+        reason: "too_short_client",
+        activity: ended.activity,
+        durationSeconds: duration,
+      })
     }
 
     sessionIdRef.current = null

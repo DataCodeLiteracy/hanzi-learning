@@ -195,12 +195,13 @@ export default function QuizGame() {
     }
   }, [user, selectedGrade])
 
-  // 게임 종료 시 다음 급수 권장 모달 체크
+  // 게임 종료 시 학습 시간 동기화 + 다음 급수 권장 모달
   useEffect(() => {
     if (gameLogic.gameEnded) {
+      endSession()
       checkNextGradeModal()
     }
-  }, [gameLogic.gameEnded, checkNextGradeModal])
+  }, [gameLogic.gameEnded, checkNextGradeModal, endSession])
 
   // 게임 초기화 함수
   const initializeGame = async () => {

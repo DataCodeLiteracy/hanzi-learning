@@ -39,6 +39,12 @@ export async function POST(request: Request) {
     const ingestUrl = process.env.FOCUS_LEVEL_INGEST_URL?.trim()
     const ingestSecret = process.env.FOCUS_LEVEL_INGEST_SECRET?.trim()
     if (!ingestUrl || !ingestSecret) {
+      console.warn("[focus-level/sync-session] skipped: env", {
+        hasUrl: Boolean(ingestUrl),
+        hasSecret: Boolean(ingestSecret),
+        uid: verified.uid,
+        sessionId,
+      })
       return NextResponse.json({ ok: true, skipped: true, reason: "env" })
     }
 
@@ -47,10 +53,18 @@ export async function POST(request: Request) {
       .doc(verified.uid)
       .get()
     if (!linkSnap.exists) {
+      console.warn("[focus-level/sync-session] skipped: not_linked", {
+        uid: verified.uid,
+        sessionId,
+      })
       return NextResponse.json({ ok: true, skipped: true, reason: "not_linked" })
     }
     const link = linkSnap.data() as FocusLevelLink
     if (!link.focusUserId || !link.activityId) {
+      console.warn("[focus-level/sync-session] skipped: incomplete_link", {
+        uid: verified.uid,
+        sessionId,
+      })
       return NextResponse.json({ ok: true, skipped: true, reason: "incomplete_link" })
     }
 
@@ -81,6 +95,11 @@ export async function POST(request: Request) {
 
     const durationSeconds = Math.max(0, Math.round(Number(body.durationSeconds) || 0))
     if (durationSeconds < FOCUS_LEVEL_MIN_SYNC_SECONDS) {
+      console.warn("[focus-level/sync-session] skipped: too_short", {
+        uid: verified.uid,
+        sessionId,
+        durationSeconds,
+      })
       return NextResponse.json({
         ok: true,
         skipped: true,
@@ -121,11 +140,27 @@ export async function POST(request: Request) {
     })
     const result = (await upstream.json().catch(() => ({}))) as { error?: string }
     if (!upstream.ok) {
+      console.error("[focus-level/sync-session] ingest fail", {
+        status: upstream.status,
+        error: result.error,
+        uid: verified.uid,
+        focusUserId: link.focusUserId,
+        activityId: link.activityId,
+        sessionId,
+      })
       return NextResponse.json(
         { error: result.error ?? "동기화 실패" },
         { status: upstream.status >= 400 ? upstream.status : 502 },
       )
     }
+    console.log("[focus-level/sync-session] ok", {
+      uid: verified.uid,
+      focusUserId: link.focusUserId,
+      activityId: link.activityId,
+      sessionId,
+      durationSeconds,
+      activity: body.activity,
+    })
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
     console.error("[focus-level/sync-session]", error)
