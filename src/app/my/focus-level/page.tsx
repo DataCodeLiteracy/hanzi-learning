@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Link2, LogIn, Unlink, Check } from "lucide-react"
+import { ArrowLeft, Link2, LogIn, RefreshCw, Unlink, Check } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { getClientIdToken } from "@/lib/getClientIdToken"
 import {
@@ -31,6 +31,14 @@ export default function FocusLevelLinkPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const configured = isFocusLevelAuthConfigured()
+  const picking = activities.length > 0
+
+  const clearPicker = useCallback(() => {
+    setActivities([])
+    setFocusLevelIdToken(null)
+    setFocusEmail(null)
+    setSelectedId("")
+  }, [])
 
   const loadLink = useCallback(async () => {
     try {
@@ -41,7 +49,6 @@ export default function FocusLevelLinkPage() {
       const data = (await res.json()) as { link?: FocusLevelLink | null; error?: string }
       if (!res.ok) throw new Error(data.error ?? "연동 조회 실패")
       setLink(data.link ?? null)
-      if (data.link?.activityId) setSelectedId(data.link.activityId)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -55,7 +62,7 @@ export default function FocusLevelLinkPage() {
     if (isAuthenticated) void loadLink()
   }, [loading, isAuthenticated, router, loadLink])
 
-  const handleFocusLogin = async () => {
+  const handleLoadActivities = async () => {
     setBusy(true)
     setError(null)
     setMessage(null)
@@ -76,6 +83,7 @@ export default function FocusLevelLinkPage() {
       if (!res.ok) throw new Error(data.error ?? "활동 목록 실패")
       setActivities(data.activities ?? [])
       if (data.focusEmail) setFocusEmail(data.focusEmail)
+      setSelectedId("")
       setMessage("활동을 선택한 뒤 연동 저장을 눌러 주세요.")
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -105,6 +113,7 @@ export default function FocusLevelLinkPage() {
       const data = (await res.json()) as { link?: FocusLevelLink; error?: string }
       if (!res.ok) throw new Error(data.error ?? "연동 저장 실패")
       setLink(data.link ?? null)
+      clearPicker()
       setMessage(`「${selected.name}」 활동에 연동되었습니다.`)
       await signOutFocusLevel().catch(() => undefined)
     } catch (e) {
@@ -128,9 +137,7 @@ export default function FocusLevelLinkPage() {
       const data = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(data.error ?? "연동 해제 실패")
       setLink(null)
-      setActivities([])
-      setFocusLevelIdToken(null)
-      setSelectedId("")
+      clearPicker()
       setMessage("연동이 해제되었습니다.")
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -185,23 +192,41 @@ export default function FocusLevelLinkPage() {
         )}
 
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
-          <button
-            type="button"
-            disabled={busy || !configured}
-            onClick={() => void handleFocusLogin()}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            <LogIn className="h-4 w-4" />
-            focus-level Google 로그인
-          </button>
-          {focusEmail && <p className="text-xs text-slate-500">로그인: {focusEmail}</p>}
-          {activities.length > 0 && (
+          {!picking && (
+            <button
+              type="button"
+              disabled={busy || !configured}
+              onClick={() => void handleLoadActivities()}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {link ? (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  활동 다시 불러오기
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4" />
+                  focus-level Google 로그인
+                </>
+              )}
+            </button>
+          )}
+
+          {picking && (
             <div className="space-y-2">
+              {focusEmail && (
+                <p className="text-xs text-slate-500">로그인: {focusEmail}</p>
+              )}
               <p className="text-sm font-medium text-slate-800">활동 선택</p>
               {activities.map((a) => (
                 <label
                   key={a.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-3"
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                    selectedId === a.id
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
                 >
                   <input
                     type="radio"
@@ -209,21 +234,35 @@ export default function FocusLevelLinkPage() {
                     checked={selectedId === a.id}
                     onChange={() => setSelectedId(a.id)}
                   />
-                  <span>
+                  <span className="text-sm font-medium text-gray-900">
                     {a.name}
                     {a.isPinned ? " · 고정" : ""}
                   </span>
                 </label>
               ))}
-              <button
-                type="button"
-                disabled={busy || !selectedId || !focusLevelIdToken}
-                onClick={() => void handleSaveLink()}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                <Check className="h-4 w-4" />
-                연동 저장
-              </button>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={busy || !selectedId || !focusLevelIdToken}
+                  onClick={() => void handleSaveLink()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  <Check className="h-4 w-4" />
+                  연동 저장
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    clearPicker()
+                    setMessage(null)
+                    void signOutFocusLevel().catch(() => undefined)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600"
+                >
+                  취소
+                </button>
+              </div>
             </div>
           )}
         </div>
