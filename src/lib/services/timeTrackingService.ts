@@ -42,15 +42,22 @@ export class TimeTrackingService {
   /**
    * 학습 세션 종료
    */
-  static endSession(sessionId: string): number {
+  static endSession(sessionId: string): {
+    duration: number
+    startTime: number
+    endTime: number
+    activity: string
+    type: "game" | "page"
+    id: string
+  } | null {
     const session = this.sessions.get(sessionId)
     if (!session) {
       console.warn(`⚠️ 세션을 찾을 수 없습니다: ${sessionId}`)
-      return 0
+      return null
     }
 
     const endTime = Date.now()
-    const duration = Math.floor((endTime - session.startTime) / 1000) // 초 단위
+    const duration = Math.floor((endTime - session.startTime) / 1000)
 
     session.endTime = endTime
     session.duration = duration
@@ -60,10 +67,17 @@ export class TimeTrackingService {
       `🕐 학습 세션 종료: ${session.activity} (${session.type}) - ${duration}초`
     )
 
-    // 세션을 메모리에서 제거
-    this.sessions.delete(sessionId)
+    const result = {
+      duration,
+      startTime: session.startTime,
+      endTime,
+      activity: session.activity,
+      type: session.type,
+      id: session.id,
+    }
 
-    return duration
+    this.sessions.delete(sessionId)
+    return result
   }
 
   /**

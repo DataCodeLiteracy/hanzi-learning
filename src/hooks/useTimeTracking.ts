@@ -76,24 +76,48 @@ export function useTimeTracking({
       return 0
     }
 
-    const duration = TimeTrackingService.endSession(sessionIdRef.current)
+    const ended = TimeTrackingService.endSession(sessionIdRef.current)
+    const duration = ended?.duration ?? 0
 
-    // 총 학습시간 업데이트 (현재 세션 시간을 기존 totalStudyTime에 추가)
-    TimeTrackingService.updateTotalStudyTime(userId, duration)
-      .then(() => {
-        // 로컬 상태도 즉시 업데이트
-        setTotalStudyTime((prev) => prev + duration)
-        console.log(
-          `📊 총 학습시간 업데이트: +${duration}초 (새 총합: ${
-            totalStudyTime + duration
-          }초)`
-        )
-      })
-      .catch((error) => {
-        console.error("총 학습시간 업데이트 실패:", error)
-      })
+    if (duration > 0) {
+      TimeTrackingService.updateTotalStudyTime(userId, duration)
+        .then(() => {
+          setTotalStudyTime((prev) => prev + duration)
+        })
+        .catch((error) => {
+          console.error("총 학습시간 업데이트 실패:", error)
+        })
+    }
 
-    // 정리
+    if (ended && duration >= 30) {
+      void (async () => {
+        try {
+          const { getClientIdToken } = await import("@/lib/getClientIdToken")
+          const idToken = await getClientIdToken()
+          const res = await fetch("/api/focus-level/sync-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              idToken,
+              op: "upsert",
+              sessionId: ended.id,
+              startTime: new Date(ended.startTime).toISOString(),
+              endTime: new Date(ended.endTime).toISOString(),
+              durationSeconds: ended.duration,
+              activity: ended.activity,
+              type: ended.type,
+            }),
+          })
+          if (!res.ok) {
+            const data = (await res.json().catch(() => ({}))) as { error?: string }
+            console.warn("[focus-level sync]", data.error ?? res.status)
+          }
+        } catch (e) {
+          console.warn("[focus-level sync]", e)
+        }
+      })()
+    }
+
     sessionIdRef.current = null
     startTimeRef.current = null
     setIsActive(false)
@@ -106,7 +130,7 @@ export function useTimeTracking({
 
     console.log(`🕐 세션 종료: ${activity} - ${duration}초`)
     return duration
-  }, [userId, activity, totalStudyTime])
+  }, [userId, activity])
 
   // 시간 포맷팅
   const formatTime = useCallback((seconds: number): string => {

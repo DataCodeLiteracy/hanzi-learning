@@ -20,6 +20,7 @@ import {
   Crown,
   LogOut,
   Trash2,
+  Link2,
 } from "lucide-react"
 import {
   calculateLevelProgress,
@@ -283,6 +284,13 @@ export default function ProfilePage() {
             title='프로필 정보'
             subtitle='이름, 출생년도, 급수, 학습 목표'
             accent='bg-blue-50'
+          />
+          <MenuRow
+            href='/my/focus-level'
+            icon={<Link2 className='h-5 w-5 text-violet-600' />}
+            title='나혼자만레벨업 연동'
+            subtitle='학습 시간을 focus-level 활동에 동기화'
+            accent='bg-violet-50'
           />
           <MenuRow
             href='/my/statistics'
