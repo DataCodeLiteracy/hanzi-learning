@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
 
       // 경험치 즉시 반영 (150exp)
       console.log("💰 경험치 반영 시작:", { userId, experienceToAdd: 150 })
-      await ApiClient.addUserExperience(userId, 150)
+      await ApiClient.addUserExperience(userId, 150, { accrueMileage: true })
       experienceAdded = 150
       experienceUpdateSuccess = true
 

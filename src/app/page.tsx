@@ -13,6 +13,8 @@ import {
   Gamepad2,
   Eye,
   TrendingUp,
+  Coins,
+  ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -21,16 +23,17 @@ import {
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
 import {
-  calculateStreakMilestoneBonus,
-  getStreakMilestonePercentage,
-} from "@/lib/streakMilestoneBonus"
-import {
   readMainStreakModalPermanentDismissed,
   writeMainStreakModalPermanentDismissed,
   type MainStreakModalMilestone,
 } from "@/lib/streakMainModalStorage"
+import {
+  DAILY_MILEAGE_CAP,
+  formatMileage,
+} from "@/lib/mileageSystem"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { ApiClient, getKSTDateISO } from "@/lib/apiClient"
+import { MileageService } from "@/lib/services/mileageService"
 import { getNextGrade } from "@/lib/gradeUtils"
 import { HanziStorage } from "@/lib/hanziStorage"
 import GradePromotionModal from "@/components/exam/GradePromotionModal"
@@ -825,8 +828,10 @@ export default function Home() {
   const [weeklyGoalAchievement, setWeeklyGoalAchievement] = useState<{
     achievedDays: number
     totalDays: number
-  }>({ achievedDays: 0, totalDays: 7 }) // 0/7로 시작
-  const [totalStudyTime, setTotalStudyTime] = useState<number>(0) // 총 학습시간 (초 단위)
+  }>({ achievedDays: 0, totalDays: 7 })
+  const [totalStudyTime, setTotalStudyTime] = useState<number>(0)
+  const [mileageBalance, setMileageBalance] = useState<number>(0)
+  const [todayMileageEarned, setTodayMileageEarned] = useState<number>(0)
 
   /** 메인 연속 달성 축하 모달 — 확인만 누른 경우 같은 방문에서 재표시 안 함; 페이지 재진입 시 다시 표시 */
   const mainStreakModalSessionDismissRef = useRef<
@@ -876,9 +881,11 @@ export default function Home() {
           level: userDoc.level || 1,
           experience: userDoc.experience || 0,
         })
+        setMileageBalance(userDoc.mileage || 0)
         console.log("🔄 사용자 정보 새로고침:", {
           level: userDoc.level,
           experience: userDoc.experience,
+          mileage: userDoc.mileage || 0,
         })
       }
     } catch (error) {
@@ -894,6 +901,9 @@ export default function Home() {
 
       const todayExp = await ApiClient.getTodayExperience(user.id)
       setTodayExperience(todayExp)
+
+      const todayMileage = await MileageService.getTodayEarned(user.id)
+      setTodayMileageEarned(todayMileage)
 
       const userStats = await ApiClient.getUserStatistics(user.id)
       if (userStats) {
@@ -961,8 +971,10 @@ export default function Home() {
       setTodayExperience(0)
       setTodayGoal(100)
       setConsecutiveGoalDays(0)
-      setTotalStudyTime(0)
       setWeeklyGoalAchievement({ achievedDays: 0, totalDays: 7 })
+      setTotalStudyTime(0)
+      setMileageBalance(0)
+      setTodayMileageEarned(0)
     }
   }, [user, refreshTodayStats])
 
@@ -1218,133 +1230,12 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 레벨 정보 */}
-              <div className='space-y-3'>
-                {/* 레벨 표시 */}
+              <div className='space-y-4'>
                 <h3 className='text-lg font-semibold text-gray-900'>
                   레벨 {currentLevel}
                 </h3>
 
-                {/* 오늘의 학습 성과 */}
-                <div className='bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100'>
-                  <div className='flex items-center space-x-2 mb-2'>
-                    <TrendingUp className='h-5 w-5 text-blue-600' />
-                    <span className='text-sm font-semibold text-blue-800'>
-                      오늘의 학습
-                    </span>
-                  </div>
-                  <div className='flex items-baseline space-x-2 mb-2'>
-                    <span className='text-2xl font-bold text-blue-600'>
-                      {todayExperience}
-                    </span>
-                    <span className='text-sm text-blue-600'>EXP 획득</span>
-                    <span className='text-sm text-gray-500'>
-                      / {todayGoal} 목표
-                    </span>
-                  </div>
-
-                  {/* 진행률 바 */}
-                  <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
-                    <div
-                      className='bg-blue-600 h-2 rounded-full transition-all duration-300'
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          (todayExperience / todayGoal) * 100
-                        )}%`,
-                      }}
-                    ></div>
-                  </div>
-
-                  <p className='text-xs text-blue-700'>
-                    {todayExperience >= todayGoal
-                      ? `🎉 목표 달성! ${todayExperience}EXP를 획득했어요!`
-                      : `목표까지 ${
-                          todayGoal - todayExperience
-                        }EXP 남았어요! 🎯`}
-                  </p>
-
-                  {/* 목표 달성 통계 */}
-                  <div className='mt-3 pt-3 border-t border-blue-200'>
-                    <div className='flex justify-around items-center'>
-                      {/* 연속 목표 달성일 */}
-                      <div className='text-center'>
-                        <div className='text-lg font-bold text-green-600'>
-                          {consecutiveGoalDays}일
-                        </div>
-                        <div className='text-xs text-gray-600'>연속 달성</div>
-                        {consecutiveGoalDays >= 10 && (
-                          <div className='text-xs text-blue-600 mt-1 font-medium'>
-                            🎁 보너스!
-                          </div>
-                        )}
-                      </div>
-                      {/* 이번주 달성 현황 */}
-                      <div className='text-center'>
-                        <div className='text-lg font-bold text-purple-600'>
-                          {weeklyGoalAchievement.achievedDays}/
-                          {weeklyGoalAchievement.totalDays}
-                        </div>
-                        <div className='text-xs text-gray-600'>이번주 달성</div>
-                      </div>
-                      {/* 누적 공부 시간 */}
-                      <div className='text-center'>
-                        <div className='text-lg font-bold text-orange-600'>
-                          {formatStudyTime(totalStudyTime)}
-                        </div>
-                        <div className='text-xs text-gray-600'>
-                          누적 공부 시간
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 보너스 경험치 정보 (실제 지급과 동일: 평균 목표 × 마일스톤 비율; 매일 목표가 같으면 오늘 목표와 일치) */}
-                    {consecutiveGoalDays >= 10 && (
-                      <div className='mt-3 pt-3 border-t border-blue-100'>
-                        <div className='text-center'>
-                          <div className='text-sm font-medium text-blue-600 mb-1'>
-                            🎁 보너스 경험치 정보
-                          </div>
-                          <div className='text-xs text-gray-600 space-y-1'>
-                            {consecutiveGoalDays >= 30 ? (
-                              <div>
-                                30일 마일스톤 (평균 목표의{" "}
-                                {Math.round(
-                                  getStreakMilestonePercentage(30) * 100
-                                )}
-                                %): +
-                                {calculateStreakMilestoneBonus(todayGoal, 30)}{" "}
-                                EXP
-                              </div>
-                            ) : consecutiveGoalDays >= 20 ? (
-                              <div>
-                                20일 마일스톤 (평균 목표의{" "}
-                                {Math.round(
-                                  getStreakMilestonePercentage(20) * 100
-                                )}
-                                %): +
-                                {calculateStreakMilestoneBonus(todayGoal, 20)}{" "}
-                                EXP
-                              </div>
-                            ) : (
-                              <div>
-                                10일 마일스톤 (평균 목표의{" "}
-                                {Math.round(
-                                  getStreakMilestonePercentage(10) * 100
-                                )}
-                                %): +
-                                {calculateStreakMilestoneBonus(todayGoal, 10)}{" "}
-                                EXP
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 다음 레벨까지와 진행률 */}
+                {/* 레벨 진행 */}
                 <div className='flex items-center justify-between text-sm text-gray-600'>
                   <span>다음 레벨까지 {expToNextLevel} EXP 필요</span>
                   <span>
@@ -1354,24 +1245,17 @@ export default function Home() {
                     </span>
                   </span>
                 </div>
-
-                {/* 경험치 바와 정보 */}
                 <div className='space-y-2'>
-                  {/* 레벨 시작/끝 경험치 (바 위) */}
                   <div className='flex justify-between text-xs text-gray-500'>
                     <span>{calculateRequiredExperience(currentLevel)}</span>
                     <span>{calculateRequiredExperience(currentLevel + 1)}</span>
                   </div>
-
-                  {/* 경험치 바 */}
                   <div className='w-full bg-gray-200 rounded-full h-4 relative'>
                     <div
                       className='bg-blue-600 h-4 rounded-full transition-all duration-300'
                       style={{ width: `${levelProgress * 100}%` }}
-                    ></div>
+                    />
                   </div>
-
-                  {/* 화살표와 현재 경험치 (바 아래, 진행률에 따라 위치) */}
                   <div className='relative'>
                     <div
                       className='absolute transform -translate-x-1/2 text-center'
@@ -1390,6 +1274,120 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+
+                {/* 오늘의 학습 */}
+                <div className='bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100'>
+                  <div className='flex items-center space-x-2 mb-2'>
+                    <TrendingUp className='h-5 w-5 text-blue-600' />
+                    <span className='text-sm font-semibold text-blue-800'>
+                      오늘의 학습
+                    </span>
+                  </div>
+                  <div className='flex items-baseline space-x-2 mb-2'>
+                    <span className='text-2xl font-bold text-blue-600'>
+                      {todayExperience}
+                    </span>
+                    <span className='text-sm text-blue-600'>EXP 획득</span>
+                    <span className='text-sm text-gray-500'>
+                      / {todayGoal} 목표
+                    </span>
+                  </div>
+                  <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
+                    <div
+                      className='bg-blue-600 h-2 rounded-full transition-all duration-300'
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (todayExperience / todayGoal) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <p className='text-xs text-blue-700'>
+                    {todayExperience >= todayGoal
+                      ? `목표 달성! ${todayExperience}EXP를 획득했어요!`
+                      : `목표까지 ${
+                          todayGoal - todayExperience
+                        }EXP 남았어요!`}
+                  </p>
+
+                  <div className='mt-3 pt-3 border-t border-blue-200'>
+                    <div className='flex justify-around items-center'>
+                      <div className='text-center'>
+                        <div className='text-lg font-bold text-green-600'>
+                          {consecutiveGoalDays}일
+                        </div>
+                        <div className='text-xs text-gray-600'>연속 달성</div>
+                        {consecutiveGoalDays >= 10 && (
+                          <div className='text-xs text-blue-600 mt-1 font-medium'>
+                            보너스!
+                          </div>
+                        )}
+                      </div>
+                      <div className='text-center'>
+                        <div className='text-lg font-bold text-purple-600'>
+                          {weeklyGoalAchievement.achievedDays}/
+                          {weeklyGoalAchievement.totalDays}
+                        </div>
+                        <div className='text-xs text-gray-600'>이번주 달성</div>
+                      </div>
+                      <div className='text-center'>
+                        <div className='text-lg font-bold text-orange-600'>
+                          {formatStudyTime(totalStudyTime)}
+                        </div>
+                        <div className='text-xs text-gray-600'>
+                          누적 공부 시간
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 마일리지 — 맨 아래, 학습 영역과 분리 */}
+                <Link
+                  href='/my/mileage'
+                  className='block rounded-xl p-4 border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 shadow-sm hover:border-amber-500 hover:shadow-md transition-all'
+                >
+                  <div className='flex items-center justify-between gap-3'>
+                    <div className='min-w-0 flex-1'>
+                      <div className='flex items-center gap-2 mb-2'>
+                        <div className='flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm'>
+                          <Coins className='h-4 w-4' />
+                        </div>
+                        <span className='text-sm font-bold text-amber-900'>
+                          마일리지
+                        </span>
+                      </div>
+                      <div className='flex items-baseline gap-1.5 mb-2'>
+                        <span className='text-3xl font-extrabold tracking-tight text-amber-800'>
+                          {mileageBalance.toLocaleString("ko-KR")}
+                        </span>
+                        <span className='text-base font-bold text-amber-700'>
+                          P
+                        </span>
+                        <span className='text-xs font-medium text-amber-800 ml-1'>
+                          = {mileageBalance.toLocaleString("ko-KR")}원
+                        </span>
+                      </div>
+                      <div className='w-full bg-amber-200 rounded-full h-1.5 mb-1.5'>
+                        <div
+                          className='bg-amber-500 h-1.5 rounded-full transition-all duration-300'
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (todayMileageEarned / DAILY_MILEAGE_CAP) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <p className='text-xs font-medium text-amber-900'>
+                        오늘 적립 {formatMileage(todayMileageEarned)} / 상한{" "}
+                        {formatMileage(DAILY_MILEAGE_CAP)}
+                      </p>
+                    </div>
+                    <ChevronRight className='h-5 w-5 text-amber-600 shrink-0' />
+                  </div>
+                </Link>
               </div>
             </div>
 

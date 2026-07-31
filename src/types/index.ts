@@ -7,10 +7,31 @@ export interface User {
   isAdmin: boolean
   experience: number // 경험치 필드 추가
   level: number // 레벨 필드 추가
+  /** 마일리지 잔액 (1P = 1원). 기존 경험치와 무관하게 0부터 적립 */
+  mileage?: number
   preferredGrade?: number // 선호하는 급수 (기본값: 8)
   birthYear?: number // 출생년도 (콤보 '모르겠음' 허용 횟수 등에 사용)
   createdAt: string
   updatedAt: string
+}
+
+export type MileageTransactionType = "earn" | "withdraw"
+
+/** 마일리지 적립/출금 내역 */
+export interface MileageTransaction {
+  id: string
+  userId: string
+  type: MileageTransactionType
+  /** 항상 양수. type으로 적립/출금 구분 */
+  amount: number
+  /** 적립 시 변환에 사용된 경험치 */
+  xpConverted?: number
+  /** YYYY-MM-DD (KST) */
+  date: string
+  /** YYYY-MM (월별 조회용) */
+  yearMonth: string
+  note?: string
+  createdAt: string
 }
 
 // 관련 단어 타입
@@ -103,6 +124,8 @@ export interface UserStatistics {
   totalSessions: number
   todayExperience: number // 오늘 달성한 경험치
   todayGoal?: number // 오늘의 학습 목표 (기본값: 100)
+  /** 오늘 적립된 마일리지 (일일 상한용). 기존 XP 소급 없음 */
+  todayMileageEarned?: number
   lastResetDate?: string // 마지막 리셋 날짜 (자정 리셋용)
   lastWeekNumber?: string // 마지막 주차 번호 (주간 리셋용)
 

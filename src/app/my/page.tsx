@@ -21,14 +21,17 @@ import {
   LogOut,
   Trash2,
   Link2,
+  Coins,
 } from "lucide-react"
 import {
   calculateLevelProgress,
   calculateExperienceToNextLevel,
   calculateRequiredExperience,
 } from "@/lib/experienceSystem"
+import { formatMileage } from "@/lib/mileageSystem"
 import { formatGradeLabel } from "@/lib/gradeLabels"
 import { ApiClient } from "@/lib/apiClient"
+import { MileageService } from "@/lib/services/mileageService"
 import {
   GameStatisticsService,
   GameStatistics,
@@ -92,6 +95,7 @@ export default function ProfilePage() {
     totalDays: 7,
   })
   const [totalStudyTime, setTotalStudyTime] = useState(0)
+  const [mileageBalance, setMileageBalance] = useState(0)
 
   const currentLevel = user?.level || 1
   const currentExperience = user?.experience || 0
@@ -107,6 +111,7 @@ export default function ProfilePage() {
         setGameStatistics(stats)
         const todayExp = await ApiClient.getTodayExperience(user.id)
         setTodayExperience(todayExp)
+        setMileageBalance(await MileageService.getBalance(user.id))
         const userStats = await ApiClient.getUserStatistics(user.id)
         if (userStats) {
           setTodayGoal(userStats.todayGoal || 100)
@@ -231,6 +236,29 @@ export default function ProfilePage() {
             </span>
             <span>{calculateRequiredExperience(currentLevel + 1)}</span>
           </div>
+
+          <Link
+            href='/my/mileage'
+            className='mt-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 hover:bg-amber-100/80 transition-colors'
+          >
+            <div className='flex items-center gap-2.5 min-w-0'>
+              <div className='flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white'>
+                <Coins className='h-4 w-4' />
+              </div>
+              <div className='min-w-0'>
+                <div className='text-xs font-semibold text-amber-900'>
+                  마일리지
+                </div>
+                <div className='text-sm font-bold text-amber-800'>
+                  {formatMileage(mileageBalance)}
+                  <span className='ml-1.5 text-xs font-medium text-amber-800'>
+                    = {mileageBalance.toLocaleString("ko-KR")}원
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ChevronRight className='h-4 w-4 text-amber-600 shrink-0' />
+          </Link>
         </div>
 
         {/* 오늘 학습 */}
@@ -278,6 +306,13 @@ export default function ProfilePage() {
 
         {/* 메뉴 허브 */}
         <div className='rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.06)] divide-y divide-slate-100'>
+          <MenuRow
+            href='/my/mileage'
+            icon={<Coins className='h-5 w-5 text-amber-600' />}
+            title='마일리지 내역'
+            subtitle='월별 적립·출금 달력'
+            accent='bg-amber-50'
+          />
           <MenuRow
             href='/my/profile'
             icon={<Settings className='h-5 w-5 text-blue-600' />}

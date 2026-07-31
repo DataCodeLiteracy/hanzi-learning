@@ -120,8 +120,9 @@ export default function GradingPage() {
 
       setFinalResult(result)
 
-      // 경험치 업데이트
-      await ApiClient.updateUserExperience(user.id, totalExp)
+      // 경험치 업데이트 (추가) + 오늘 경험치/마일리지 반영
+      await ApiClient.addUserExperience(user.id, totalExp)
+      await ApiClient.updateTodayExperience(user.id, totalExp)
       await refreshUserStatistics()
     } catch (err) {
       console.error("Experience update error:", err)

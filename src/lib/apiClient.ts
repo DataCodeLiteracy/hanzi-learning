@@ -21,7 +21,11 @@ import {
   deleteField,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import { Hanzi, RelatedWord, UserStatistics } from "@/types"
+import {
+  Hanzi,
+  RelatedWord,
+  UserStatistics,
+} from "@/types"
 import { calculateLevel } from "./experienceSystem"
 import {
   STREAK_MILESTONE_THRESHOLDS,
@@ -926,7 +930,8 @@ export class ApiClient {
   // 사용자 경험치 추가
   static async addUserExperience(
     userId: string,
-    experienceToAdd: number
+    experienceToAdd: number,
+    options?: { accrueMileage?: boolean }
   ): Promise<void> {
     try {
       console.log("🔍 사용자 경험치 업데이트 시작:", {
@@ -964,6 +969,22 @@ export class ApiClient {
           newExperience,
           newLevel,
         })
+
+        // updateTodayExperience를 거치지 않는 경로(쓰기 업로드 등)용.
+        // 퀴즈 등은 updateTodayExperience에서 적립하므로 옵션으로만 호출.
+        if (options?.accrueMileage && experienceToAdd > 0) {
+          try {
+            const { MileageService } = await import(
+              "@/lib/services/mileageService"
+            )
+            await MileageService.accrueFromExperience(userId, experienceToAdd)
+          } catch (mileageError) {
+            console.error(
+              "마일리지 적립 실패 (경험치는 반영됨):",
+              mileageError
+            )
+          }
+        }
       } else {
         console.error("❌ 사용자 문서를 찾을 수 없습니다:", userId)
         throw new Error("사용자를 찾을 수 없습니다.")
@@ -1146,7 +1167,9 @@ export class ApiClient {
           userId,
           totalSessions: 0,
           todayExperience: experienceToAdd,
+          todayMileageEarned: 0,
           todayGoal: 100, // 기본 목표값
+          lastResetDate: getKSTDateString(),
           lastPlayedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -1158,6 +1181,18 @@ export class ApiClient {
           experienceToAdd,
           onBonusEarned
         )
+      }
+
+      // 앞으로 얻는 경험치만 마일리지 적립 (기존 XP 소급 없음)
+      if (experienceToAdd > 0) {
+        try {
+          const { MileageService } = await import(
+            "@/lib/services/mileageService"
+          )
+          await MileageService.accrueFromExperience(userId, experienceToAdd)
+        } catch (mileageError) {
+          console.error("마일리지 적립 실패 (경험치는 반영됨):", mileageError)
+        }
       }
     } catch (error) {
       console.error("오늘 경험치 업데이트 실패:", error)
@@ -1685,6 +1720,7 @@ export class ApiClient {
         const userStatsRef = doc(db, "userStatistics", userStats.id!)
         await updateDoc(userStatsRef, {
           todayExperience: 0,
+          todayMileageEarned: 0,
           updatedAt: new Date().toISOString(),
         })
       }
@@ -1715,10 +1751,11 @@ export class ApiClient {
       const lastResetDate = userStats.lastResetDate || ""
 
       if (lastResetDate !== today) {
-        // 자정이 지났으면 오늘 경험치 리셋
+        // 자정이 지났으면 오늘 경험치·마일리지 적립량 리셋
         const userStatsRef = doc(db, "userStatistics", userStats.id!)
         await updateDoc(userStatsRef, {
           todayExperience: 0,
+          todayMileageEarned: 0,
           lastResetDate: today,
           updatedAt: new Date().toISOString(),
         })

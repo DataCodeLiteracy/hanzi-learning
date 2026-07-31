@@ -38,12 +38,26 @@ export async function POST(request: NextRequest) {
       lastActivityDetails: activityDetails,
     })
 
+    let mileageAccrued = 0
+    try {
+      const { MileageService } = await import("@/lib/services/mileageService")
+      const result = await MileageService.accrueFromExperience(
+        userId,
+        experienceGained,
+        { note: activityType ? `활동: ${activityType}` : undefined }
+      )
+      mileageAccrued = result.accrued
+    } catch (mileageError) {
+      console.error("마일리지 적립 실패 (경험치는 반영됨):", mileageError)
+    }
+
     console.log(`🎯 사용자 경험치 업데이트:`, {
       userId: userId,
       기존경험치: currentExperience,
       획득경험치: experienceGained,
       새로운경험치: newExperience,
       활동유형: activityType,
+      마일리지적립: mileageAccrued,
     })
 
     return NextResponse.json({
@@ -53,6 +67,7 @@ export async function POST(request: NextRequest) {
         previousExperience: currentExperience,
         experienceGained: experienceGained,
         newExperience: newExperience,
+        mileageAccrued,
       },
     })
   } catch (error) {

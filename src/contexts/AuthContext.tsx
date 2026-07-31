@@ -112,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             photoURL: firebaseUser.photoURL || "",
             level: 1,
             experience: 0,
+            mileage: 0,
             isAdmin: false,
             preferredGrade: 8,
             createdAt:
@@ -246,6 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           photoURL: firebaseUser.photoURL || "",
           level: 1,
           experience: 0,
+          mileage: 0,
           isAdmin: false, // 기본적으로 관리자가 아님
           preferredGrade: 8, // 기본값: 8급
           createdAt:
